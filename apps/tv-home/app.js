@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.16.1';
+var VERSION = '0.17.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -30,7 +30,8 @@ var DEFAULT_CONFIG = {
   order: [],      // top-level keys: app keys and folder ids, in display order
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
-  added: []       // keys of installed apps without a launch point, put on it
+  added: [],      // keys of installed apps without a launch point, put on it
+  frame: { pictures: null, every: 5, bri: 60 }   // picture frame (null = all wallpapers)
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -153,6 +154,9 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
+    frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
+    frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip',
+    frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
     hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
     hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
     huePress: 'Press the button on the Hue bridge', huePressSub: 'Waiting up to 60 seconds.',
@@ -202,6 +206,9 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
+    frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
+    frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen',
+    frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
     hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
     hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
     huePress: 'Den Knopf auf der Hue Bridge drücken', huePressSub: 'Wartet bis zu 60 Sekunden.',
@@ -1263,6 +1270,7 @@ function openSettings() {
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: chooseWallpaper },
+        { label: t('frame'), chevron: true, action: openFrameSettings },
         { label: t('remoteButtons'), chevron: true, action: openRemote }
       ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
@@ -1492,6 +1500,143 @@ function openCrop(pic, W, H) {
   });
   push(view);
   paint();
+}
+
+// ---------------------------------------------------------------- picture frame
+
+// Wallpapers full screen and dimmed, like a framed picture. Any key ends it.
+// LG's screensaver (2 min without input) is held off by restarting
+// surface-manager's idle timer once a minute; LG's own auto power off still
+// applies. Against OLED burn-in the picture drifts a few pixels now and then.
+var FRAME_EVERY = [1, 5, 15, 30, 60];   // minutes
+var KEEP_AWAKE = "luna-send -n 1 luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer '{}'";
+var frameView = null;
+
+function frameCfg() {
+  var c = cfg();
+  if (!c.frame) c.frame = clone(DEFAULT_CONFIG.frame);
+  return c.frame;
+}
+
+function framePictures() {
+  var sel = frameCfg().pictures;
+  return state.wallpapers.filter(function (w) { return !sel || sel.indexOf(w.name) >= 0; });
+}
+
+function everyLabel(m) { return m < 60 ? t('minutes', m) : t('hour'); }
+
+function openFrameSettings() {
+  function step(list, v, d) { var i = list.indexOf(v); return list[(i + d + list.length) % list.length]; }
+  menu({
+    title: function () { return t('frame'); },
+    rows: function () {
+      var f = frameCfg(), n = framePictures().length;
+      var rows = [
+        { label: t('frameStart'), action: startFrame },
+        { label: t('framePictures'), value: f.pictures ? String(n) : t('frameAll'), chevron: true, action: chooseFramePictures }
+      ];
+      if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
+        adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
+        action: function () { f.every = step(FRAME_EVERY, f.every, 1); saveConfig(); refreshTop(); } });
+      rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
+        adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
+        action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
+      rows.push({ info: true, label: t('frameHow') });
+      return rows;
+    }
+  });
+}
+
+// Wallpapers as cards with check marks; OK shows or skips one. At least one
+// stays picked. All picked is stored as "all", so new wallpapers join.
+function chooseFramePictures() {
+  var el = layer('folderView picker');
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
+  el.querySelector('.title').textContent = t('framePictures');
+  el.querySelector('.pickhint').textContent = t('framePickHint');
+  var inner = el.querySelector('.inner');
+  var view = { el: el };
+  function picked(name) { var sel = frameCfg().pictures; return !sel || sel.indexOf(name) >= 0; }
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      tile.classList.add('pickable');
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', picked(e.key));
+    },
+    onActivate: function (e, i) {
+      var all = state.wallpapers.map(function (w) { return w.name; });
+      var sel = (frameCfg().pictures || all).slice();
+      var at = sel.indexOf(e.key);
+      if (at >= 0) { if (sel.length === 1) return; sel.splice(at, 1); } else sel.push(e.key);
+      frameCfg().pictures = all.every(function (n) { return sel.indexOf(n) >= 0; }) ? null : sel;
+      saveConfig();
+      grid.tiles()[i].classList.toggle('picked', picked(e.key));
+    },
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+  });
+  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+  view.ok = function () { grid.activate(grid.focus); };
+  view.grid = grid;
+  push(view);
+  grid.set(state.wallpapers.map(function (w) {
+    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.url };
+  }));
+}
+
+function startFrame() {
+  var pics = framePictures();
+  if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
+  if (frameView) return;
+  var order = [], shown = 0, front = 1;
+  function shuffle() {
+    order = pics.slice();
+    for (var i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), x = order[i];
+      order[i] = order[j]; order[j] = x;
+    }
+  }
+  var el = layer('frame');
+  el.innerHTML = '<div class="fimg"></div><div class="fimg"></div><div class="fdim"></div>';
+  var imgs = el.querySelectorAll('.fimg');
+  el.querySelector('.fdim').style.opacity = (1 - frameCfg().bri / 100).toFixed(2);
+  function drift(img) {
+    var dx = Math.round(Math.random() * 24 - 12), dy = Math.round(Math.random() * 24 - 12);
+    img.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.02)';
+  }
+  // Next picture in shuffled order; it fades in once loaded.
+  function show() {
+    if (shown >= order.length) { shuffle(); shown = 0; }
+    var pic = order[shown++];
+    var pre = new Image();
+    pre.onload = pre.onerror = function () {
+      if (frameView !== view) return;
+      var next = imgs[1 - front];
+      next.style.backgroundImage = 'url("' + pic.url + '")';
+      drift(next);
+      next.classList.add('on');
+      imgs[front].classList.remove('on');
+      front = 1 - front;
+    };
+    pre.src = pic.url;
+  }
+  var view = { el: el, timers: [] };
+  view.key = function () { pop(); };
+  view.ok = function () { pop(); };
+  view.onClose = function () {
+    view.timers.forEach(clearInterval);
+    frameView = null;
+    document.body.classList.remove('framing');
+  };
+  el.addEventListener('click', function () { if (frameView === view) pop(); });
+  frameView = view;
+  document.body.classList.add('framing');
+  push(view);
+  show();
+  exec(KEEP_AWAKE);
+  view.timers.push(setInterval(function () { exec(KEEP_AWAKE); }, 60000));
+  if (pics.length > 1) view.timers.push(setInterval(show, frameCfg().every * 60000));
+  else view.timers.push(setInterval(function () { drift(imgs[front]); }, 10 * 60000));
 }
 
 // ---------------------------------------------------------------- hue
@@ -1750,18 +1895,22 @@ function buttonLabel(key) {
 }
 
 function specialActions() {
-  var list = [{ id: APP_ID, title: t('tvHome') }];
+  var list = [{ id: APP_ID, title: t('tvHome') }, { id: APP_ID, params: { frame: true }, title: t('frame') }];
   if (state.installed.some(function (a) { return a.id === LIGHT_APP; })) list.push({ id: LIGHT_APP, title: t('light') });
   list.push({ id: 'com.webos.app.livetv', title: t('liveTv') });
   for (var n = 1; n <= 4; n++) list.push({ id: 'com.webos.app.hdmi' + n, title: t('hdmi', n) });
   return list;
 }
 
+function sameAction(a, sp) {
+  return !!a && a.app === sp.id && JSON.stringify(a.params || {}) === JSON.stringify(sp.params || {});
+}
+
 function actionLabel(a) {
   if (!a) return t('lgDefault');
   if (a.action === 'none') return t('doNothing');
   var sp = specialActions();
-  for (var i = 0; i < sp.length; i++) if (sp[i].id === a.app) return sp[i].title;
+  for (var i = 0; i < sp.length; i++) if (sameAction(a, sp[i])) return sp[i].title;
   for (var j = 0; j < state.installed.length; j++) if (state.installed[j].id === a.app) return state.installed[j].title;
   return a.app || '?';
 }
@@ -1926,9 +2075,11 @@ function chooseButtonAction(key) {
         { info: true, label: t('actions') }
       ];
       specialActions().forEach(function (sp) {
-        rows.push({ label: sp.title, check: !!(cur && cur.app === sp.id), action: function () { set({ app: sp.id }); } });
+        rows.push({ label: sp.title, check: sameAction(cur, sp), action: function () {
+          set(sp.params ? { app: sp.id, params: sp.params } : { app: sp.id });
+        } });
       });
-      var isSpecial = cur && specialActions().some(function (sp) { return sp.id === cur.app; });
+      var isSpecial = cur && specialActions().some(function (sp) { return sameAction(cur, sp); });
       rows.push({ label: t('appPick'), value: cur && cur.app && !isSpecial ? actionLabel(cur) : '', chevron: true,
         action: function () {
           appPicker({
@@ -2026,6 +2177,8 @@ var okTimer = null, okLong = false, okDown = false;
 document.addEventListener('keydown', function (e) {
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
   var v = current();
+  // Picture frame: any key ends it (OK too, without reaching the tile behind).
+  if (frameView && v === frameView) { e.preventDefault(); pop(); return; }
   if (e.keyCode === KEY.OK) {
     e.preventDefault();
     if (okDown) return; // auto-repeat while held
@@ -2061,6 +2214,7 @@ document.addEventListener('wheel', function (e) {
 
 document.addEventListener('webOSRelaunch', function () {
   if (launchParams().bench) { setTimeout(bench, 500); return; }
+  if (launchParams().frame) { closeAll(); startFrame(); return; }
   // Home pressed again: back to a clean home screen.
   closeAll();
   if (mainGrid.moving >= 0) mainGrid.endMove();
@@ -2072,7 +2226,8 @@ document.addEventListener('webOSRelaunch', function () {
 });
 
 document.addEventListener('visibilitychange', function () {
-  if (!document.hidden) load();
+  if (document.hidden) { if (frameView) closeAll(); return; }
+  load();
 });
 
 // ---------------------------------------------------------------- loading
@@ -2200,3 +2355,4 @@ try {
 if (!state.config) state.config = normalizeConfig(null);
 applyLook();
 load();
+if (launchParams().frame) setTimeout(startFrame, 300);

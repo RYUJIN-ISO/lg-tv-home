@@ -179,6 +179,14 @@
   .folderView .grid { top: 340px; }
   .folderView .empty { position: absolute; top: 420px; left: 0; right: 0; text-align: center; font-size: 30px; color: rgba(255,255,255,.75); }
 
+  /* Picture frame: full screen, dimmed; two images crossfade and drift slowly. */
+  .layer.frame { z-index: 40; background: #000; cursor: none; }
+  .frame .fimg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0;
+    transition: opacity 2s ease, transform 30s linear; will-change: opacity, transform; }
+  .frame .fimg.on { opacity: 1; }
+  .frame .fdim { position: absolute; inset: 0; background: #000; }
+  body.framing #clock, body.framing #topbar { visibility: hidden; }
+
   /* Hue: room cards glow warmer with brightness; Light button glows in cinema mode. */
   .card.room { background: #2b2b31; }
   .card.room.lit { background: linear-gradient(150deg, rgba(255,196,92,var(--glow)), rgba(214,120,30,var(--glow))), #2b2b31; }

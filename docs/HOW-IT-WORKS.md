@@ -67,6 +67,13 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   argument may not exceed 128 KiB (`MAX_ARG_STRLEN`); `usb.py` puts them back
   together. Originals are kept in `wallpapers/originals/`, and image URLs
   carry `?v=<mtime>` so a new crop is not shown from the cache.
+- **Picture frame**: a full screen layer with two images that crossfade and
+  a black layer for the dimming. LG's screensaver starts after 2 minutes
+  without input (configd `com.webos.surfacemanager.userActivityTimeout`);
+  while the frame runs, the launcher calls
+  `com.webos.surfacemanager.screenSaver/restartUserActivityTimer` once a
+  minute through `exec`. That only restarts the timer and never wakes the
+  screen. Remote buttons start it by launching TV Home with `{"frame": true}`.
 - **Languages**: `STRINGS` in `app.js`, English by default and German. The
   Light and App-Updates apps read the language from the launcher config.
 
