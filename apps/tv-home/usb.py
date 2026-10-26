@@ -87,6 +87,13 @@ elif cmd == "finish":
         o.write(base64.b64decode(f.read()))
     os.remove(tmp)
     print(name)
+elif cmd == "thumb":
+    # thumb <name> <b64>: the 640x360 preview of an imported picture
+    d = os.path.join(WALLS, "thumbs")
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, safe(sys.argv[2]) + ".jpg"), "wb") as o:
+        o.write(base64.b64decode(sys.argv[3]))
+    print("ok")
 elif cmd == "keep":
     src = os.path.join(APP, sys.argv[2].split("?")[0])
     dst_dir = os.path.join(WALLS, "originals")
@@ -96,4 +103,4 @@ elif cmd == "keep":
     shutil.copyfile(src, os.path.join(dst_dir, safe(sys.argv[3]) + os.path.splitext(src)[1].lower()))
     print("kept")
 else:
-    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name>")
+    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64>")
