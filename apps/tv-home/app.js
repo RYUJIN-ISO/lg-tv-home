@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.23.0';
+var VERSION = '0.24.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -35,7 +35,8 @@ var DEFAULT_CONFIG = {
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
-  frame: { every: 5, bri: 60, pan: true, show: 'all' }   // show: 'all' or a picture folder id
+  frame: { every: 5, bri: 60, pan: true, show: 'all' },  // show: 'all' or a picture folder id
+  seenInfo: []         // info cards already shown once (see INFO)
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -183,7 +184,8 @@ var STRINGS = {
     saved: 'Saved. Works right away.',
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
-    b_chup: 'Channel +', b_chdown: 'Channel −'
+    b_chup: 'Channel +', b_chdown: 'Channel −',
+    howItWorks: 'How It Works', tipsAgain: 'Show Tips Again', gotIt: 'Got It'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -241,7 +243,8 @@ var STRINGS = {
     saved: 'Gespeichert. Wirkt sofort.',
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
-    b_chup: 'Kanal +', b_chdown: 'Kanal −'
+    b_chup: 'Kanal +', b_chdown: 'Kanal −',
+    howItWorks: 'So geht\'s', tipsAgain: 'Tipps wieder zeigen', gotIt: 'Verstanden'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -387,6 +390,7 @@ function mainEntries() {
     out.push({ type: 'special', key: '__newfolder', icon: 'folder', title: t('newFolder') });
     out.push({ type: 'special', key: '__uninstall', icon: 'trash', title: t('uninstallApps') });
     out.push({ type: 'special', key: '__reset', icon: 'reset', title: t('reset') });
+    out.push(infoCard());
   }
   return out;
 }
@@ -438,6 +442,7 @@ var ICONS = {
   none: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z"/></svg>',
   usb: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07A1.98 1.98 0 0 0 9 9.2 2 2 0 1 0 6 11v2a2 2 0 0 0 2 2h3v3.05a2.5 2.5 0 1 0 2 0V15h3a2 2 0 0 0 2-2v-2h1V7h-4z"/></svg>',
   apps: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
   light: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1zm3-19a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2z"/></svg>'
 };
 var GEAR = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>';
@@ -758,6 +763,7 @@ function onMainActivate(entry, i) {
     else if (entry.key === '__newfolder') newFolderFlow();
     else if (entry.key === '__uninstall') chooseUninstall();
     else if (entry.key === '__reset') resetLayout();
+    else if (entry.key === '__info') showInfo('organize');
   } else if (editMode) {
     onMainLongPress(entry, i);
   } else if (entry.type === 'app') launch(entry);
@@ -769,6 +775,7 @@ function setEditMode(on) {
   document.body.classList.toggle('editing', on);
   showHint(on ? t('editHint') : '');
   refreshMain();
+  if (on) firstVisit('organize');
 }
 
 function newFolderFlow() {
@@ -796,7 +803,7 @@ function layer(cls) {
 // Only the top layer is visible; the ones below are hidden until it closes.
 function push(view) {
   var below = stack[stack.length - 1];
-  if (below && below.el) below.el.style.visibility = 'hidden';
+  if (below && below.el && !view.float) below.el.style.visibility = 'hidden';
   stack.push(view);
   document.body.classList.add('overlay');
   remoteSubState();
@@ -991,6 +998,109 @@ function confirmSheet(title, sub, yesLabel, onYes) {
       ];
     }
   });
+}
+
+// ---------------------------------------------------------------- info cards
+
+// Short explanations wherever TV Home does something a normal TV doesn't.
+// Each screen opens its sheet once by itself (remembered in seenInfo), then
+// via its "i" card, row or pill. A line: keys drawn as remote buttons + text.
+var INFO_KEYS = {
+  ok: 'OK', back: { en: 'Back', de: 'Zurück' }, hold: { en: 'hold OK', de: 'OK halten' },
+  arrows: '◀ ▲ ▼ ▶', lr: '◀ ▶', up: '▲', chup: 'CH+', chdown: 'CH−',
+  wheel: { en: 'wheel', de: 'Rad' }, pointer: { en: 'pointer', de: 'Zeiger' }
+};
+var INFO = {
+  home: { title: { en: 'Home Screen', de: 'Startbildschirm' }, lines: [
+    { keys: ['hold'], en: 'On an app or folder: its options (move, folders, remove).', de: 'Auf einer App oder einem Ordner: Optionen (verschieben, Ordner, entfernen).' },
+    { keys: ['up'], en: 'From the first row: Settings, Organize Apps and Light (top left).', de: 'Aus der ersten Reihe: Einstellungen, Apps organisieren und Licht (oben links).' },
+    { keys: ['back'], en: 'Jumps back to the first row.', de: 'Springt zurück zur ersten Reihe.' }
+  ] },
+  organize: { title: { en: 'Organize Apps', de: 'Apps organisieren' }, lines: [
+    { keys: [], en: 'Dashed outlines mean you are editing.', de: 'Gestrichelte Rahmen: Du bearbeitest gerade.' },
+    { keys: ['ok'], en: 'On an app or folder: its options. Move, then arrows and OK to drop.', de: 'Auf einer App oder einem Ordner: Optionen. Verschieben, dann Pfeile und OK zum Ablegen.' },
+    { keys: ['back'], en: 'Finishes. Every change is already saved.', de: 'Beendet. Alles ist schon gespeichert.' }
+  ] },
+  light: { title: { en: 'Light Button', de: 'Licht-Taste' }, lines: [
+    { keys: ['ok'], en: 'On Light (home screen, top left): cinema scene. Next press: back again.', de: 'Auf Licht (Startbildschirm, oben links): Kino-Szene. Nochmal: wieder zurück.' },
+    { keys: [], en: 'The button glows warm while cinema is on.', de: 'Die Taste leuchtet warm, solange Kino an ist.' },
+    { keys: ['hold'], en: 'On Light: the Hue menu with rooms and lights.', de: 'Auf Licht: das Hue-Menü mit Räumen und Lampen.' }
+  ] },
+  hue: { title: { en: 'Hue', de: 'Hue' }, lines: [
+    { keys: ['ok'], en: 'On a room: switches it on or off.', de: 'Auf einem Raum: an oder aus.' },
+    { keys: ['hold'], en: 'On a room: brightness, scenes and single lights.', de: 'Auf einem Raum: Helligkeit, Szenen und einzelne Lampen.' },
+    { keys: ['lr'], en: 'On a Brightness row: darker or brighter.', de: 'Auf einer Helligkeits-Zeile: dunkler oder heller.' }
+  ] },
+  remote: { title: { en: 'Remote Buttons', de: 'Fernbedienungstasten' }, lines: [
+    { keys: ['arrows', 'pointer'], en: 'Pick a button on the drawing.', de: 'Eine Taste auf der Zeichnung wählen.' },
+    { keys: ['ok'], en: 'Choose what it does: an app, an input, nothing or LG default.', de: 'Festlegen, was sie tut: eine App, ein Eingang, nichts oder LG-Standard.' },
+    { keys: [], en: 'Greyed buttons can\'t change (needed to control the TV). Other button learns one that isn\'t drawn; Reset puts all back to LG default.', de: 'Graue Tasten sind nicht änderbar (zur Bedienung nötig). Andere Taste lernt eine, die nicht gezeichnet ist; Zurücksetzen stellt alle auf LG-Standard.' }
+  ] },
+  pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
+    { keys: [], en: 'Wallpaper and Picture Frame share these folders and crops.', de: 'Hintergrundbild und Bilderrahmen teilen sich diese Ordner und Ausschnitte.' },
+    { keys: ['ok'], en: 'Opens a folder. On a picture: use it as wallpaper, or start the frame there.', de: 'Öffnet einen Ordner. Auf einem Bild: als Hintergrund, oder den Rahmen dort starten.' },
+    { keys: ['hold'], en: 'On a folder: choose pictures, rename, delete. On a picture: its crop and folders.', de: 'Auf einem Ordner: Bilder wählen, umbenennen, löschen. Auf einem Bild: Ausschnitt und Ordner.' },
+    { keys: [], en: 'Each picture has one crop, used everywhere.', de: 'Jedes Bild hat einen Ausschnitt, der überall gilt.' }
+  ] },
+  crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
+    { keys: ['arrows', 'wheel'], en: 'Arrows move the frame, the Magic Remote\'s wheel resizes it.', de: 'Pfeile verschieben den Rahmen, das Rad der Magic Remote ändert die Größe.' },
+    { keys: ['ok'], en: 'Reaches the bar: smaller, larger, Reset, Save. Up goes back to the frame.', de: 'Zur Leiste: kleiner, größer, Zurücksetzen, Speichern. Hoch geht zurück zum Rahmen.' },
+    { keys: [], en: '4K: sharp on this TV. Upscaled: the crop has fewer pixels than the screen and looks softer.', de: '4K: scharf auf diesem Fernseher. Hochskaliert: weniger Pixel als der Bildschirm, wirkt weicher.' },
+    { keys: [], en: 'The picture file is never cut. Reset removes the crop.', de: 'Die Bilddatei wird nie beschnitten. Zurücksetzen entfernt den Ausschnitt.' }
+  ] },
+  frameSettings: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
+    { keys: [], en: 'Pan: large pictures glide slowly towards their crop and rest there.', de: 'Schwenken: große Bilder gleiten langsam zu ihrem Ausschnitt und bleiben dort.' },
+    { keys: [], en: 'Still: the crop fills the screen, without motion.', de: 'Still: der Ausschnitt füllt den Bildschirm, ohne Bewegung.' },
+    { keys: [], en: 'LG\'s screensaver stays away while the frame runs. The TV\'s own auto power off still applies.', de: 'LGs Bildschirmschoner bleibt weg, solange der Rahmen läuft. Die automatische Abschaltung des Fernsehers gilt weiter.' }
+  ] },
+  frameRunning: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
+    { keys: ['chup', 'chdown'], en: 'Next or previous picture.', de: 'Nächstes oder vorheriges Bild.' },
+    { keys: ['arrows'], en: 'Look around in the picture (the automatic pan pauses).', de: 'Im Bild umschauen (das automatische Schwenken pausiert).' },
+    { keys: ['ok'], en: 'Ends the frame, like any other button.', de: 'Beendet den Rahmen, wie jede andere Taste.' }
+  ] },
+  store: { title: { en: 'App Store', de: 'App Store' }, lines: [
+    { keys: [], en: 'The block on LG\'s ad and tracking servers also locks the LG Store.', de: 'Die Sperre für LGs Werbe- und Tracking-Server sperrt auch den LG Store.' },
+    { keys: ['ok'], en: 'Opens it for 10 minutes to install or update apps. Then it locks again by itself.', de: 'Öffnet ihn für 10 Minuten zum Installieren oder Aktualisieren. Danach sperrt er sich von selbst.' }
+  ] }
+};
+
+function local(v) { return typeof v === 'string' ? v : v[lang()] || v.en; }
+
+function seen(id) { return (cfg().seenInfo || []).indexOf(id) >= 0; }
+
+// The "i" card at the end of a grid.
+function infoCard() { return { type: 'special', key: '__info', icon: 'info', title: t('howItWorks') }; }
+
+// Shows the sheet the first time a screen opens; after runs once it closes
+// (right away when it was seen before).
+function firstVisit(id, after) {
+  if (seen(id)) { if (after) after(); return; }
+  if (!cfg().seenInfo) cfg().seenInfo = [];
+  cfg().seenInfo.push(id);
+  saveConfig();
+  showInfo(id, after);
+}
+
+function showInfo(id, after) {
+  var info = INFO[id];
+  var el = layer('infoLayer');
+  var html = '<div class="panel sheet infoSheet"><h1></h1><div class="lines">';
+  info.lines.forEach(function (l) {
+    html += '<div class="line"><div class="keys">' + l.keys.map(function (k) {
+      return '<span class="key">' + local(INFO_KEYS[k]) + '</span>';
+    }).join('') + '</div><div class="text"></div></div>';
+  });
+  el.innerHTML = html + '</div><div class="row focus"><span></span></div></div>';
+  el.querySelector('h1').textContent = local(info.title);
+  var texts = el.querySelectorAll('.line .text');
+  info.lines.forEach(function (l, i) { texts[i].textContent = l[lang()] || l.en; });
+  el.querySelector('.row span').textContent = t('gotIt');
+  var view = { el: el, float: true };
+  function close() { if (stack[stack.length - 1] !== view) return; pop(); if (after) after(); }
+  view.key = function (e) { if (e.keyCode === KEY.BACK) close(); };
+  view.ok = close;
+  el.querySelector('.row').addEventListener('click', function () { if (once()) close(); });
+  push(view);
 }
 
 // ---------------------------------------------------------------- actions
@@ -1287,6 +1397,7 @@ function storeLabel() {
 
 function toggleStore() {
   var opening = !storeState.open;
+  if (opening && !seen('store')) { firstVisit('store', toggleStore); return; }
   exec('sh ' + STORE_MODE + ' ' + (opening ? 'on' : 'off'), function () {
     loadStore(function () {
       refreshTop();
@@ -1309,6 +1420,9 @@ function openSettings() {
       ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
+        } },
+        { label: t('tipsAgain'), action: function () {
+          cfg().seenInfo = []; saveConfig(); closeAll(); firstVisit('home');
         } },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
@@ -1386,6 +1500,7 @@ function openPictures(mode) {
     list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
     if (mode === 'wallpaper') list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
+    list.push(infoCard());
     return list;
   }
   var grid = new Grid({
@@ -1398,7 +1513,8 @@ function openPictures(mode) {
       tile.classList.toggle('picked', on);
     },
     onActivate: function (e) {
-      if (e.type === 'album') { openFolder(pictureFolder(e.key), mode); return; }
+      if (e.type === 'album') { openPictureFolder(pictureFolder(e.key), mode); return; }
+      if (e.key === '__info') { showInfo('pictures'); return; }
       if (e.key === '__new') { newPictureFolder(); return; }
       if (e.key === '__usb') { chooseUsbPicture(mode); return; }
       if (e.key === 'none') { cfg().wallpaper = 'none'; saveConfig(); applyLook(); view.refresh(); }
@@ -1409,6 +1525,7 @@ function openPictures(mode) {
   view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
   push(view);
   grid.set(entries());
+  firstVisit('pictures');
 }
 
 function newPictureFolder() {
@@ -1443,7 +1560,7 @@ function folderOptions_(fo) {
 // A folder's pictures (fo = null: all). OK: use as wallpaper (✓ on the
 // current one), or start the frame with this folder at this picture.
 // Hold OK: the picture's options (Crop, Folders).
-function openFolder(fo, mode) {
+function openPictureFolder(fo, mode) {
   var el = pickerLayer(fo ? fo.name : t('allPictures'), mode === 'frame' ? t('frameHere') : t('wpUseHint'));
   var grid = new Grid({
     container: el.querySelector('.grid'),
@@ -1453,6 +1570,7 @@ function openFolder(fo, mode) {
       tile.classList.toggle('picked', e.key === cfg().wallpaper);
     },
     onActivate: function (e) {
+      if (e.key === '__info') { showInfo('pictures'); return; }
       if (mode === 'frame') {
         frameCfg().show = fo ? fo.id : 'all';
         saveConfig();
@@ -1466,14 +1584,14 @@ function openFolder(fo, mode) {
       var tiles = grid.tiles();
       for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
     },
-    onLongPress: function (e) { pictureOptions(e.wp); }
+    onLongPress: function (e) { if (e.wp) pictureOptions(e.wp); }
   });
   var view = pickerView(el, grid);
   view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
   function entries() {
     return folderPics(fo).map(function (w) {
       return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
-    });
+    }).concat([infoCard()]);
   }
   push(view);
   var list = entries();
@@ -1603,10 +1721,11 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
-    '<div class="pill save" data-a="save"></div></div>' +
+    '<div class="pill save" data-a="save"></div><div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
-  var pills = [].slice.call(el.querySelectorAll('.cropbar .pill')), SAVE = pills.length - 1;
+  var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
+  var SAVE = pills.indexOf(el.querySelector('.pill.save'));
   var AREA_W = 1760, AREA_H = 880;
   var k = Math.min(AREA_W / W, AREA_H / H);          // picture px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
@@ -1653,7 +1772,7 @@ function openCrop(pic, probe) {
       if (pic.onSave) { pic.onSave(null); pop(); } else { centre(); paint(); }
     } else if (a === 'save') {
       if (pic.onSave) { pic.onSave(rect()); pop(); } else importPicture(pic, img, rect());
-    }
+    } else if (a === 'info') showInfo('crop');
   }
 
   var view = { el: el };
@@ -1689,6 +1808,7 @@ function openCrop(pic, probe) {
   });
   push(view);
   paint();
+  firstVisit('crop');
 }
 
 // ---------------------------------------------------------------- picture frame
@@ -1737,10 +1857,12 @@ function openFrameSettings() {
       rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
         adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
         action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
+      rows.push({ label: t('howItWorks'), chevron: true, action: function () { showInfo('frameSettings'); } });
       rows.push({ info: true, label: t('frameHow') });
       return rows;
     }
   });
+  firstVisit('frameSettings');
 }
 
 // start: name of the picture to begin with (optional).
@@ -1748,6 +1870,7 @@ function startFrame(start) {
   var pics = framePictures();
   if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
   if (frameView) return;
+  if (!seen('frameRunning')) { firstVisit('frameRunning', function () { startFrame(start); }); return; }
   // Shuffled order; what was shown is kept so CH- can go back.
   var order = [], shown = 0, history = [], at = -1;
   function shuffled() {
@@ -2281,12 +2404,14 @@ function openHueRooms() {
   function entries() {
     var list = (hueData.rooms || []).map(function (r) { return { type: 'room', key: 'room' + r.id, title: r.name, room: r }; });
     list.push({ type: 'special', key: '__button', icon: 'light', title: t('lightButton') });
+    list.push(infoCard());
     return list;
   }
   var grid = new Grid({
     container: el.querySelector('.grid'),
     onActivate: function (e) {
       if (e.key === '__button') { lightButtonMenu(); return; }
+      if (e.key === '__info') { showInfo('hue'); return; }
       e.room.on = !e.room.on;
       grid.set(entries(), e.key);
       hue('room ' + e.room.id + (e.room.on ? ' on' : ' off'), function () { loadHue(view.refresh); });
@@ -2301,6 +2426,7 @@ function openHueRooms() {
   view.grid = grid;
   push(view);
   grid.set(entries());
+  firstVisit('hue');
 }
 
 // Brightness: change locally right away, send after a short pause.
@@ -2384,10 +2510,12 @@ function lightButtonMenu() {
             save('back=' + sid);
           });
         } },
+        { label: t('howItWorks'), chevron: true, action: function () { showInfo('light'); } },
         { info: true, label: t('lightHow', backLabel) }
       ];
     }
   });
+  firstVisit('light');
 }
 
 // Pairing on the TV: find the bridge (or type its IP), press its button.
@@ -2547,6 +2675,7 @@ function paintRemoteInfo() {
   pills[0].textContent = t('remoteOff') + ': ' + (remoteState.active ? t('on') : t('off'));
   pills[1].textContent = t('otherButton');
   pills[2].textContent = t('resetButtons');
+  pills[3].textContent = 'i';
   var info = document.getElementById('remoteInfo');
   var a = key && remoteState.map.buttons[key];
   info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
@@ -2586,6 +2715,8 @@ function remoteActivate() {
     mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(paintRemoteInfo); });
   } else if (pill === 'other') {
     learnButton();
+  } else if (pill === 'info') {
+    showInfo('remote');
   } else if (pill === 'reset') {
     confirmSheet(t('resetButtonsQ'), '', t('resetYes'), function () {
       remoteState.map.buttons = {};
@@ -2633,6 +2764,7 @@ function openRemote() {
   if (!remoteFocus || remoteFocus.classList.contains('fixed')) remoteFocus = document.querySelector('#remoteArt [data-key="Key_webOS_Netflix"]');
   loadRemote(paintRemoteInfo);
   paintRemoteInfo();
+  firstVisit('remote');
 }
 
 function chooseButtonAction(key) {
@@ -2846,6 +2978,7 @@ function load() {
     });
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
+    if (!stack.length && !launchParams().frame && !launchParams().bench) firstVisit('home');
     persistLocal();
   });
 }

@@ -105,6 +105,11 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   launcher also restarts surface-manager's idle timer
   (`com.webos.surfacemanager.screenSaver/restartUserActivityTimer`). Remote
   buttons start the frame by launching TV Home with `{"frame": true}`.
+- **Info cards**: `INFO` in `app.js` holds each screen's sheet (title, lines
+  of remote keys plus text, English and German). `firstVisit(id)` shows it
+  the first time a screen opens and adds the id to the config's `seenInfo`;
+  `showInfo(id)` opens it from the screen's "i" card, row or pill. The sheet
+  is a floating view: the screen below stays visible.
 - **Languages**: `STRINGS` in `app.js`, English by default and German. The
   Light and App-Updates apps read the language from the launcher config.
 
