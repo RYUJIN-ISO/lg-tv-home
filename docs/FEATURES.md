@@ -65,19 +65,22 @@ sideways press never flips a setting), **Left or Back** goes back.
 
 ## Wallpapers
 
-Settings → Wallpaper lists the bundled and your own wallpapers. **From USB …**
-shows the pictures (JPG/PNG) on a plugged-in USB stick as cards; pick one and
-crop it:
+Settings → **Wallpaper** shows the wallpapers as cards, plus **None** and
+**From USB**:
 
-- a 16:9 frame over the picture — arrows (or drag with the Magic Remote) move
-  it, **OK** → bar: **− / +** size, resolution, **Save**.
+- **OK** uses a wallpaper (✓ on the active one).
+- **Hold OK** crops it: a 16:9 frame over the picture — arrows (or drag with
+  the Magic Remote) move it, **OK** → bar: **− / +** size, resolution,
+  **Save**. Re-cropping always starts from the kept full-size original
+  (`wallpapers/originals/`), so quality never degrades; the bundled default is
+  never overwritten (a crop of it becomes a new wallpaper).
+- **From USB** shows the pictures (JPG/PNG) on a plugged-in stick as cards;
+  OK opens the same crop screen and Save adds it (original kept).
 - Output is **4K (3840×2160) by default** whenever the framed area is big
-  enough; the resolution pill steps down (2560, 1920). Smaller pictures are
-  never upscaled. Best source: 3840×2160 or larger, 16:9.
-- Save stores it on the TV and makes it the wallpaper.
+  enough; the resolution pill steps down (2560, 1920). Pictures are never
+  upscaled. Best source: 3840×2160 or larger, 16:9.
 
-Or copy JPG/PNG files to `/var/lib/webosbrew/atvhome/wallpapers/` directly
-(use 3840×2160 — the TV draws the home screen at 4K).
+All menus wrap around: Up on the first entry jumps to the last and back.
 
 ## Sharper app logos
 

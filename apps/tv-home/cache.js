@@ -75,12 +75,23 @@ try {
   });
 } catch (e) {}
 
+// Wallpapers: bundled + user ones. `orig` = full-size original kept for
+// re-cropping (data dir wallpapers/originals/<same base name>.*). URLs carry
+// ?v=<mtime> so a re-cropped file isn't shown from the web view's cache.
+function ver(p) { try { return '?v=' + Math.floor(fs.statSync(p).mtime.getTime() / 1000); } catch (e) { return ''; } }
+var ORIG = path.join(DATA, 'wallpapers', 'originals');
+var originals = {};
+list(ORIG).forEach(function (f) {
+  try { originals[f.replace(/\.[a-z]+$/i, '')] = copy(path.join(ORIG, f), path.join(CACHE, 'orig-' + f)) + ver(path.join(ORIG, f)); } catch (e) {}
+});
 var wallpapers = list(BUNDLED_WP).map(function (f) {
-  return { name: f, url: 'wallpapers/' + f };
+  return { name: f, url: 'wallpapers/' + f, bundled: true };
 });
 list(path.join(DATA, 'wallpapers')).forEach(function (f) {
   try {
-    wallpapers.push({ name: f, url: copy(path.join(DATA, 'wallpapers', f), path.join(CACHE, 'wp-' + f)) });
+    var src = path.join(DATA, 'wallpapers', f);
+    wallpapers.push({ name: f, url: copy(src, path.join(CACHE, 'wp-' + f)) + ver(src),
+                      orig: originals[f.replace(/\.[a-z]+$/i, '')] || '' });
   } catch (e) {}
 });
 

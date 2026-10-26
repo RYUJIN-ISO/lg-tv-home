@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.13.1';
+var VERSION = '0.14.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -124,8 +124,8 @@ function normalizeConfig(c) {
 var STRINGS = {
   en: {
     settings: 'Settings', settingsTitle: 'Home Screen', language: 'Language',
-    wallpaper: 'Wallpaper', wallpaperSub: 'More images: copy them to /var/lib/webosbrew/atvhome/wallpapers/ on the TV.',
-    none: 'None', noneDark: 'None (dark)',
+    wallpaper: 'Wallpaper',
+    none: 'None',
     newFolder: 'New Folder',
     editHome: 'Organize Apps', light: 'Light', addApps: 'Add Apps', homeAppsTitle: 'Apps on the home screen', appPick: 'App …',
     editHint: 'Editing: OK on an app or folder for options · Back to finish (changes are saved)',
@@ -148,7 +148,7 @@ var STRINGS = {
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
     moveHint: 'Use the arrow keys to move, OK to drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
-    fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
+    fromUsb: 'From USB …', wpHint: 'OK: use · hold OK: crop', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
     cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: 'Arrows: move · OK: options',
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
@@ -165,8 +165,8 @@ var STRINGS = {
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
-    wallpaper: 'Hintergrundbild', wallpaperSub: 'Weitere Bilder: nach /var/lib/webosbrew/atvhome/wallpapers/ kopieren.',
-    none: 'Keines', noneDark: 'Keines (dunkel)',
+    wallpaper: 'Hintergrundbild',
+    none: 'Keines',
     newFolder: 'Neuer Ordner',
     editHome: 'Apps organisieren', light: 'Licht', addApps: 'Apps hinzufügen', homeAppsTitle: 'Apps auf dem Startbildschirm', appPick: 'App …',
     editHint: 'Bearbeiten: OK auf einer App oder einem Ordner für Optionen · Zurück zum Beenden (wird gespeichert)',
@@ -189,7 +189,7 @@ var STRINGS = {
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
     moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
-    fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
+    fromUsb: 'Von USB …', wpHint: 'OK: verwenden · OK halten: zuschneiden', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
     cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: 'Pfeile: verschieben · OK: Optionen',
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
@@ -396,6 +396,8 @@ var ICONS = {
   check: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   reset: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>',
+  none: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z"/></svg>',
+  usb: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07A1.98 1.98 0 0 0 9 9.2 2 2 0 1 0 6 11v2a2 2 0 0 0 2 2h3v3.05a2.5 2.5 0 1 0 2 0V15h3a2 2 0 0 0 2-2v-2h1V7h-4z"/></svg>',
   apps: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>',
   light: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1zm3-19a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2z"/></svg>'
 };
@@ -841,6 +843,10 @@ function menu(spec) {
     for (var i = from; i >= 0 && i < view.rows.length; i += dir) if (!view.rows[i].info) return i;
     return -1;
   }
+  function wrapSel(from, dir) {
+    var i = selectable(from, dir);
+    return i >= 0 ? i : selectable(dir > 0 ? 0 : view.rows.length - 1, dir);
+  }
 
   view.setFocus = function (i) {
     if (i < 0) return;
@@ -868,8 +874,9 @@ function menu(spec) {
   // sideways press can't flip a setting); Left goes back like Back.
   view.key = function (e) {
     var r = view.rows[view.focus];
-    if (e.keyCode === KEY.UP) view.setFocus(selectable(view.focus - 1, -1));
-    else if (e.keyCode === KEY.DOWN) view.setFocus(selectable(view.focus + 1, 1));
+    // Lists wrap around: Up on the first row goes to the last and vice versa.
+    if (e.keyCode === KEY.UP) view.setFocus(wrapSel(view.focus - 1, -1));
+    else if (e.keyCode === KEY.DOWN) view.setFocus(wrapSel(view.focus + 1, 1));
     else if (e.keyCode === KEY.RIGHT) { if (r && r.chevron) view.select(); }
     else if (e.keyCode === KEY.LEFT || e.keyCode === KEY.BACK) pop();
   };
@@ -1168,22 +1175,52 @@ function openSettings() {
   });
 }
 
+// Wallpapers as cards: OK uses one (✓), hold OK crops it (from the kept
+// full-size original when there is one), plus None and From USB cards.
 function chooseWallpaper() {
-  menu({
-    title: t('wallpaper'),
-    sub: t('wallpaperSub'),
-    rows: function () {
-      var c = cfg();
-      var rows = [{ label: t('fromUsb'), chevron: true, action: chooseUsbPicture }];
-      rows = rows.concat(state.wallpapers.map(function (w) {
-        return { label: w.name.replace(/\.[a-z]+$/i, ''), thumb: w.url, check: c.wallpaper === w.name,
-          action: function () { c.wallpaper = w.name; saveConfig(); applyLook(); refreshTop(); } };
-      }));
-      rows.push({ label: t('noneDark'), thumb: 'none', check: c.wallpaper === 'none',
-        action: function () { c.wallpaper = 'none'; saveConfig(); applyLook(); refreshTop(); } });
-      return rows;
-    }
+  var el = layer('folderView picker');
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
+  el.querySelector('.title').textContent = t('wallpaper');
+  el.querySelector('.pickhint').textContent = t('wpHint');
+  var inner = el.querySelector('.inner');
+  var view = { el: el };
+  function current() { return cfg().wallpaper; }
+  function entries() {
+    var list = state.wallpapers.map(function (w) {
+      return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.url, wp: w };
+    });
+    list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
+    list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
+    return list;
+  }
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', e.key === current());
+    },
+    onActivate: function (e) {
+      if (e.key === '__usb') { chooseUsbPicture(); return; }
+      cfg().wallpaper = e.key;
+      saveConfig();
+      applyLook();
+      var tiles = grid.tiles();
+      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
+    },
+    onLongPress: function (e) {
+      if (!e.wp) return;
+      cropPicture({ url: e.wp.orig || e.wp.url, name: e.title, saveAs: e.wp.bundled ? null : e.title });
+    },
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
   });
+  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+  view.ok = function () { grid.activate(grid.focus); };
+  view.longOk = function () { grid.longPress(grid.focus); };
+  view.grid = grid;
+  push(view);
+  var list = entries();
+  grid.set(list);
+  for (var i = 0; i < list.length; i++) if (list[i].key === current()) grid.setFocus(i, true);
 }
 
 function indexOfKey(key) {
@@ -1250,7 +1287,9 @@ function chooseUsbPicture() {
     var view = { el: el };
     var grid = new Grid({
       container: el.querySelector('.grid'),
-      onActivate: function (e) { cropPicture(e.pic); },
+      onActivate: function (e) {
+        cropPicture({ url: e.pic.url, name: e.pic.name, keepOriginal: true });
+      },
       onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
     });
     view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
@@ -1263,7 +1302,17 @@ function chooseUsbPicture() {
 
 // Crop screen: 16:9 frame over the picture. Arrows move the frame; OK goes to
 // the bar (Smaller, Larger, resolution, Save); Up/Back returns to the frame.
+// pic: {url, name, saveAs?, keepOriginal?}. saveAs = overwrite that wallpaper
+// (re-crop); otherwise a new one named after pic.name. keepOriginal stores the
+// full-size source in wallpapers/originals for later re-cropping.
 function cropPicture(pic) {
+  var probe = new Image();
+  probe.onload = function () { openCrop(pic, probe.naturalWidth, probe.naturalHeight); };
+  probe.onerror = function () { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); };
+  probe.src = pic.url;
+}
+
+function openCrop(pic, W, H) {
   var el = layer('cropView');
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
@@ -1271,7 +1320,7 @@ function cropPicture(pic) {
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
   var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
-  var W = pic.w, H = pic.h, AREA_W = 1760, AREA_H = 880;
+  var AREA_W = 1760, AREA_H = 880;
   var k = Math.min(AREA_W / W, AREA_H / H);          // source px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
   img.style.cssText = 'left:' + ox + 'px;top:' + oy + 'px;width:' + W * k + 'px;height:' + H * k + 'px';
@@ -1324,7 +1373,8 @@ function cropPicture(pic) {
     canvas.width = outW; canvas.height = Math.round(outW * 9 / 16);
     canvas.getContext('2d').drawImage(img, f.x, f.y, f.w, f.w * 9 / 16, 0, 0, canvas.width, canvas.height);
     var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-    var id = String(Date.now()), name = (pic.name || 'picture').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) + '-' + id.slice(-5);
+    var id = String(Date.now());
+    var name = pic.saveAs || ((pic.name || 'picture').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) + '-' + id.slice(-5));
     var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB (MAX_ARG_STRLEN)
     for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
     (function send(i) {
@@ -1336,7 +1386,8 @@ function cropPicture(pic) {
         cfg().wallpaper = file;
         saveConfig();
         closeAll();
-        load();
+        if (pic.keepOriginal) exec(USB_PY + ' keep ' + pic.url + ' ' + name, function () { load(); });
+        else load();
       });
     })(0);
   }
@@ -1349,8 +1400,8 @@ function cropPicture(pic) {
       else if (c === KEY.UP) f.y -= step; else if (c === KEY.DOWN) f.y += step;
       else if (c === KEY.BACK) { pop(); return; }
     } else {
-      if (c === KEY.LEFT) focus = Math.max(0, focus - 1);
-      else if (c === KEY.RIGHT) focus = Math.min(pills.length - 1, focus + 1);
+      if (c === KEY.LEFT) focus = (focus + pills.length - 1) % pills.length;
+      else if (c === KEY.RIGHT) focus = (focus + 1) % pills.length;
       else if (c === KEY.UP || c === KEY.BACK) focus = -1;
     }
     paint();
