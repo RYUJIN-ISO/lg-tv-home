@@ -54,8 +54,8 @@ volume, mute, home, back, settings, the arrow ring and OK — so the TV always
 stays controllable. **Other button …** (bottom) catches a button the drawing
 doesn't have (e.g. on another remote): press it within 20 s, then choose.
 
-Changes work immediately — the original app never opens. **Remote mapper:
-On/Off** turns it all off (stays off across reboots until switched on again).
+Changes work immediately — the original app never opens. **Reset** puts every
+button back to LG default. **Remote mapper: On/Off** turns it all off (stays off across reboots until switched on again).
 Undo from a computer: `ssh <tv> sh /var/lib/webosbrew/remote-mapper/remote-mapper.sh disable`.
 
 ## Settings menu navigation
@@ -65,9 +65,19 @@ sideways press never flips a setting), **Left or Back** goes back.
 
 ## Wallpapers
 
-Copy JPG/PNG files to `/var/lib/webosbrew/atvhome/wallpapers/` on the TV and
-pick them in Settings → Wallpaper. **Use 3840×2160** — the TV draws the home
-screen at 4K, smaller images look soft.
+Settings → Wallpaper lists the bundled and your own wallpapers. **From USB …**
+shows the pictures (JPG/PNG) on a plugged-in USB stick as cards; pick one and
+crop it:
+
+- a 16:9 frame over the picture — arrows (or drag with the Magic Remote) move
+  it, **OK** → bar: **− / +** size, resolution, **Save**.
+- Output is **4K (3840×2160) by default** whenever the framed area is big
+  enough; the resolution pill steps down (2560, 1920). Smaller pictures are
+  never upscaled. Best source: 3840×2160 or larger, 16:9.
+- Save stores it on the TV and makes it the wallpaper.
+
+Or copy JPG/PNG files to `/var/lib/webosbrew/atvhome/wallpapers/` directly
+(use 3840×2160 — the TV draws the home screen at 4K).
 
 ## Sharper app logos
 

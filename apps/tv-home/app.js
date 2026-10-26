@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.12.0';
+var VERSION = '0.13.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -148,6 +148,10 @@ var STRINGS = {
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
     moveHint: 'Use the arrow keys to move, OK to drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
+    fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
+    cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: 'Arrows: move · OK: options',
+    cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
+    resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     remoteButtons: 'Remote Buttons', remoteTip: 'Arrows or pointer: pick a button · OK: change it · Back: close', otherButton: 'Other button …',
     remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
     learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
@@ -185,6 +189,10 @@ var STRINGS = {
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
     moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
+    fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
+    cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: 'Pfeile: verschieben · OK: Optionen',
+    cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
+    resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     remoteButtons: 'Fernbedienungstasten', remoteTip: 'Pfeile oder Zeiger: Taste wählen · OK: ändern · Zurück: schließen', otherButton: 'Andere Taste …',
     remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
     learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
@@ -401,7 +409,12 @@ function renderTile(entry) {
   var label = document.createElement('div');
   label.className = 'label';
 
-  if (entry.type === 'app' && entry.tile) {
+  if (entry.type === 'image') {
+    card.classList.add('art');
+    card.innerHTML = '<img alt=""><div class="gloss"></div>';
+    card.querySelector('img').src = entry.url;
+    label.textContent = entry.title;
+  } else if (entry.type === 'app' && entry.tile) {
     // Sharp full-card artwork (tiles/<appId>.png) instead of the LG icon.
     card.classList.add('art');
     card.innerHTML = '<img alt=""><div class="gloss"></div>';
@@ -1155,10 +1168,11 @@ function chooseWallpaper() {
     sub: t('wallpaperSub'),
     rows: function () {
       var c = cfg();
-      var rows = state.wallpapers.map(function (w) {
+      var rows = [{ label: t('fromUsb'), chevron: true, action: chooseUsbPicture }];
+      rows = rows.concat(state.wallpapers.map(function (w) {
         return { label: w.name.replace(/\.[a-z]+$/i, ''), thumb: w.url, check: c.wallpaper === w.name,
           action: function () { c.wallpaper = w.name; saveConfig(); applyLook(); refreshTop(); } };
-      });
+      }));
       rows.push({ label: t('noneDark'), thumb: 'none', check: c.wallpaper === 'none',
         action: function () { c.wallpaper = 'none'; saveConfig(); applyLook(); refreshTop(); } });
       return rows;
@@ -1209,6 +1223,151 @@ function uninstallMany(list) {
   (function next(i) {
     if (i < list.length) uninstall(list[i], function () { next(i + 1); });
   })(0);
+}
+
+// ---------------------------------------------------------------- usb wallpapers
+
+var USB_PY = 'python3 ' + APP_DIR + 'usb.py';
+var OUT_SIZES = [3840, 2560, 1920];   // 16:9 output widths; 4K preferred
+
+function chooseUsbPicture() {
+  showHint(t('usbLoading'));
+  exec(USB_PY + ' list', function (res) {
+    showHint('');
+    var list = [];
+    try { list = JSON.parse(res.stdoutString || '[]'); } catch (e) {}
+    if (!list.length) { showHint(t('usbNone')); setTimeout(function () { showHint(''); }, 3000); return; }
+    var el = layer('folderView picker');
+    el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div></div>';
+    el.querySelector('.title').textContent = t('fromUsb');
+    var inner = el.querySelector('.inner');
+    var view = { el: el };
+    var grid = new Grid({
+      container: el.querySelector('.grid'),
+      onActivate: function (e) { cropPicture(e.pic); },
+      onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+    });
+    view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+    view.ok = function () { grid.activate(grid.focus); };
+    view.grid = grid;
+    push(view);
+    grid.set(list.map(function (p, i) { return { type: 'image', key: 'usb' + i, title: p.name, url: p.url, pic: p }; }));
+  });
+}
+
+// Crop screen: 16:9 frame over the picture. Arrows move the frame; OK goes to
+// the bar (Smaller, Larger, resolution, Save); Up/Back returns to the frame.
+function cropPicture(pic) {
+  var el = layer('cropView');
+  el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
+    '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
+    '<div class="pill" data-a="res"></div><div class="pill save" data-a="save"></div></div>' +
+    '<div class="crophint"></div>';
+  var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
+  var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
+  var W = pic.w, H = pic.h, AREA_W = 1760, AREA_H = 880;
+  var k = Math.min(AREA_W / W, AREA_H / H);          // source px -> screen px
+  var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
+  img.style.cssText = 'left:' + ox + 'px;top:' + oy + 'px;width:' + W * k + 'px;height:' + H * k + 'px';
+  img.src = pic.url;
+  var fw = Math.min(W, H * 16 / 9);                   // frame in source px
+  var f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 };
+  var focus = -1;                                     // -1 = frame, else pill index
+  var outW = 0;
+
+  function sizes() {
+    var max = Math.floor(f.w);
+    var list = OUT_SIZES.filter(function (s) { return s <= max; });
+    if (!list.length) list = [Math.max(16, max - max % 16)];
+    return list;
+  }
+  function clamp() {
+    f.w = Math.max(Math.min(W, H * 16 / 9, f.w), Math.min(W, 480));
+    f.x = Math.max(0, Math.min(W - f.w, f.x));
+    f.y = Math.max(0, Math.min(H - f.w * 9 / 16, f.y));
+    var s = sizes();
+    if (s.indexOf(outW) < 0) outW = s[0];              // 4K whenever the frame allows it
+  }
+  function paint() {
+    clamp();
+    frameEl.style.cssText = 'left:' + (ox + f.x * k) + 'px;top:' + (oy + f.y * k) + 'px;width:' + f.w * k +
+      'px;height:' + f.w * 9 / 16 * k + 'px';
+    frameEl.classList.toggle('sel', focus < 0);
+    pills.forEach(function (p, i) { p.classList.toggle('sel', i === focus); });
+    pills[2].textContent = (outW === 3840 ? '4K · ' : '') + outW + '×' + Math.round(outW * 9 / 16);
+    pills[3].textContent = t('save');
+    el.querySelector('.crophint').textContent = t('cropHint', W + '×' + H) + '  ·  ' +
+      (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar'));
+  }
+  function resize(factor) {
+    var cx = f.x + f.w / 2, cy = f.y + f.w * 9 / 32;
+    f.w *= factor;
+    clamp();
+    f.x = cx - f.w / 2; f.y = cy - f.w * 9 / 32;
+    paint();
+  }
+  function act(a) {
+    if (a === 'minus') resize(0.9);
+    else if (a === 'plus') resize(1 / 0.9);
+    else if (a === 'res') { var s = sizes(); outW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
+    else if (a === 'save') save();
+  }
+  function save() {
+    showHint(t('saving'));
+    var canvas = document.createElement('canvas');
+    canvas.width = outW; canvas.height = Math.round(outW * 9 / 16);
+    canvas.getContext('2d').drawImage(img, f.x, f.y, f.w, f.w * 9 / 16, 0, 0, canvas.width, canvas.height);
+    var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+    var id = String(Date.now()), name = (pic.name || 'picture').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) + '-' + id.slice(-5);
+    var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB (MAX_ARG_STRLEN)
+    for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+    (function send(i) {
+      if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
+      exec(USB_PY + ' finish ' + id + ' ' + name, function (res) {
+        var file = (res.stdoutString || '').trim();
+        showHint('');
+        if (!file) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+        cfg().wallpaper = file;
+        saveConfig();
+        closeAll();
+        load();
+      });
+    })(0);
+  }
+
+  var view = { el: el };
+  view.key = function (e) {
+    var c = e.keyCode, step = W * 0.03;
+    if (focus < 0) {
+      if (c === KEY.LEFT) f.x -= step; else if (c === KEY.RIGHT) f.x += step;
+      else if (c === KEY.UP) f.y -= step; else if (c === KEY.DOWN) f.y += step;
+      else if (c === KEY.BACK) { pop(); return; }
+    } else {
+      if (c === KEY.LEFT) focus = Math.max(0, focus - 1);
+      else if (c === KEY.RIGHT) focus = Math.min(pills.length - 1, focus + 1);
+      else if (c === KEY.UP || c === KEY.BACK) focus = -1;
+    }
+    paint();
+  };
+  view.ok = function () {
+    if (focus < 0) { focus = 3; paint(); return; }
+    if (once()) act(pills[focus].getAttribute('data-a'));
+  };
+  // Magic Remote: drag the frame, wheel resizes, click the pills.
+  var drag = null;
+  frameEl.addEventListener('mousedown', function (e) { drag = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y }; focus = -1; paint(); });
+  el.addEventListener('mousemove', function (e) {
+    if (!drag) return;
+    f.x = drag.fx + (e.clientX - drag.x) / k; f.y = drag.fy + (e.clientY - drag.y) / k; paint();
+  });
+  el.addEventListener('mouseup', function () { drag = null; });
+  el.addEventListener('wheel', function (e) { e.stopPropagation(); resize(e.deltaY > 0 ? 0.92 : 1 / 0.92); });
+  pills.forEach(function (p, i) {
+    p.addEventListener('mouseenter', function () { focus = i; paint(); });
+    p.addEventListener('click', function () { focus = i; paint(); if (once()) act(p.getAttribute('data-a')); });
+  });
+  push(view);
+  paint();
 }
 
 // ---------------------------------------------------------------- remote buttons
@@ -1330,6 +1489,7 @@ function paintRemoteInfo() {
   var pills = document.querySelectorAll('#remotePills .pill');
   pills[0].textContent = t('remoteOff') + ': ' + (remoteState.active ? t('on') : t('off'));
   pills[1].textContent = t('otherButton');
+  pills[2].textContent = t('resetButtons');
   var info = document.getElementById('remoteInfo');
   var a = key && remoteState.map.buttons[key];
   info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
@@ -1369,6 +1529,12 @@ function remoteActivate() {
     mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(paintRemoteInfo); });
   } else if (pill === 'other') {
     learnButton();
+  } else if (pill === 'reset') {
+    confirmSheet(t('resetButtonsQ'), '', t('resetYes'), function () {
+      remoteState.map.buttons = {};
+      saveRemote();
+      paintRemoteInfo();
+    });
   } else if (remoteState.installed) {
     chooseButtonAction(remoteKeyOf(remoteFocus));
   }
