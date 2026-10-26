@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.13.0';
+var VERSION = '0.13.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -488,6 +488,7 @@ Grid.prototype.render = function () {
 };
 
 Grid.prototype.tiles = function () { return this.o.container.children; };
+Grid.prototype.cols = function () { return this.o.cols || COLS; };
 
 Grid.prototype.setFocus = function (i, force) {
   if (!this.entries.length) return;
@@ -497,16 +498,16 @@ Grid.prototype.setFocus = function (i, force) {
   if (tiles[this.focus]) tiles[this.focus].classList.remove('focus');
   this.focus = i;
   tiles[i].classList.add('focus');
-  if (this.o.onRow) this.o.onRow(Math.floor(i / COLS));
+  if (this.o.onRow) this.o.onRow(Math.floor(i / this.cols()));
 };
 
 Grid.prototype.target = function (keyCode) {
-  var f = this.focus, n = this.entries.length, row = Math.floor(f / COLS);
+  var C = this.cols(), f = this.focus, n = this.entries.length, row = Math.floor(f / C);
   switch (keyCode) {
-    case KEY.LEFT:  return f % COLS > 0 ? f - 1 : f;
-    case KEY.RIGHT: return f % COLS < COLS - 1 && f + 1 < n ? f + 1 : f;
-    case KEY.UP:    return row > 0 ? f - COLS : f;
-    case KEY.DOWN:  return f + COLS < n ? f + COLS : (row < Math.floor((n - 1) / COLS) ? n - 1 : f);
+    case KEY.LEFT:  return f % C > 0 ? f - 1 : f;
+    case KEY.RIGHT: return f % C < C - 1 && f + 1 < n ? f + 1 : f;
+    case KEY.UP:    return row > 0 ? f - C : f;
+    case KEY.DOWN:  return f + C < n ? f + C : (row < Math.floor((n - 1) / C) ? n - 1 : f);
   }
   return f;
 };
@@ -723,7 +724,10 @@ function layer(cls) {
   return el;
 }
 
+// Only the top layer is visible; the ones below are hidden until it closes.
 function push(view) {
+  var below = stack[stack.length - 1];
+  if (below && below.el) below.el.style.visibility = 'hidden';
   stack.push(view);
   document.body.classList.add('overlay');
   remoteSubState();
@@ -741,8 +745,9 @@ function pop() {
     if (v.onClose) v.onClose();
   }
   if (!stack.length) document.body.classList.remove('overlay');
-  remoteSubState();
   var top = stack[stack.length - 1];
+  if (top && top.el) top.el.style.visibility = '';
+  remoteSubState();
   if (top && top.refresh) top.refresh();
 }
 
@@ -1080,7 +1085,7 @@ function renameFolder(id) {
 // (changes apply live via onToggle), Back is done. Single mode: OK picks and
 // closes. tone 'remove' = red trash badges, unpicked cards stay bright.
 function appPicker(o) {
-  var el = layer('folderView picker' + (o.tone === 'remove' ? ' remove' : ''));
+  var el = layer('folderView picker' + (o.tone === 'remove' ? ' remove' : '') + (o.side ? ' side' : ''));
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div><div class="empty"></div></div>';
   el.querySelector('.title').textContent = o.title;
   var inner = el.querySelector('.inner');
@@ -1091,6 +1096,7 @@ function appPicker(o) {
   var view = { el: el };
   var grid = new Grid({
     container: el.querySelector('.grid'),
+    cols: o.side ? 3 : COLS,
     decorate: function (tile, e) {
       tile.insertAdjacentHTML('beforeend', '<div class="badge">' + (o.tone === 'remove' ? ICONS.trash : ICONS.check) + '</div>');
       tile.classList.toggle('picked', !!picked[e.key]);
@@ -1603,7 +1609,7 @@ function chooseButtonAction(key) {
       rows.push({ label: t('appPick'), value: cur && cur.app && !isSpecial ? actionLabel(cur) : '', chevron: true,
         action: function () {
           appPicker({
-            title: buttonLabel(key), single: true, keys: appOrder,
+            title: buttonLabel(key), single: true, side: true, keys: appOrder,
             isPicked: function (k) { return !!(cur && apps[k].id === cur.app); },
             focusKey: appOrder.filter(function (k) { return cur && apps[k].id === cur.app; })[0],
             onDone: function (sel) {
@@ -1722,7 +1728,7 @@ document.addEventListener('keyup', function (e) {
 document.addEventListener('wheel', function (e) {
   var v = current();
   var grid = v === mainView ? mainGrid : v.grid;
-  if (grid) grid.setFocus(grid.focus + (e.deltaY > 0 ? COLS : -COLS));
+  if (grid) grid.setFocus(grid.focus + (e.deltaY > 0 ? grid.cols() : -grid.cols()));
   else if (v.key) v.key({ keyCode: e.deltaY > 0 ? KEY.DOWN : KEY.UP });
 });
 
