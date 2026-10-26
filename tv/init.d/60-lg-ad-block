@@ -1,0 +1,7 @@
+#!/bin/sh
+# Appends the LG ACR/ad/telemetry block list to /etc/hosts on every boot.
+# Source: hugobatista/lg-tv-ad-block (base/safe layer)
+BLOCKLIST="/var/lib/webosbrew/lg-ad-block-hosts.txt"
+if [ -f "$BLOCKLIST" ]; then
+    grep -v "^#" "$BLOCKLIST" | grep -v "^$" >> /etc/hosts
+fi

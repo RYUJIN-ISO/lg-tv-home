@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Movie</title>
+<style>html, body { background: transparent; }</style>
+</head>
+<body>
+<script>
+// Headless (appinfo "noWindow"): toggles the Hue movie scene, reports the
+// result as a system toast, then quits. Whatever is on screen stays there.
+var APP_DIR = '/media/developer/apps/usr/palm/applications/com.iso.moviescene/';
+var bridges = [];
+
+function luna(uri, params, cb) {
+  var b = new PalmServiceBridge();
+  bridges.push(b);
+  b.onservicecallback = function (raw) {
+    bridges.splice(bridges.indexOf(b), 1);
+    var res;
+    try { res = JSON.parse(raw); } catch (e) { res = { returnValue: false, errorText: raw }; }
+    if (cb) cb(res);
+  };
+  b.call(uri, JSON.stringify(params));
+}
+
+function toast(message, done) {
+  luna('luna://com.webos.notification/createToast',
+    { message: message, iconUrl: APP_DIR + 'icon.png', noaction: true }, done);
+}
+
+// Toast language follows the TV Home launcher setting (English by default).
+var CONFIG = '/var/lib/webosbrew/atvhome/config.json';
+var TEXT = {
+  en: { movie: 'Movie lighting on. Press again to restore the previous lighting.',
+        restored: 'Lighting restored', failed: 'Could not set the lights: ', unknown: 'unknown error' },
+  de: { movie: 'Filmlicht an. Nochmal drücken für Licht wie vorher.',
+        restored: 'Licht wie vorher', failed: 'Licht konnte nicht gesetzt werden: ', unknown: 'unbekannter Fehler' }
+};
+
+function toggle() {
+  // One exec: toggle the scene, then print the launcher config after a marker.
+  var cmd = 'sh ' + APP_DIR + 'scene.sh; rc=$?; echo "@@CONFIG"; cat ' + CONFIG + ' 2>/dev/null; exit $rc';
+  luna('luna://org.webosbrew.hbchannel.service/exec', { command: cmd }, function (res) {
+    var parts = (res.stdoutString || '').split('@@CONFIG');
+    var out = parts[0].trim();
+    var lang = 'en';
+    try { lang = JSON.parse(parts[1]).language || 'en'; } catch (e) {}
+    var T = TEXT[lang] || TEXT.en;
+    var text;
+    if (res.returnValue && out === 'movie') text = T.movie;
+    else if (res.returnValue && out === 'restored') text = T.restored;
+    else text = T.failed + (res.stderrString || res.errorText || T.unknown).trim();
+    toast(text, function () { window.close(); });
+  });
+}
+
+document.addEventListener('webOSRelaunch', toggle);
+toggle();
+</script>
+</body>
+</html>

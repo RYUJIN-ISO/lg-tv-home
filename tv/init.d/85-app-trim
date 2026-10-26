@@ -1,0 +1,4 @@
+#!/bin/sh
+# Keeps only the current + previous app in RAM (see app-trim.sh).
+sleep 60
+setsid sh /var/lib/webosbrew/app-trim.sh > /tmp/app-trim.log 2>&1 < /dev/null &

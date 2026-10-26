@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>App-Updates</title>
+<style>html, body { background: transparent; }</style>
+</head>
+<body>
+<script>
+// Headless (appinfo "noWindow"): toggles store mode, reports it as a system
+// toast, then quits. 1st press lifts the block and opens the LG Store, 2nd press
+// restores it. store-mode.sh re-blocks on its own after 10 minutes anyway.
+// Language follows the TV Home launcher setting (English by default).
+var CONFIG = '/var/lib/webosbrew/atvhome/config.json';
+var STRINGS = {
+  de: {
+    on: 'Schutz für App-Updates aus (max. 10 Min.). Der LG Store öffnet sich. Wenn fertig, nochmal drücken.',
+    off: 'Schutz ist wieder an.',
+    error: 'App-Updates: Fehler: ',
+    unknown: 'unbekannter Fehler'
+  },
+  en: {
+    on: 'Protection off for app updates (max 10 min). Opening the LG Store. Press again when done.',
+    off: 'Protection is back on.',
+    error: 'App-Updates: error: ',
+    unknown: 'unknown error'
+  }
+};
+var T = STRINGS.en;
+var APP_DIR = '/media/developer/apps/usr/palm/applications/com.iso.appupdates/';
+var STORE_APP = 'com.webos.app.discovery';
+var bridges = [];
+
+function luna(uri, params, cb) {
+  var b = new PalmServiceBridge();
+  bridges.push(b);
+  b.onservicecallback = function (raw) {
+    bridges.splice(bridges.indexOf(b), 1);
+    var res;
+    try { res = JSON.parse(raw); } catch (e) { res = { returnValue: false, errorText: raw }; }
+    if (cb) cb(res);
+  };
+  b.call(uri, JSON.stringify(params));
+}
+
+function run(arg, cb) {
+  luna('luna://org.webosbrew.hbchannel.service/exec', { command: 'sh ' + APP_DIR + 'store-mode.sh ' + arg }, function (res) {
+    if (!res.returnValue) {
+      finish(T.error + (res.stderrString || res.errorText || T.unknown).trim());
+      return;
+    }
+    cb((res.stdoutString || '').trim());
+  });
+}
+
+function finish(message) {
+  luna('luna://com.webos.notification/createToast',
+    { message: message, iconUrl: APP_DIR + 'icon.png', noaction: true },
+    function () { window.close(); });
+}
+
+function toggle() {
+  run('status', function (state) {
+    if (state.indexOf('open') === 0) {
+      run('off', function () { finish(T.off); });
+    } else {
+      run('on', function () {
+        luna('luna://com.webos.applicationManager/launch', { id: STORE_APP });
+        finish(T.on);
+      });
+    }
+  });
+}
+
+function start() {
+  luna('luna://org.webosbrew.hbchannel.service/exec', { command: 'cat ' + CONFIG + ' 2>/dev/null' }, function (res) {
+    var lang = 'en';
+    try { lang = JSON.parse(res.stdoutString || '{}').language || 'en'; } catch (e) {}
+    T = STRINGS[lang] || STRINGS.en;
+    toggle();
+  });
+}
+
+document.addEventListener('webOSRelaunch', start);
+start();
+</script>
+</body>
+</html>
