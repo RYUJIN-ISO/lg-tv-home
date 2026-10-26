@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.10.1';
+var VERSION = '0.10.2';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -156,7 +156,8 @@ var STRINGS = {
     lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps',
     tvHome: 'Home screen (TV Home)', liveTv: 'Live TV', hdmi: 'HDMI {0}', button: 'Button {0}',
     saved: 'Saved — works right away.',
-    b_mic: 'Mic', b_settings: 'Settings', b_input: 'Input', b_alexa: 'Alexa', b_123: '123 / Screen remote',
+    b_mic: 'Mic', b_settings: 'Settings', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
+    b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_mute: 'Mute', b_chup: 'Channel +', b_chdown: 'Channel −'
   },
   de: {
@@ -193,7 +194,8 @@ var STRINGS = {
     lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps',
     tvHome: 'Startbildschirm (TV Home)', liveTv: 'Live-TV', hdmi: 'HDMI {0}', button: 'Taste {0}',
     saved: 'Gespeichert – wirkt sofort.',
-    b_mic: 'Mikrofon', b_settings: 'Einstellungen', b_input: 'Eingang', b_alexa: 'Alexa', b_123: '123 / Bildschirm-Fernbedienung',
+    b_mic: 'Mikrofon', b_settings: 'Einstellungen', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
+    b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_mute: 'Stumm', b_chup: 'Kanal +', b_chdown: 'Kanal −'
   }
 };
@@ -776,7 +778,7 @@ function menu(spec) {
 
   view.refresh = function () {
     view.rows = spec.rows();
-    panel.innerHTML = '<h1></h1>' + (spec.sub ? '<div class="sub"></div>' : '') + '<div class="rows"></div>';
+    panel.innerHTML = '<h1></h1>' + (spec.sub ? '<div class="sub"></div>' : '') + '<div class="rowsclip"><div class="rows"></div></div>';
     panel.querySelector('h1').textContent = typeof spec.title === 'function' ? spec.title() : spec.title;
     if (spec.sub) panel.querySelector('.sub').textContent = spec.sub;
     var list = panel.querySelector('.rows');
@@ -824,9 +826,12 @@ function menu(spec) {
     if (rows[i]) rows[i].classList.add('focus');
     if (spec.onFocus) spec.onFocus(view.rows[i]);
     // Keep the focused row visible in long lists.
+    // Keep the focused row centred in the clipped list area.
     var list = panel.querySelector('.rows');
-    var limit = panel.clientHeight - list.offsetTop - 120;
-    var y = Math.max(0, i * 86 - limit);
+    var clipH = list.parentNode.clientHeight;
+    var row = rows[i];
+    var y = row ? row.offsetTop + row.offsetHeight / 2 - clipH / 2 : 0;
+    y = Math.max(0, Math.min(y, list.offsetHeight - clipH));
     list.style.transform = 'translateY(' + (-y) + 'px)';
   };
 
@@ -1170,18 +1175,23 @@ var MAPPER = '/var/lib/webosbrew/remote-mapper/remote-mapper.sh';
 // Home, Back, OK, arrows, volume and power are deliberately not offered.
 var REMOTE_BUTTONS = [
   { key: 'Key_webOS_Voice', label: 'b_mic' },
-  { key: 'Key_webOS_Settings', label: 'b_settings' },
   { key: 'Key_webOS_InputSource', label: 'b_input' },
-  { key: 'Key_webOS_ALEXA', label: 'b_alexa' },
-  { key: 'Key_webOS_ScreenRemote', label: 'b_123' },
+  { key: 'Key_webOS_Settings', label: 'b_settings' },
+  { key: 'Key_webOS_ProgramList', label: 'b_list' },
+  { key: 'Key_webOS_ScreenRemote', label: 'b_more' },
   { key: 'Qt.Key_VolumeMute', label: 'b_mute' },
   { key: 'Key_webOS_ChannelUp', label: 'b_chup' },
   { key: 'Key_webOS_ChannelDown', label: 'b_chdown' },
+  { key: 'Key_webOS_Red', label: 'b_red' },
+  { key: 'Key_webOS_Green', label: 'b_green' },
+  { key: 'Key_webOS_Yellow', label: 'b_yellow' },
+  { key: 'Key_webOS_Blue', label: 'b_blue' },
   { key: 'Key_webOS_Netflix', text: 'Netflix' },
   { key: 'Key_webOS_Amazon', text: 'Prime Video' },
   { key: 'Key_webOS_Disneyplus', text: 'Disney+' },
   { key: 'Key_webOS_RakutenTV', text: 'Rakuten TV' },
-  { key: 'Key_webOS_LGChannels', text: 'LG Channels' }
+  { key: 'Key_webOS_LGChannels', text: 'LG Channels' },
+  { key: 'Key_webOS_ALEXA', text: 'Alexa' }
 ];
 var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_Back|Key_webOS_Exit|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|PowerOff))$/;
 var remoteState = { map: { buttons: {} }, active: false, installed: false };
