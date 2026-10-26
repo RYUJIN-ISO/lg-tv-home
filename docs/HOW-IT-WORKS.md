@@ -70,14 +70,16 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   together. Originals are kept in `wallpapers/originals/`, and image URLs
   carry `?v=<mtime>` so a new crop is not shown from the cache.
 - **Picture frame**: drawn with WebGL, not CSS. Each picture is one GPU
-  texture, uploaded in 128-row strips (one per frame, after an off-thread
-  `img.decode()`), so a new picture never stalls the motion. Every frame
+  texture, uploaded in 64-row strips: `createImageBitmap` decodes and cuts
+  each strip off the main thread, and a frame uploads only as many ready
+  strips as fit in 4 ms, so a new picture never stalls the motion. Every frame
   draws the texture at a slowly moving offset: cover the screen, then travel
   between two corners at about 7 screen pixels per second with a cosine ease
   at each turn. CSS animation of a large layer was avoided on purpose: the
   compositor rasterises big layers in tiles while they move, which can
   hitch. Crossfades blend the old and new texture; dimming happens in the
-  shader. Frame times are appended to `/tmp/atvhome-frame.txt` when the
+  shader. Frame times (and slow frames during loads, texture allocation
+  and strip upload times) are appended to `/tmp/atvhome-frame.txt` when the
   frame ends. Without WebGL, two CSS images crossfade instead. LG's
   screensaver starts after 2 minutes
   without input (configd `com.webos.surfacemanager.userActivityTimeout`);
