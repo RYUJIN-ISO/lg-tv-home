@@ -24,9 +24,14 @@ Every tile gets a dashed outline; **OK on a tile opens its options directly**:
 |---|---|
 | Move · Add to Folder · Remove from Home Screen · **Uninstall** | Open · Move · Rename · Choose Apps · Remove Folder |
 
-Cards at the end of the grid: **Add Apps** (installed apps not on the home
-screen yet, incl. ones LG hid), **New Folder**, **Uninstall Apps**, **Reset
-Layout**. **Back** leaves edit mode — every change is already saved.
+Cards at the end of the grid: **Add Apps**, **New Folder**, **Uninstall
+Apps**, **Reset Layout**. App choices are always cards, like the home screen:
+
+- **Add Apps** — every installed app (incl. ones LG hid); ✓ = on the home
+  screen, dimmed = not. OK toggles, Back is done.
+- **Folder → Choose Apps** — ✓ = in this folder.
+- **Uninstall Apps** — OK marks apps (red bin), Back asks once for all of them.
+- **Remote button → App …** — OK picks the app. **Back** leaves edit mode — every change is already saved.
 
 - **Move**: arrows move the tile, OK drops it.
 - **Uninstall** always asks first. Homebrew Channel and the lg-tv-home apps

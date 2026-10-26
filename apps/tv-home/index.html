@@ -179,6 +179,20 @@
   .folderView .grid { top: 340px; }
   .folderView .empty { position: absolute; top: 420px; left: 0; right: 0; text-align: center; font-size: 30px; color: rgba(255,255,255,.75); }
 
+  /* Card picker (Add Apps, folder apps, uninstall, remote app choice) */
+  .picker .tile .badge {
+    position: absolute; top: -14px; right: -14px; width: 48px; height: 48px; border-radius: 50%;
+    background: #34c759; display: none; align-items: center; justify-content: center; z-index: 4;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  }
+  .picker .tile .badge svg { width: 30px; height: 30px; fill: #fff; }
+  body.editing .picker .tile .card { outline: none; }
+  .picker .tile.picked .badge { display: flex; }
+  .picker .tile.pickable:not(.picked) .card { opacity: .35; }
+  .picker .tile.pickable:not(.picked).focus .card { opacity: .7; }
+  .picker.remove .tile .badge { background: #ff453a; }
+  .picker.remove .tile.picked .card { opacity: .5; }
+
   .panel {
     position: absolute; top: 90px; bottom: 90px; right: 90px; width: 860px;
     background: #1e1e22; border-radius: 30px; padding: 46px 40px;

@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.11.0';
+var VERSION = '0.12.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -127,12 +127,11 @@ var STRINGS = {
     wallpaper: 'Wallpaper', wallpaperSub: 'More images: copy them to /var/lib/webosbrew/atvhome/wallpapers/ on the TV.',
     none: 'None', noneDark: 'None (dark)',
     newFolder: 'New Folder',
-    editHome: 'Organize Apps', light: 'Light', addApps: 'Add Apps', addAppsSub: 'Installed apps that are not on the home screen yet.',
-    allOnHome: 'All installed apps are already on the home screen.',
+    editHome: 'Organize Apps', light: 'Light', addApps: 'Add Apps', homeAppsTitle: 'Apps on the home screen', appPick: 'App …',
     editHint: 'Editing: OK on an app or folder for options · Back to finish (changes are saved)',
     removeFromHome: 'Remove from Home Screen',
     uninstall: 'Uninstall', uninstallApps: 'Uninstall Apps', uninstallSub: 'Apps that can be removed from the TV.',
-    uninstallQ: 'Uninstall {0}?', uninstallYes: 'Uninstall',
+    uninstallQ: 'Uninstall {0}?', uninstallNQ: 'Uninstall {0} apps?', uninstallYes: 'Uninstall',
     uninstallWarn: 'The app and its data are removed. To reinstall it, unlock App-Updates and use the LG Content Store.',
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
@@ -165,12 +164,11 @@ var STRINGS = {
     wallpaper: 'Hintergrundbild', wallpaperSub: 'Weitere Bilder: nach /var/lib/webosbrew/atvhome/wallpapers/ kopieren.',
     none: 'Keines', noneDark: 'Keines (dunkel)',
     newFolder: 'Neuer Ordner',
-    editHome: 'Apps organisieren', light: 'Licht', addApps: 'Apps hinzufügen', addAppsSub: 'Installierte Apps, die noch nicht auf dem Startbildschirm sind.',
-    allOnHome: 'Alle installierten Apps sind schon auf dem Startbildschirm.',
+    editHome: 'Apps organisieren', light: 'Licht', addApps: 'Apps hinzufügen', homeAppsTitle: 'Apps auf dem Startbildschirm', appPick: 'App …',
     editHint: 'Bearbeiten: OK auf einer App oder einem Ordner für Optionen · Zurück zum Beenden (wird gespeichert)',
     removeFromHome: 'Vom Startbildschirm entfernen',
     uninstall: 'Deinstallieren', uninstallApps: 'Apps deinstallieren', uninstallSub: 'Apps, die vom Fernseher entfernt werden können.',
-    uninstallQ: '{0} deinstallieren?', uninstallYes: 'Deinstallieren',
+    uninstallQ: '{0} deinstallieren?', uninstallNQ: '{0} Apps deinstallieren?', uninstallYes: 'Deinstallieren',
     uninstallWarn: 'Die App und ihre Daten werden entfernt. Zum Neu-Installieren App-Updates entsperren und den LG Content Store nutzen.',
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
@@ -468,6 +466,7 @@ Grid.prototype.render = function () {
   c.innerHTML = '';
   this.entries.forEach(function (e, i) {
     var t = renderTile(e);
+    if (self.o.decorate) self.o.decorate(t, e, i);
     t.addEventListener('mouseenter', function () { if (self.moving < 0) self.setFocus(i); });
     pressable(t, function () { self.activate(i); }, function () { self.longPress(i); });
     c.appendChild(t);
@@ -965,7 +964,7 @@ function forgetApp(key) {
   saveConfig();
 }
 
-function uninstall(app) {
+function uninstall(app, done) {
   closeAll();
   showHint(t('uninstalling', app.title));
   var uri = app.dev ? 'luna://com.webos.appInstallService/dev/remove' : 'luna://com.webos.appInstallService/remove';
@@ -977,6 +976,7 @@ function uninstall(app) {
     setTimeout(function () { showHint(editMode ? t('editHint') : ''); }, 4000);
     // The removal finishes in the background; reload once it has.
     setTimeout(load, 3000);
+    if (done) done();
   });
 }
 
@@ -1062,20 +1062,58 @@ function renameFolder(id) {
   });
 }
 
-// Checklist of all apps; checked = in this folder.
+
+// Card picker: apps as home-screen tiles. Multi mode: OK toggles a badge
+// (changes apply live via onToggle), Back is done. Single mode: OK picks and
+// closes. tone 'remove' = red trash badges, unpicked cards stay bright.
+function appPicker(o) {
+  var el = layer('folderView picker' + (o.tone === 'remove' ? ' remove' : ''));
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div><div class="empty"></div></div>';
+  el.querySelector('.title').textContent = o.title;
+  var inner = el.querySelector('.inner');
+  var picked = {};
+  var entries = o.keys.filter(function (k) { return apps[k]; }).map(function (k) { return apps[k]; });
+  entries.forEach(function (e) { if (o.isPicked && o.isPicked(e.key)) picked[e.key] = true; });
+  el.querySelector('.empty').textContent = entries.length ? '' : (o.emptyText || '');
+  var view = { el: el };
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + (o.tone === 'remove' ? ICONS.trash : ICONS.check) + '</div>');
+      tile.classList.toggle('picked', !!picked[e.key]);
+      if (!o.single && o.tone !== 'remove') tile.classList.add('pickable');
+    },
+    onActivate: function (e, i) {
+      if (o.single) { pop(); o.onDone([e.key]); return; }
+      picked[e.key] = !picked[e.key];
+      grid.tiles()[i].classList.toggle('picked', picked[e.key]);
+      if (o.onToggle) o.onToggle(e.key, picked[e.key]);
+    },
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+  });
+  function finish() {
+    pop();
+    if (!o.single && o.onDone) o.onDone(Object.keys(picked).filter(function (k) { return picked[k]; }));
+  }
+  view.key = function (e) {
+    if (grid.key(e)) return;
+    if (e.keyCode === KEY.BACK) finish();
+  };
+  view.ok = function () { if (grid.entries.length) grid.activate(grid.focus); else finish(); };
+  view.grid = grid;
+  push(view);
+  grid.set(entries);
+  if (o.focusKey) for (var i = 0; i < entries.length; i++) if (entries[i].key === o.focusKey) grid.setFocus(i, true);
+}
+
+// Cards: ticked = in this folder.
 function chooseFolderApps(id) {
-  menu({
-    title: function () { return cfg().folders[id].name + ': Apps'; },
-    sub: t('checkHint'),
-    rows: function () {
-      return appOrder.map(function (k) {
-        var inIt = cfg().folders[id].items.indexOf(k) >= 0;
-        return { label: apps[k].title, check: inIt, action: function () {
-          if (inIt) removeFromFolder(k, id); else moveToFolder(k, id);
-          refreshMain(); refreshTop();
-        } };
-      });
-    }
+  appPicker({
+    title: cfg().folders[id].name,
+    keys: appOrder,
+    isPicked: function (k) { return cfg().folders[id].items.indexOf(k) >= 0; },
+    onToggle: function (k, on) { if (on) moveToFolder(k, id); else removeFromFolder(k, id); },
+    onDone: function () { refreshMain(id); refreshTop(); }
   });
 }
 
@@ -1133,21 +1171,14 @@ function indexOfKey(key) {
   return 0;
 }
 
-// Only the apps that aren't on the home screen yet (pen card → Add Apps).
+// All installed apps as cards; ticked = on the home screen (add + remove in one place).
 function chooseAddApps() {
-  var offered = appOrder.filter(function (k) { return !onHome(k); });
-  menu({
-    title: function () { return t('addApps'); },
-    sub: t('addAppsSub'),
-    rows: function () {
-      if (!offered.length) return [{ info: true, label: t('allOnHome') }];
-      return offered.map(function (k) {
-        var on = onHome(k);
-        return { label: apps[k].title, check: on, action: function () {
-          setOnHome(k, !on); refreshMain(k); refreshTop();
-        } };
-      });
-    }
+  appPicker({
+    title: t('homeAppsTitle'),
+    keys: appOrder,
+    isPicked: onHome,
+    onToggle: function (k, on) { setOnHome(k, on); },
+    onDone: function () { refreshMain(); }
   });
 }
 
@@ -1160,16 +1191,24 @@ function resetLayout() {
 }
 
 function chooseUninstall() {
-  menu({
-    title: function () { return t('uninstallApps'); },
-    sub: t('uninstallSub'),
-    rows: function () {
-      var rows = appOrder.filter(function (k) { return apps[k].removable; }).map(function (k) {
-        return { label: apps[k].title, chevron: true, action: function () { confirmUninstall(apps[k]); } };
-      });
-      return rows.length ? rows : [{ info: true, label: t('noUninstall') }];
+  appPicker({
+    title: t('uninstallApps'),
+    tone: 'remove',
+    keys: appOrder.filter(function (k) { return apps[k].removable; }),
+    emptyText: t('noUninstall'),
+    onDone: function (sel) {
+      if (!sel.length) return;
+      var list = sel.map(function (k) { return apps[k]; });
+      var q = list.length === 1 ? t('uninstallQ', list[0].title) : t('uninstallNQ', list.length);
+      confirmSheet(q, t('uninstallWarn'), t('uninstallYes'), function () { uninstallMany(list); });
     }
   });
+}
+
+function uninstallMany(list) {
+  (function next(i) {
+    if (i < list.length) uninstall(list[i], function () { next(i + 1); });
+  })(0);
 }
 
 // ---------------------------------------------------------------- remote buttons
@@ -1394,11 +1433,19 @@ function chooseButtonAction(key) {
       specialActions().forEach(function (sp) {
         rows.push({ label: sp.title, check: !!(cur && cur.app === sp.id), action: function () { set({ app: sp.id }); } });
       });
-      rows.push({ info: true, label: t('appsHead') });
-      state.installed.slice().sort(function (a, b) { return a.title.localeCompare(b.title); }).forEach(function (a) {
-        if (a.id === APP_ID) return;
-        rows.push({ label: a.title, check: !!(cur && cur.app === a.id), action: function () { set({ app: a.id }); } });
-      });
+      var isSpecial = cur && specialActions().some(function (sp) { return sp.id === cur.app; });
+      rows.push({ label: t('appPick'), value: cur && cur.app && !isSpecial ? actionLabel(cur) : '', chevron: true,
+        action: function () {
+          appPicker({
+            title: buttonLabel(key), single: true, keys: appOrder,
+            isPicked: function (k) { return !!(cur && apps[k].id === cur.app); },
+            focusKey: appOrder.filter(function (k) { return cur && apps[k].id === cur.app; })[0],
+            onDone: function (sel) {
+              var a = apps[sel[0]];
+              set(Object.keys(a.params || {}).length ? { app: a.id, params: a.params } : { app: a.id });
+            }
+          });
+        } });
       return rows;
     }
   });
