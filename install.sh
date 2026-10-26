@@ -136,7 +136,7 @@ fi
 
 if [ "$LIGHT" = y ]; then
     say "Light button"
-    install_app apps/hue-light "$LIGHT_APP" "Hue movie scene toggle"
+    install_app apps/hue-light "$LIGHT_APP" "Philips Hue"
     if ! tv "test -f $WB/hue-scene.conf"; then
         say "Pair the Hue bridge on the TV: TV Home, Settings, Hue (or run tools/hue-setup.sh)"
     fi

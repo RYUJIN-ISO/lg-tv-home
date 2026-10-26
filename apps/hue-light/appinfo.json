@@ -1,10 +1,10 @@
 {
   "id": "com.iso.moviescene",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "vendor": "Iso",
   "type": "web",
   "main": "index.html",
-  "title": "Movie",
+  "title": "Philips Hue",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "iconColor": "#1b1030",
