@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.10.2';
+var VERSION = '0.11.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -149,16 +149,16 @@ var STRINGS = {
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
     moveHint: 'Use the arrow keys to move, OK to drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
-    remoteButtons: 'Remote Buttons', remoteSub: 'Choose what each button on the remote does.',
+    remoteButtons: 'Remote Buttons', remoteTip: 'Arrows or pointer: pick a button · OK: change it · Back: close', otherButton: 'Other button …',
     remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
-    learn: 'Learn a Button', learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
+    learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
     learnBlocked: 'This button can\'t be changed (needed to control the TV).',
     lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps',
     tvHome: 'Home screen (TV Home)', liveTv: 'Live TV', hdmi: 'HDMI {0}', button: 'Button {0}',
     saved: 'Saved — works right away.',
-    b_mic: 'Mic', b_settings: 'Settings', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
+    b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
-    b_mute: 'Mute', b_chup: 'Channel +', b_chdown: 'Channel −'
+    b_chup: 'Channel +', b_chdown: 'Channel −'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -187,16 +187,16 @@ var STRINGS = {
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
     moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
-    remoteButtons: 'Fernbedienungstasten', remoteSub: 'Lege fest, was jede Taste der Fernbedienung macht.',
+    remoteButtons: 'Fernbedienungstasten', remoteTip: 'Pfeile oder Zeiger: Taste wählen · OK: ändern · Zurück: schließen', otherButton: 'Andere Taste …',
     remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
-    learn: 'Taste anlernen', learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
+    learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
     learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
     lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps',
     tvHome: 'Startbildschirm (TV Home)', liveTv: 'Live-TV', hdmi: 'HDMI {0}', button: 'Taste {0}',
     saved: 'Gespeichert – wirkt sofort.',
-    b_mic: 'Mikrofon', b_settings: 'Einstellungen', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
+    b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
-    b_mute: 'Stumm', b_chup: 'Kanal +', b_chdown: 'Kanal −'
+    b_chup: 'Kanal +', b_chdown: 'Kanal −'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -714,6 +714,12 @@ function layer(cls) {
 function push(view) {
   stack.push(view);
   document.body.classList.add('overlay');
+  remoteSubState();
+}
+
+// Hide the Remote Buttons info card while one of its submenus is open.
+function remoteSubState() {
+  document.body.classList.toggle('remote-sub', !!remoteView && stack[stack.length - 1] !== remoteView);
 }
 
 function pop() {
@@ -723,6 +729,7 @@ function pop() {
     if (v.onClose) v.onClose();
   }
   if (!stack.length) document.body.classList.remove('overlay');
+  remoteSubState();
   var top = stack[stack.length - 1];
   if (top && top.refresh) top.refresh();
 }
@@ -1176,10 +1183,8 @@ var MAPPER = '/var/lib/webosbrew/remote-mapper/remote-mapper.sh';
 var REMOTE_BUTTONS = [
   { key: 'Key_webOS_Voice', label: 'b_mic' },
   { key: 'Key_webOS_InputSource', label: 'b_input' },
-  { key: 'Key_webOS_Settings', label: 'b_settings' },
   { key: 'Key_webOS_ProgramList', label: 'b_list' },
   { key: 'Key_webOS_ScreenRemote', label: 'b_more' },
-  { key: 'Qt.Key_VolumeMute', label: 'b_mute' },
   { key: 'Key_webOS_ChannelUp', label: 'b_chup' },
   { key: 'Key_webOS_ChannelDown', label: 'b_chdown' },
   { key: 'Key_webOS_Red', label: 'b_red' },
@@ -1193,7 +1198,8 @@ var REMOTE_BUTTONS = [
   { key: 'Key_webOS_LGChannels', text: 'LG Channels' },
   { key: 'Key_webOS_ALEXA', text: 'Alexa' }
 ];
-var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_Back|Key_webOS_Exit|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|PowerOff))$/;
+// Never mappable: power, volume, mute, home, back, settings, arrows, OK.
+var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_(Back|Exit|Settings)|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|VolumeMute|PowerOff))$/;
 var remoteState = { map: { buttons: {} }, active: false, installed: false };
 var learnTimer = null;
 
@@ -1266,34 +1272,105 @@ function paintRemote(selKey) {
   }
 }
 
-function openRemote() {
-  document.body.classList.add('remote');
-  loadRemote(function () {
-    var view = menu({
-      title: function () { return t('remoteButtons'); },
-      sub: t('remoteSub'),
-      onFocus: function (row) { paintRemote(row && row.key); },
-      onClose: function () { stopLearning(); document.body.classList.remove('remote'); },
-      rows: function () {
-        if (!remoteState.installed) return [{ info: true, label: t('remoteMissing') }];
-        var rows = [
-          { label: t('remoteOff'), value: remoteState.active ? t('on') : t('off'), action: function () {
-            mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(refreshTop); });
-          } },
-          { label: t('learn'), chevron: true, action: learnButton }
-        ];
-        var keys = REMOTE_BUTTONS.map(function (b) { return b.key; });
-        Object.keys(remoteState.map.buttons).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
-        keys.forEach(function (k) {
-          rows.push({ key: k, label: buttonLabel(k), value: actionLabel(remoteState.map.buttons[k]), chevron: true,
-            action: function () { chooseButtonAction(k); } });
-        });
-        return rows;
-      }
-    });
-    paintRemote(null);
-    return view;
+// Remote Buttons screen: navigate the drawing (arrows / pointer), OK opens
+// the focused button's choices. Two pills: mapper on/off, Other button.
+var remoteView = null;
+var remoteFocus = null;   // focused SVG button or pill element
+
+function remoteTargets() {
+  return [].slice.call(document.querySelectorAll('#remoteArt [data-key]:not(.fixed), #remotePills .pill'));
+}
+
+function remoteKeyOf(el) { return el && el.getAttribute('data-key'); }
+
+function paintRemoteInfo() {
+  var els = remoteTargets();
+  for (var i = 0; i < els.length; i++) els[i].classList.toggle('sel', els[i] === remoteFocus);
+  var key = remoteKeyOf(remoteFocus);
+  paintRemote(key);
+  var pills = document.querySelectorAll('#remotePills .pill');
+  pills[0].textContent = t('remoteOff') + ': ' + (remoteState.active ? t('on') : t('off'));
+  pills[1].textContent = t('otherButton');
+  var info = document.getElementById('remoteInfo');
+  var a = key && remoteState.map.buttons[key];
+  info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
+  info.querySelector('.act').textContent = key ? actionLabel(a) : '';
+  info.querySelector('.act').classList.toggle('on', !!a);
+  info.querySelector('.tip').textContent = remoteState.installed ? t('remoteTip') : t('remoteMissing');
+}
+
+function focusRemote(el) {
+  remoteFocus = el;
+  paintRemoteInfo();
+}
+
+// Spatial navigation: nearest target in the pressed direction.
+function moveRemote(dir) {
+  if (!remoteFocus) return;
+  var c = remoteFocus.getBoundingClientRect();
+  var cx = c.left + c.width / 2, cy = c.top + c.height / 2, best = null, bestScore = 1e9;
+  remoteTargets().forEach(function (el) {
+    if (el === remoteFocus) return;
+    var r = el.getBoundingClientRect();
+    var dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+    var p = dir === KEY.LEFT ? -dx : dir === KEY.RIGHT ? dx : dir === KEY.UP ? -dy : dy;
+    var q = (dir === KEY.LEFT || dir === KEY.RIGHT) ? Math.abs(dy) : Math.abs(dx);
+    // Only targets inside a ~55° cone of the pressed direction count.
+    if (p <= 4 || q > p * 1.5) return;
+    var score = p + 1.2 * q;
+    if (score < bestScore) { bestScore = score; best = el; }
   });
+  if (best) focusRemote(best);
+}
+
+function remoteActivate() {
+  if (!remoteFocus || !once()) return;
+  var pill = remoteFocus.getAttribute('data-pill');
+  if (pill === 'power') {
+    mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(paintRemoteInfo); });
+  } else if (pill === 'other') {
+    learnButton();
+  } else if (remoteState.installed) {
+    chooseButtonAction(remoteKeyOf(remoteFocus));
+  }
+}
+
+function bindRemoteMouse() {
+  if (bindRemoteMouse.done) return;
+  bindRemoteMouse.done = true;
+  remoteTargets().forEach(function (el) {
+    el.addEventListener('mouseenter', function () { if (stack[stack.length - 1] === remoteView) focusRemote(el); });
+    el.addEventListener('click', function () {
+      if (stack[stack.length - 1] !== remoteView) return;
+      focusRemote(el); remoteActivate();
+    });
+  });
+}
+
+function openRemote() {
+  closeAll();
+  document.body.classList.add('remote');
+  bindRemoteMouse();
+  var el = layer('remoteLayer');
+  remoteView = {
+    el: el,
+    key: function (e) {
+      if (e.keyCode === KEY.BACK) pop();
+      else moveRemote(e.keyCode);
+    },
+    ok: remoteActivate,
+    refresh: paintRemoteInfo,
+    onClose: function () {
+      stopLearning();
+      remoteView = null;
+      document.body.classList.remove('remote');
+      paintRemote(null);
+    }
+  };
+  push(remoteView);
+  if (!remoteFocus || remoteFocus.classList.contains('fixed')) remoteFocus = document.querySelector('#remoteArt [data-key="Key_webOS_Netflix"]');
+  loadRemote(paintRemoteInfo);
+  paintRemoteInfo();
 }
 
 function chooseButtonAction(key) {
@@ -1345,6 +1422,8 @@ function learnButton() {
         if (!hit) { showHint(t('learnNone')); setTimeout(function () { showHint(''); }, 2500); return; }
         var key = hit.name || ('code:' + hit.code);
         if (BLOCKED_KEYS.test(key)) { showHint(t('learnBlocked')); setTimeout(function () { showHint(''); }, 3000); return; }
+        var el = document.querySelector('#remoteArt [data-key="' + key + '"]');
+        if (el && !el.classList.contains('fixed')) focusRemote(el);
         chooseButtonAction(key);
       });
     }, 800);
