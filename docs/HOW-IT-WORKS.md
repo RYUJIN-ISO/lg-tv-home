@@ -115,7 +115,7 @@ lighting before cinema), `BACK` (`previous` or `scene`) and `BACK_SCENE`.
 - **toggle**: cinema off, so (when `BACK=previous`) save the current lighting
   into the snapshot scene with `storelightstate`, then recall the cinema
   scene. Cinema on, so recall the snapshot or `BACK_SCENE`. `scene.sh` is a
-  wrapper for it (Light button and the Movie app).
+  wrapper for it (Light button and the Philips Hue app, which remote buttons open).
 - **status** returns rooms and zones with their lights and scenes (without the
   snapshot scene) in one call for the Hue screen; **room**, **light** and
   **scene** change things; **set** saves the button setup and creates the

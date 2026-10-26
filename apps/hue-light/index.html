@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Movie</title>
+<title>Philips Hue</title>
 <style>html, body { background: transparent; }</style>
 </head>
 <body>
 <script>
-// Headless (appinfo "noWindow"): toggles the Hue movie scene, reports the
+// Headless (appinfo "noWindow"): toggles the Hue cinema scene, reports the
 // result as a system toast, then quits. Whatever is on screen stays there.
 var APP_DIR = '/media/developer/apps/usr/palm/applications/com.iso.moviescene/';
 var bridges = [];
@@ -32,9 +32,9 @@ function toast(message, done) {
 // Toast language follows the TV Home launcher setting (English by default).
 var CONFIG = '/var/lib/webosbrew/atvhome/config.json';
 var TEXT = {
-  en: { movie: 'Movie lighting on. Press again to restore the previous lighting.',
+  en: { movie: 'Cinema lighting on. Press again to switch back.',
         restored: 'Lighting restored', failed: 'Could not set the lights: ', unknown: 'unknown error' },
-  de: { movie: 'Filmlicht an. Nochmal drücken für Licht wie vorher.',
+  de: { movie: 'Kinolicht an. Nochmal drücken zum Zurückschalten.',
         restored: 'Licht wie vorher', failed: 'Licht konnte nicht gesetzt werden: ', unknown: 'unbekannter Fehler' }
 };
 
