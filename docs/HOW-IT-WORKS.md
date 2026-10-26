@@ -70,9 +70,12 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   together. Originals are kept in `wallpapers/originals/`, and image URLs
   carry `?v=<mtime>` so a new crop is not shown from the cache.
 - **Picture frame**: drawn with WebGL, not CSS. Each picture is one GPU
-  texture, uploaded in 64-row strips: `createImageBitmap` decodes and cuts
-  each strip off the main thread, and a frame uploads only as many ready
-  strips as fit in 4 ms, so a new picture never stalls the motion. Every frame
+  texture, uploaded in 64-row strips. The file is read as a blob and decoded
+  once off the main thread (`createImageBitmap(blob)`); strips are crops of
+  that decoded copy, and a frame uploads only as many as fit in 4 ms. Cropping
+  strips straight from an `<img>` re-decodes the whole JPEG for every strip on
+  the TV (measured: 4 fps while loading), so that path is avoided. Without
+  blob decoding, a 2D canvas cuts the strips. Every frame
   draws the texture at a slowly moving offset: cover the screen, then travel
   between two corners at about 7 screen pixels per second with a cosine ease
   at each turn. Still frames are stored per picture in the config

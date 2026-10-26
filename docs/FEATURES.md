@@ -61,6 +61,12 @@ Settings, **Wallpaper** shows your wallpapers as cards, plus **None** and
   again later never loses quality. The bundled default wallpaper is never
   overwritten; a crop of it is saved as a new one.
 
+**Museum prints** (installer question, or copy `prints/` from the repo): 16
+public-domain paintings by Monet, Turner, Henri-Edmond Cross and Twachtman,
+uncropped, up to 16 megapixels, with previews. Ten have enough detail for a
+sharp 4K frame across their width; the smaller six get enlarged slightly when
+they fill the screen. Credits: `prints/CREDITS.md`.
+
 Wallpapers can also be copied straight to `/var/lib/webosbrew/atvhome/wallpapers/`
 on the TV (3840x2160 looks best: the TV draws the home screen at 4K).
 
@@ -69,7 +75,11 @@ on the TV (3840x2160 looks best: the TV draws the home screen at 4K).
 Settings, **Picture Frame** shows your wallpapers full screen and dimmed, so
 the TV looks like a framed picture.
 
-- **Start** begins it. **Any button** on the remote ends it.
+- **Start** begins it. While it runs:
+  - **CH+ / CH-** show the next or the previous picture.
+  - **Arrows** move the visible area through a large picture. The automatic
+    pan stops for that picture and starts again with the next one.
+  - **OK, Back** or any other button end it.
 - **Pictures**: the wallpapers as cards; OK shows or skips one. With all of
   them picked, new wallpapers join automatically. **Hold OK** on a picture to
   set its **still frame**: the crop screen opens on the whole picture, you
