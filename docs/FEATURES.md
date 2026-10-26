@@ -41,25 +41,30 @@ The cards at the end of the grid:
 **Move** works with the arrows; OK drops the tile. **Back** leaves edit mode,
 every change is already saved.
 
-## Wallpapers
+## Pictures (Wallpaper and Picture Frame)
 
-Settings, **Wallpaper** shows your wallpapers as cards, plus **None** and
-**From USB**.
+Settings, **Wallpaper** and Picture Frame, **Pictures** open the same picture
+library: the same folders, the same crops, the same screens.
 
-- **OK** uses a wallpaper (check mark on the active one).
-- **Hold OK** crops it. A 16:9 frame lies over the picture; the arrows move
-  it (or drag it with the Magic Remote, the wheel resizes). **OK** goes to the
-  bar below: smaller, larger, resolution, **Save**.
-- **From USB** shows the pictures (JPG, PNG) on a USB stick as cards. OK opens
-  the same crop screen and Save adds the picture as a new wallpaper.
-- Saved wallpapers are **4K (3840x2160) by default** whenever the framed area
-  is big enough. A smaller frame lowers it only as far as needed, and it goes
-  back up when the frame grows again. The resolution button picks a lower
-  size (2560 or 1920 wide) on purpose; that choice is kept.
-  Pictures are never enlarged. The best source is 3840x2160 or larger.
-- The full size original of every imported picture is kept, so cropping
-  again later never loses quality. The bundled default wallpaper is never
-  overwritten; a crop of it is saved as a new one.
+- **Folders** as cards with a mosaic of their pictures: **All pictures**, your
+  folders, **New Folder**, **From USB** (and **None** for the wallpaper).
+  **OK** opens a folder. **Hold OK** on a folder: **Choose Pictures** (OK puts
+  a picture in or takes it out), **Rename**, **Delete Folder** (the pictures
+  stay). A picture can be in several folders.
+- **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
+  the picture as the wallpaper (check mark), from Picture Frame it starts the
+  frame with that folder, beginning at that picture.
+- **Hold OK on a picture**: **Crop** and which **folders** it is in.
+- **Crop**: a 16:9 frame over the whole picture; the arrows move it (or drag
+  it with the Magic Remote, the wheel resizes). **OK** goes to the bar:
+  smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
+  **Reset**, **Save**. The crop is remembered, never cut into the file, and
+  used everywhere: the home screen shows it, the picture frame rests on it
+  (Still) or glides towards it (Pan).
+- **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
+  screen; **Save** adds the whole picture (scaled down to about 18 megapixels
+  when it is bigger) with its crop and a preview. From Wallpaper it also
+  becomes the wallpaper.
 
 **Museum prints** (installer question, or copy `prints/` from the repo): 16
 public-domain paintings by Monet, Turner, Henri-Edmond Cross and Twachtman,
@@ -80,22 +85,14 @@ the TV looks like a framed picture.
   - **Arrows** move the visible area through a large picture. The automatic
     pan stops for that picture and starts again with the next one.
   - **OK, Back** or any other button end it.
-- **Pictures**: folders to sort your pictures, as cards showing a mosaic of
-  their pictures: **All pictures**, your folders and **New Folder**.
-  - **OK** chooses what the frame shows (check mark).
-  - **Hold OK** on a folder: **Choose Pictures** (OK puts a picture in the
-    folder or takes it out), **Rename**, **Delete Folder** (the pictures stay).
-    A picture can be in several folders.
-  - **Hold OK** on a picture (inside a folder, or in All pictures) sets its
-    **still frame**: the crop screen opens on the whole picture, you move and
-    size a 16:9 frame around the subject, and the label shows how sharp it
-    will be (**4K**, or how much it gets enlarged). **Save** remembers the
-    frame without cutting the file; **Reset** forgets it.
+- **Pictures**: the picture library (see above). The check mark shows the
+  folder the frame plays; OK on a picture inside a folder starts the frame
+  there with that folder. **Start** plays the folder used last.
 - **Change every** 1, 5, 15, 30 or 60 minutes (Left and Right), when more than
   one picture is shown. The order is shuffled and pictures fade into each other.
 - **Motion**: **Pan** (default) glides across large pictures, see below.
   **Still** shows every picture without panning, filling the screen: with
-  its still frame if one is set, otherwise centred (a tall photo or a square
+  its crop if one is set, otherwise centred (a tall photo or a square
   painting is zoomed in to 16:9).
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
@@ -104,14 +101,14 @@ the TV looks like a framed picture.
 screen or not 16:9 (a tall photo, a square painting, a 15000 pixel camera
 shot) fills the screen and glides very slowly:
 
-- **With a still frame**, it starts at the far side of the picture and glides
-  towards the frame, zooming in, so it arrives before the next picture comes;
-  then it rests on the frame. If the whole way would take longer, it starts
+- **With a crop**, it starts at the far side of the picture and glides
+  towards the crop, zooming in, so it arrives before the next picture comes;
+  then it rests on the crop. If the whole way would take longer, it starts
   closer, so the speed stays just as slow.
 - **Without one**, it travels from one corner to the other and back, easing
   into each turn, until the next picture.
 
-A 16:9 picture without a still frame only drifts a few pixels now and then,
+A 16:9 picture without a crop only drifts a few pixels now and then,
 which protects an OLED panel.
 
 For the best panning, copy large pictures to the TV at up to about 18

@@ -64,11 +64,14 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   focus change never repaints a card, the wallpaper and its shading are one
   layer, and the dimming layer stays on the GPU. There are no endless
   animations; an idle tilt animation alone cost about 45% CPU.
-- **Wallpapers**: cropping runs in the web view (`canvas`, JPEG at 90%). The
-  result goes to the TV in 100 KB base64 pieces through `exec`, because one
-  argument may not exceed 128 KiB (`MAX_ARG_STRLEN`); `usb.py` puts them back
-  together. Originals are kept in `wallpapers/originals/`, and image URLs
-  carry `?v=<mtime>` so a new crop is not shown from the cache.
+- **Pictures**: one library for Wallpaper and Picture Frame (`library()` in
+  `app.js`). A crop is only a position, so it never needs a new file. A USB
+  import is scaled in the web view (`canvas`, JPEG at 90%, at most about 18
+  megapixels) and goes to the TV in 100 KB base64 pieces through `exec`,
+  because one argument may not exceed 128 KiB (`MAX_ARG_STRLEN`); `usb.py`
+  puts them back together and stores the crop's preview in
+  `wallpapers/thumbs/`. Image URLs carry `?v=<mtime>` so a changed file is
+  not shown from the cache.
 - **Picture frame**: drawn with WebGL, not CSS (CSS animation of a large
   layer makes the compositor rasterise tiles while it moves, which hitches).
   Each picture is one GPU texture. Loading never touches the motion:
@@ -85,9 +88,11 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   (cosine eased, about 7 screen pixels per second, started closer when it
   would not arrive within 85% of the change interval), then a 2% drift on the
   frame. Pan without one: corner to corner and back. Still: the frame or the
-  centre, filling the screen, with the 2% drift. Picture folders live in the
-  config as `frame.folders = [{id, name, items}]` and `frame.show`. Still frames live in the config (`frame.focus[name] = {x, y, w}` as
-  fractions) and never change the file. Dimming happens in the shader. Frame
+  centre, filling the screen, with the 2% drift. Picture folders are
+  `pictureFolders = [{id, name, items}]`, shared by Wallpaper and Picture
+  Frame; `frame.show` is the folder the frame plays. Crops live in the config (`crops[name] = {x, y, w, r}`, fractions plus
+  the picture's shape), shared with the home wallpaper (CSS background size
+  and position), and never change the file. Dimming happens in the shader. Frame
   times, slow frames during loads and the load path are appended to
   `/tmp/atvhome-frame.txt` when the frame ends.
 - **Screensaver**: tvpowerd starts it, after asking every client registered

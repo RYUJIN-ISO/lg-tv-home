@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.22.0';
+var VERSION = '0.23.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -33,8 +33,9 @@ var DEFAULT_CONFIG = {
   added: [],      // keys of installed apps without a launch point, put on it
   // picture frame: pictures null = all wallpapers; focus = per picture 16:9
   // still frame {x, y, w} as fractions of the picture
-  // folders: [{id, name, items: [picture names]}], show: 'all' or a folder id
-  frame: { every: 5, bri: 60, pan: true, focus: {}, folders: [], show: 'all' }
+  crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
+  pictureFolders: [],  // [{id, name, items: [picture names]}]
+  frame: { every: 5, bri: 60, pan: true, show: 'all' }   // show: 'all' or a picture folder id
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -152,17 +153,19 @@ var STRINGS = {
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
     moveHint: 'Use the arrow keys to move, OK to drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
-    fromUsb: 'From USB …', wpHint: 'OK: use · hold OK: crop', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
+    fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
     cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: 'Arrows: move · OK: options',
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
+    libHint: 'OK: open · hold OK on a folder: options', wpUseHint: 'OK: use as wallpaper · hold OK: crop, folders',
+    frameHere: 'OK: start the frame here · hold OK: crop, folders', usbHint: 'OK: crop and add',
+    crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
-    albumHint: 'OK: show in the frame · hold OK: folder options', cropPickHint: 'Hold OK: still frame',
     frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
-    frameEvery: 'Change every', frameHow: 'While it runs: CH+ / CH- change the picture, the arrows look around, OK ends it.', framePickHint: 'OK: in this folder or not · hold OK: still frame',
+    frameEvery: 'Change every', frameHow: 'While it runs: CH+ / CH- change the picture, the arrows look around, OK ends it.', framePickHint: 'OK: in this folder or not · hold OK: crop',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
     hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
     hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
@@ -208,17 +211,19 @@ var STRINGS = {
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
     moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
-    fromUsb: 'Von USB …', wpHint: 'OK: verwenden · OK halten: zuschneiden', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
+    fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
     cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: 'Pfeile: verschieben · OK: Optionen',
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
+    libHint: 'OK: öffnen · OK halten auf einem Ordner: Optionen', wpUseHint: 'OK: als Hintergrund · OK halten: Ausschnitt, Ordner',
+    frameHere: 'OK: Bilderrahmen hier starten · OK halten: Ausschnitt, Ordner', usbHint: 'OK: zuschneiden und hinzufügen',
+    crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
-    albumHint: 'OK: im Rahmen zeigen · OK halten: Ordner-Optionen', cropPickHint: 'OK halten: Standbild-Ausschnitt',
     frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
-    frameEvery: 'Wechsel alle', frameHow: 'Während er läuft: CH+ / CH- wechseln das Bild, die Pfeile schauen sich um, OK beendet ihn.', framePickHint: 'OK: im Ordner oder nicht · OK halten: Standbild-Ausschnitt',
+    frameEvery: 'Wechsel alle', frameHow: 'Während er läuft: CH+ / CH- wechseln das Bild, die Pfeile schauen sich um, OK beendet ihn.', framePickHint: 'OK: im Ordner oder nicht · OK halten: Ausschnitt',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
     hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
     hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
@@ -729,6 +734,18 @@ function applyLook() {
   wall.classList.toggle('none', !wp);
   var shade = 'linear-gradient(180deg, rgba(0,0,0,.25) 0%, transparent 18%, transparent 48%, rgba(0,0,0,.55) 75%, rgba(0,0,0,.75) 100%)';
   wall.style.backgroundImage = wp ? shade + ', url("' + wp.url + '")' : '';
+  // The picture's crop, if it has one (else cover, centred).
+  var crop = wp && cropOf(wp.name);
+  if (crop && !crop.r) {                // older crops: learn the picture's shape once
+    var probe = new Image();
+    probe.onload = function () { crop.r = probe.naturalWidth / probe.naturalHeight; saveConfig(); applyLook(); };
+    probe.src = wp.url;
+  }
+  if (crop && crop.r) {
+    var cw = 1920 / crop.w, chh = cw / crop.r;
+    wall.style.backgroundSize = '100% 100%, ' + cw + 'px ' + chh + 'px';
+    wall.style.backgroundPosition = '0 0, ' + (-crop.x * cw) + 'px ' + (-crop.y * chh) + 'px';
+  } else { wall.style.backgroundSize = ''; wall.style.backgroundPosition = ''; }
   document.getElementById('clock').classList.toggle('off', !c.clock);
   document.documentElement.lang = lang();
 }
@@ -1286,7 +1303,7 @@ function openSettings() {
       var c = cfg();
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
-        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: chooseWallpaper },
+        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures('wallpaper'); } },
         { label: t('frame'), chevron: true, action: openFrameSettings },
         { label: t('remoteButtons'), chevron: true, action: openRemote }
       ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
@@ -1300,54 +1317,6 @@ function openSettings() {
   });
 }
 
-// Wallpapers as cards: OK uses one (✓), hold OK crops it (from the kept
-// full-size original when there is one), plus None and From USB cards.
-function chooseWallpaper() {
-  var el = layer('folderView picker');
-  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
-  el.querySelector('.title').textContent = t('wallpaper');
-  el.querySelector('.pickhint').textContent = t('wpHint');
-  var inner = el.querySelector('.inner');
-  var view = { el: el };
-  function current() { return cfg().wallpaper; }
-  function entries() {
-    var list = state.wallpapers.map(function (w) {
-      return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url, wp: w };
-    });
-    list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
-    list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
-    return list;
-  }
-  var grid = new Grid({
-    container: el.querySelector('.grid'),
-    decorate: function (tile, e) {
-      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
-      tile.classList.toggle('picked', e.key === current());
-    },
-    onActivate: function (e) {
-      if (e.key === '__usb') { chooseUsbPicture(); return; }
-      cfg().wallpaper = e.key;
-      saveConfig();
-      applyLook();
-      var tiles = grid.tiles();
-      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
-    },
-    onLongPress: function (e) {
-      if (!e.wp) return;
-      cropPicture({ url: e.wp.orig || e.wp.url, name: e.title, saveAs: e.wp.bundled ? null : e.title });
-    },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
-  });
-  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
-  view.ok = function () { grid.activate(grid.focus); };
-  view.longOk = function () { grid.longPress(grid.focus); };
-  view.grid = grid;
-  push(view);
-  var list = entries();
-  grid.set(list);
-  for (var i = 0; i < list.length; i++) if (list[i].key === current()) grid.setFocus(i, true);
-}
-
 function indexOfKey(key) {
   for (var i = 0; i < mainGrid.entries.length; i++) if (mainGrid.entries[i].key === key) return i;
   return 0;
@@ -1357,86 +1326,302 @@ function indexOfKey(key) {
 
 
 
-// ---------------------------------------------------------------- usb wallpapers
+// ---------------------------------------------------------------- picture library
+
+// One library for Wallpaper and Picture Frame: the same folders, crops and
+// screens. Only OK on a picture differs: Wallpaper uses it, Picture Frame
+// starts the frame there. Config: crops {name: {x, y, w, r}} (16:9 crop as
+// fractions of the picture, r = its width / height), pictureFolders
+// [{id, name, items}]. A crop never changes the file.
+function library() {
+  var c = cfg(), f = frameCfg();
+  if (!c.crops) c.crops = {};
+  if (!c.pictureFolders) c.pictureFolders = [];
+  // Earlier versions kept these under the picture frame.
+  if (f.focus) { for (var k in f.focus) if (!c.crops[k]) c.crops[k] = f.focus[k]; delete f.focus; saveConfig(); }
+  if (f.folders) { c.pictureFolders = c.pictureFolders.concat(f.folders); delete f.folders; saveConfig(); }
+  if (f.pictures) {
+    c.pictureFolders.push({ id: 'p' + Date.now(), name: t('selection'), items: f.pictures });
+    f.show = c.pictureFolders[c.pictureFolders.length - 1].id;
+    delete f.pictures;
+    saveConfig();
+  }
+  return c;
+}
+
+function pictureFolders() { return library().pictureFolders; }
+function pictureFolder(id) { return pictureFolders().filter(function (x) { return x.id === id; })[0] || null; }
+function cropOf(name) { return library().crops[name] || null; }
+function picThumb(w) { return w ? w.thumb || w.url : ''; }
+function folderPics(fo) {
+  return state.wallpapers.filter(function (w) { return !fo || fo.items.indexOf(w.name) >= 0; });
+}
+
+function pickerLayer(title, hint) {
+  var el = layer('folderView picker');
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
+  el.querySelector('.title').textContent = title;
+  el.querySelector('.pickhint').textContent = hint;
+  return el;
+}
+
+function pickerView(el, grid) {
+  var inner = el.querySelector('.inner');
+  grid.o.onRow = function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; };
+  var view = { el: el, grid: grid };
+  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+  view.ok = function () { grid.activate(grid.focus); };
+  view.longOk = function () { grid.longPress(grid.focus); };
+  return view;
+}
+
+// Top level, the same from both menus: All pictures, the folders, New Folder,
+// From USB (and None for the wallpaper). OK opens a folder; hold OK on a
+// folder: Choose Pictures, Rename, Delete. mode: 'wallpaper' or 'frame'.
+function openPictures(mode) {
+  var el = pickerLayer(mode === 'frame' ? t('frame') : t('wallpaper'), t('libHint'));
+  function entries() {
+    var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: folderPics(null) }];
+    pictureFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: folderPics(fo) }); });
+    list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
+    list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
+    if (mode === 'wallpaper') list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
+    return list;
+  }
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      // ✓ on what is in use: the frame's folder, or None as wallpaper.
+      var on = mode === 'frame' ? e.type === 'album' && e.key === (pictureFolder(frameCfg().show) ? frameCfg().show : 'all')
+        : e.key === 'none' && cfg().wallpaper === 'none';
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', on);
+    },
+    onActivate: function (e) {
+      if (e.type === 'album') { openFolder(pictureFolder(e.key), mode); return; }
+      if (e.key === '__new') { newPictureFolder(); return; }
+      if (e.key === '__usb') { chooseUsbPicture(mode); return; }
+      if (e.key === 'none') { cfg().wallpaper = 'none'; saveConfig(); applyLook(); view.refresh(); }
+    },
+    onLongPress: function (e) { var fo = pictureFolder(e.key); if (fo) folderOptions_(fo); }
+  });
+  var view = pickerView(el, grid);
+  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
+  push(view);
+  grid.set(entries());
+}
+
+function newPictureFolder() {
+  askText(t('newFolder'), '', function (name) {
+    var fo = { id: 'p' + Date.now(), name: name.trim() || t('newFolder'), items: [] };
+    pictureFolders().push(fo);
+    saveConfig();
+    refreshTop();
+    choosePictures(fo);
+  });
+}
+
+function folderOptions_(fo) {
+  menu({ title: fo.name, rows: function () {
+    return [
+      { label: t('choosePictures'), chevron: true, action: function () { pop(); choosePictures(fo); } },
+      { label: t('rename'), action: function () {
+        askText(t('rename'), fo.name, function (name) { if (name.trim()) fo.name = name.trim(); saveConfig(); pop(); });
+      } },
+      { label: t('deleteFolder'), danger: true, action: function () {
+        confirmSheet(t('deleteFolderQ'), t('deleteFolderSub'), t('dissolveYes'), function () {
+          cfg().pictureFolders = pictureFolders().filter(function (x) { return x !== fo; });
+          if (frameCfg().show === fo.id) frameCfg().show = 'all';
+          saveConfig();
+          pop();                       // the folder's menu (the sheet closed itself)
+        });
+      } }
+    ];
+  } });
+}
+
+// A folder's pictures (fo = null: all). OK: use as wallpaper (✓ on the
+// current one), or start the frame with this folder at this picture.
+// Hold OK: the picture's options (Crop, Folders).
+function openFolder(fo, mode) {
+  var el = pickerLayer(fo ? fo.name : t('allPictures'), mode === 'frame' ? t('frameHere') : t('wpUseHint'));
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      if (mode !== 'wallpaper') return;
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', e.key === cfg().wallpaper);
+    },
+    onActivate: function (e) {
+      if (mode === 'frame') {
+        frameCfg().show = fo ? fo.id : 'all';
+        saveConfig();
+        closeAll();
+        startFrame(e.key);
+        return;
+      }
+      cfg().wallpaper = e.key;
+      saveConfig();
+      applyLook();
+      var tiles = grid.tiles();
+      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
+    },
+    onLongPress: function (e) { pictureOptions(e.wp); }
+  });
+  var view = pickerView(el, grid);
+  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
+  function entries() {
+    return folderPics(fo).map(function (w) {
+      return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
+    });
+  }
+  push(view);
+  var list = entries();
+  grid.set(list);
+  for (var i = 0; i < list.length; i++) if (list[i].key === cfg().wallpaper) grid.setFocus(i, true);
+}
+
+function pictureOptions(w) {
+  menu({ title: w.name.replace(/\.[a-z]+$/i, ''), rows: function () {
+    var rows = [{ label: t('crop'), value: cropOf(w.name) ? t('cropSet') : '', chevron: true, action: function () { pop(); editCrop(w); } },
+                { info: true, label: t('inFolders') }];
+    pictureFolders().forEach(function (fo) {
+      rows.push({ label: fo.name, check: fo.items.indexOf(w.name) >= 0, action: function () {
+        var at = fo.items.indexOf(w.name);
+        if (at >= 0) fo.items.splice(at, 1); else fo.items.push(w.name);
+        saveConfig();
+        refreshTop();
+      } });
+    });
+    if (!pictureFolders().length) rows.push({ info: true, label: t('noFolders') });
+    return rows;
+  } });
+}
+
+// Pictures as cards with ✓ = in the folder; OK adds or removes one.
+function choosePictures(fo) {
+  var el = pickerLayer(fo.name, t('framePickHint'));
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      tile.classList.add('pickable');
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', fo.items.indexOf(e.key) >= 0);
+    },
+    onActivate: function (e, i) {
+      var at = fo.items.indexOf(e.key);
+      if (at >= 0) fo.items.splice(at, 1); else fo.items.push(e.key);
+      saveConfig();
+      grid.tiles()[i].classList.toggle('picked', at < 0);
+    },
+    onLongPress: function (e) { editCrop(e.wp); }
+  });
+  push(pickerView(el, grid));
+  grid.set(state.wallpapers.map(function (w) {
+    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
+  }));
+}
+
+function editCrop(w) {
+  cropPicture({ url: w.url, rect: cropOf(w.name), onSave: function (rect) {
+    if (rect) library().crops[w.name] = rect; else delete library().crops[w.name];
+    saveConfig();
+    applyLook();
+  } });
+}
+
+// ---------------------------------------------------------------- usb pictures
 
 var USB_PY = 'python3 ' + APP_DIR + 'usb.py';
-var OUT_SIZES = [3840, 2560, 1920];   // 16:9 output widths; 4K preferred
+var IMPORT_MAX = 18e6;   // pixels kept per imported picture (enough to pan at 4K)
 
-function chooseUsbPicture() {
+function chooseUsbPicture(mode) {
   showHint(t('usbLoading'));
   exec(USB_PY + ' list', function (res) {
     showHint('');
     var list = [];
     try { list = JSON.parse(res.stdoutString || '[]'); } catch (e) {}
     if (!list.length) { showHint(t('usbNone')); setTimeout(function () { showHint(''); }, 3000); return; }
-    var el = layer('folderView picker');
-    el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div></div>';
-    el.querySelector('.title').textContent = t('fromUsb');
-    var inner = el.querySelector('.inner');
-    var view = { el: el };
+    var el = pickerLayer(t('fromUsb'), t('usbHint'));
     var grid = new Grid({
       container: el.querySelector('.grid'),
-      onActivate: function (e) {
-        cropPicture({ url: e.pic.url, name: e.pic.name, keepOriginal: true });
-      },
-      onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+      onActivate: function (e) { cropPicture({ url: e.pic.url, name: e.pic.name, mode: mode, onSave: null }); }
     });
-    view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
-    view.ok = function () { grid.activate(grid.focus); };
-    view.grid = grid;
-    push(view);
+    push(pickerView(el, grid));
     grid.set(list.map(function (p, i) { return { type: 'image', key: 'usb' + i, title: p.name, url: p.url, pic: p }; }));
   });
 }
 
-// Crop screen: 16:9 frame over the picture. Arrows move the frame; OK goes to
-// the bar (Smaller, Larger, resolution, Save); Up/Back returns to the frame.
-// pic: {url, name, saveAs?, keepOriginal?}. saveAs = overwrite that wallpaper
-// (re-crop); otherwise a new one named after pic.name. keepOriginal stores the
-// full-size source in wallpapers/originals for later re-cropping.
+// Import: the whole picture (scaled down to IMPORT_MAX) plus its crop and a
+// preview of the crop go to the TV; a wallpaper import becomes the wallpaper.
+function importPicture(pic, img, rect) {
+  showHint(t('saving'));
+  var W = img.naturalWidth, H = img.naturalHeight, s = Math.min(1, Math.sqrt(IMPORT_MAX / (W * H)));
+  var full = document.createElement('canvas');
+  full.width = Math.round(W * s); full.height = Math.round(H * s);
+  full.getContext('2d').drawImage(img, 0, 0, full.width, full.height);
+  var thumb = document.createElement('canvas');
+  thumb.width = 640; thumb.height = 360;
+  thumb.getContext('2d').drawImage(img, rect.x * W, rect.y * H, rect.w * W, rect.w * W * 9 / 16, 0, 0, 640, 360);
+  var id = String(Date.now());
+  var name = (pic.name || 'picture').replace(/\.[a-z]+$/i, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) + '-' + id.slice(-5);
+  var b64 = full.toDataURL('image/jpeg', 0.9).split(',')[1];
+  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB (MAX_ARG_STRLEN)
+  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+  (function send(i) {
+    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
+    exec(USB_PY + ' finish ' + id + ' ' + name, function (res) {
+      var file = (res.stdoutString || '').trim();
+      if (!file) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+      exec(USB_PY + ' thumb ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
+        showHint('');
+        library().crops[file] = rect;
+        if (pic.mode === 'wallpaper') cfg().wallpaper = file;
+        saveConfig();
+        closeAll();
+        load();
+      });
+    });
+  })(0);
+}
+
+// Crop screen: a 16:9 frame over the whole picture. Arrows move it; OK goes
+// to the bar (Smaller, Larger, sharpness, Reset, Save); Up/Back returns to
+// the frame. The label says how sharp the crop is on the 4K screen.
+// pic: {url, rect?, onSave(rect or null)} for a picture in the library, or
+// {url, name, mode} from USB (Save imports it).
 function cropPicture(pic) {
   var probe = new Image();
-  probe.onload = function () { openCrop(pic, probe.naturalWidth, probe.naturalHeight); };
+  probe.onload = function () { openCrop(pic, probe); };
   probe.onerror = function () { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); };
   probe.src = pic.url;
 }
 
-function openCrop(pic, W, H) {
+function openCrop(pic, probe) {
+  var W = probe.naturalWidth, H = probe.naturalHeight;
   var el = layer('cropView');
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
-    '<div class="pill" data-a="res"></div>' + (pic.onFrame ? '<div class="pill" data-a="whole"></div>' : '') +
+    '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
     '<div class="pill save" data-a="save"></div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
-  var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
+  var pills = [].slice.call(el.querySelectorAll('.cropbar .pill')), SAVE = pills.length - 1;
   var AREA_W = 1760, AREA_H = 880;
-  var k = Math.min(AREA_W / W, AREA_H / H);          // source px -> screen px
+  var k = Math.min(AREA_W / W, AREA_H / H);          // picture px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
   img.style.cssText = 'left:' + ox + 'px;top:' + oy + 'px;width:' + W * k + 'px;height:' + H * k + 'px';
   img.src = pic.url;
-  var fw = Math.min(W, H * 16 / 9);                   // frame in source px
-  var f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 };
+  var f;
+  function centre() { var fw = Math.min(W, H * 16 / 9); f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 }; }
+  centre();
   if (pic.rect) f = { w: pic.rect.w * W, x: pic.rect.x * W, y: pic.rect.y * H };
-  var SAVE = pills.length - 1;
   var focus = -1;                                     // -1 = frame, else pill index
-  var outW = 0;
-  var wantW = OUT_SIZES[0];                           // what the viewer chose; 4K by default
 
-  function sizes() {
-    var max = Math.floor(f.w);
-    var list = OUT_SIZES.filter(function (s) { return s <= max; });
-    if (!list.length) list = [Math.max(16, max - max % 16)];
-    return list;
-  }
   function clamp() {
     f.w = Math.max(Math.min(W, H * 16 / 9, f.w), Math.min(W, 480));
     f.x = Math.max(0, Math.min(W - f.w, f.x));
     f.y = Math.max(0, Math.min(H - f.w * 9 / 16, f.y));
-    var s = sizes();
-    // Highest size up to the chosen one that the frame allows, so shrinking and
-    // growing the frame again returns to 4K unless a lower size was chosen.
-    outW = s.filter(function (w) { return w <= wantW; })[0] || s[s.length - 1];
   }
   function paint() {
     clamp();
@@ -1444,11 +1629,11 @@ function openCrop(pic, W, H) {
       'px;height:' + f.w * 9 / 16 * k + 'px';
     frameEl.classList.toggle('sel', focus < 0);
     pills.forEach(function (p, i) { p.classList.toggle('sel', i === focus); });
-    if (pic.onFrame) {
-      // Still frame: how sharp it will look on the 4K screen.
-      pills[2].textContent = f.w >= 3840 * 0.99 ? '4K' : t('upscaled', Math.round((3840 / f.w - 1) * 100));
-      pills[3].textContent = t('wholePicture');
-    } else pills[2].textContent = (outW === 3840 ? '4K · ' : '') + outW + '×' + Math.round(outW * 9 / 16);
+    // An imported picture keeps up to IMPORT_MAX pixels, so judge that size.
+    var keep = pic.onSave ? 1 : Math.min(1, Math.sqrt(IMPORT_MAX / (W * H)));
+    var px = f.w * keep;
+    pills[2].textContent = px >= 3840 * 0.99 ? '4K' : t('upscaled', Math.round((3840 / px - 1) * 100));
+    pills[3].textContent = t('wholePicture');
     pills[SAVE].textContent = t('save');
     el.querySelector('.crophint').textContent = t('cropHint', W + '×' + H) + '  ·  ' +
       (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar'));
@@ -1460,37 +1645,15 @@ function openCrop(pic, W, H) {
     f.x = cx - f.w / 2; f.y = cy - f.w * 9 / 32;
     paint();
   }
+  function rect() { return { x: f.x / W, y: f.y / H, w: f.w / W, r: W / H }; }
   function act(a) {
     if (a === 'minus') resize(0.9);
     else if (a === 'plus') resize(1 / 0.9);
-    else if (a === 'res') { if (pic.onFrame) return; var s = sizes(); wantW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
-    else if (a === 'whole') { pic.onFrame(null); pop(); }
-    else if (a === 'save' && pic.onFrame) { pic.onFrame({ x: f.x / W, y: f.y / H, w: f.w / W }); pop(); }
-    else if (a === 'save') save();
-  }
-  function save() {
-    showHint(t('saving'));
-    var canvas = document.createElement('canvas');
-    canvas.width = outW; canvas.height = Math.round(outW * 9 / 16);
-    canvas.getContext('2d').drawImage(img, f.x, f.y, f.w, f.w * 9 / 16, 0, 0, canvas.width, canvas.height);
-    var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-    var id = String(Date.now());
-    var name = pic.saveAs || ((pic.name || 'picture').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) + '-' + id.slice(-5));
-    var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB (MAX_ARG_STRLEN)
-    for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
-    (function send(i) {
-      if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
-      exec(USB_PY + ' finish ' + id + ' ' + name, function (res) {
-        var file = (res.stdoutString || '').trim();
-        showHint('');
-        if (!file) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
-        cfg().wallpaper = file;
-        saveConfig();
-        closeAll();
-        if (pic.keepOriginal) exec(USB_PY + ' keep ' + pic.url + ' ' + name, function () { load(); });
-        else load();
-      });
-    })(0);
+    else if (a === 'reset') {
+      if (pic.onSave) { pic.onSave(null); pop(); } else { centre(); paint(); }
+    } else if (a === 'save') {
+      if (pic.onSave) { pic.onSave(rect()); pop(); } else importPicture(pic, img, rect());
+    }
   }
 
   var view = { el: el };
@@ -1544,35 +1707,13 @@ var frameView = null;
 function frameCfg() {
   var c = cfg();
   if (!c.frame) c.frame = clone(DEFAULT_CONFIG.frame);
-  if (!c.frame.focus) c.frame.focus = {};
   return c.frame;
 }
 
-function frameFolders() {
-  var f = frameCfg();
-  if (!f.folders) f.folders = [];
-  // Older versions kept one tick-to-skip selection; it becomes a folder.
-  if (f.pictures) {
-    f.folders.push({ id: 'p' + Date.now(), name: t('selection'), items: f.pictures });
-    f.show = f.folders[f.folders.length - 1].id;
-    delete f.pictures;
-    saveConfig();
-  }
-  return f.folders;
-}
-
-function frameFolder(id) {
-  return frameFolders().filter(function (x) { return x.id === id; })[0] || null;
-}
-
 function framePictures() {
-  frameFolders();                      // converts an old selection first
-  var fo = frameFolder(frameCfg().show);
-  var list = state.wallpapers.filter(function (w) { return !fo || fo.items.indexOf(w.name) >= 0; });
+  var list = folderPics(pictureFolder(frameCfg().show));
   return list.length ? list : state.wallpapers;
 }
-
-function picThumb(w) { return w ? w.thumb || w.url : ''; }
 
 function everyLabel(m) { return m < 60 ? t('minutes', m) : t('hour'); }
 
@@ -1584,8 +1725,8 @@ function openFrameSettings() {
       var f = frameCfg(), n = framePictures().length;
       var rows = [
         { label: t('frameStart'), action: startFrame },
-        { label: t('framePictures'), value: frameFolder(f.show) ? frameFolder(f.show).name : t('allPictures'),
-          chevron: true, action: chooseFrameFolders }
+        { label: t('framePictures'), value: pictureFolder(f.show) ? pictureFolder(f.show).name : t('allPictures'),
+          chevron: true, action: function () { openPictures('frame'); } }
       ];
       if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
         adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
@@ -1602,124 +1743,8 @@ function openFrameSettings() {
   });
 }
 
-// Picture folders: All pictures, the folders, New Folder. OK picks what the
-// frame shows (check mark); hold OK opens a folder's options.
-function chooseFrameFolders() {
-  var el = layer('folderView picker');
-  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
-  el.querySelector('.title').textContent = t('framePictures');
-  el.querySelector('.pickhint').textContent = t('albumHint');
-  var inner = el.querySelector('.inner');
-  var view = { el: el };
-  function pics(items) {
-    return state.wallpapers.filter(function (w) { return !items || items.indexOf(w.name) >= 0; });
-  }
-  function entries() {
-    var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: pics(null) }];
-    frameFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: pics(fo.items) }); });
-    list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
-    return list;
-  }
-  function shown() { return frameFolder(frameCfg().show) ? frameCfg().show : 'all'; }
-  var grid = new Grid({
-    container: el.querySelector('.grid'),
-    decorate: function (tile, e) {
-      if (e.type !== 'album') return;
-      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
-      tile.classList.toggle('picked', e.key === shown());
-    },
-    onActivate: function (e) {
-      if (e.key === '__new') {
-        askText(t('newFolder'), '', function (name) {
-          var fo = { id: 'p' + Date.now(), name: name.trim() || t('newFolder'), items: [] };
-          frameFolders().push(fo);
-          saveConfig();
-          view.refresh();
-          folderPictures(fo);
-        });
-        return;
-      }
-      frameCfg().show = e.key;
-      saveConfig();
-      var tiles = grid.tiles();
-      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
-    },
-    onLongPress: function (e) {
-      if (e.key === 'all') { folderPictures(null); return; }
-      var fo = frameFolder(e.key);
-      if (!fo) return;
-      menu({ title: fo.name, rows: function () {
-        return [
-          { label: t('choosePictures'), chevron: true, action: function () { pop(); folderPictures(fo); } },
-          { label: t('rename'), action: function () {
-            askText(t('rename'), fo.name, function (name) { if (name.trim()) fo.name = name.trim(); saveConfig(); pop(); });
-          } },
-          { label: t('deleteFolder'), danger: true, action: function () {
-            confirmSheet(t('deleteFolderQ'), t('deleteFolderSub'), t('dissolveYes'), function () {
-              frameCfg().folders = frameFolders().filter(function (x) { return x !== fo; });
-              if (frameCfg().show === fo.id) frameCfg().show = 'all';
-              saveConfig();
-              pop(); pop();
-            });
-          } }
-        ];
-      } });
-    },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
-  });
-  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
-  view.ok = function () { grid.activate(grid.focus); };
-  view.longOk = function () { grid.longPress(grid.focus); };
-  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
-  view.grid = grid;
-  push(view);
-  grid.set(entries());
-}
-
-// The pictures of a folder (or all of them, fo = null) as cards. In a folder
-// OK adds or removes a picture; anywhere, hold OK sets its still frame.
-function folderPictures(fo) {
-  var el = layer('folderView picker');
-  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
-  el.querySelector('.title').textContent = fo ? fo.name : t('allPictures');
-  el.querySelector('.pickhint').textContent = fo ? t('framePickHint') : t('cropPickHint');
-  var inner = el.querySelector('.inner');
-  var view = { el: el };
-  var grid = new Grid({
-    container: el.querySelector('.grid'),
-    decorate: function (tile, e) {
-      if (!fo) return;
-      tile.classList.add('pickable');
-      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
-      tile.classList.toggle('picked', fo.items.indexOf(e.key) >= 0);
-    },
-    onActivate: function (e, i) {
-      if (!fo) return;
-      var at = fo.items.indexOf(e.key);
-      if (at >= 0) fo.items.splice(at, 1); else fo.items.push(e.key);
-      saveConfig();
-      grid.tiles()[i].classList.toggle('picked', at < 0);
-    },
-    onLongPress: function (e) {
-      var focus = frameCfg().focus;
-      cropPicture({ url: e.wp.url, name: e.title, rect: focus[e.key], onFrame: function (rect) {
-        if (rect) focus[e.key] = rect; else delete focus[e.key];
-        saveConfig();
-      } });
-    },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
-  });
-  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
-  view.ok = function () { grid.activate(grid.focus); };
-  view.longOk = function () { grid.longPress(grid.focus); };
-  view.grid = grid;
-  push(view);
-  grid.set(state.wallpapers.map(function (w) {
-    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
-  }));
-}
-
-function startFrame() {
+// start: name of the picture to begin with (optional).
+function startFrame(start) {
   var pics = framePictures();
   if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
   if (frameView) return;
@@ -1742,6 +1767,8 @@ function startFrame() {
     return history[at = history.length - 1];
   }
   function prevPic() { return at > 0 ? history[--at] : null; }
+  var first = pics.filter(function (w) { return w.name === start; })[0];
+  if (first) history.push(first);
   // The picture nextPic() will return, without moving on (for preloading).
   function peekNext() {
     if (at >= history.length - 1) history.push(shuffled());
@@ -1855,7 +1882,7 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
   // towards the crop, zooming in, arriving before the next picture; then it
   // rests there. Pan without a crop: corner to corner and back.
   function plan(w, h, name) {
-    var rect = frameCfg().focus[name];
+    var rect = cropOf(name);
     var k = Math.max(W / w, H / h), cv = W / k, chh = H / k;
     var crop = rect ? view_(rect.x * w, rect.y * h, rect.w * w) : null;
     var centre = view_((w - cv) / 2, (h - chh) / 2, cv);
