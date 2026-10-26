@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.21.1';
+var VERSION = '0.22.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -33,7 +33,8 @@ var DEFAULT_CONFIG = {
   added: [],      // keys of installed apps without a launch point, put on it
   // picture frame: pictures null = all wallpapers; focus = per picture 16:9
   // still frame {x, y, w} as fractions of the picture
-  frame: { pictures: null, every: 5, bri: 60, pan: true, focus: {} }
+  // folders: [{id, name, items: [picture names]}], show: 'all' or a folder id
+  frame: { every: 5, bri: 60, pan: true, focus: {}, folders: [], show: 'all' }
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -156,9 +157,12 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
+    allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
+    deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
+    albumHint: 'OK: show in the frame · hold OK: folder options', cropPickHint: 'Hold OK: still frame',
     frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
-    frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip · hold OK: still frame',
+    frameEvery: 'Change every', frameHow: 'While it runs: CH+ / CH- change the picture, the arrows look around, OK ends it.', framePickHint: 'OK: in this folder or not · hold OK: still frame',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
     hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
     hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
@@ -209,9 +213,12 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
+    allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
+    deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
+    albumHint: 'OK: im Rahmen zeigen · OK halten: Ordner-Optionen', cropPickHint: 'OK halten: Standbild-Ausschnitt',
     frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
-    frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen · OK halten: Standbild-Ausschnitt',
+    frameEvery: 'Wechsel alle', frameHow: 'Während er läuft: CH+ / CH- wechseln das Bild, die Pfeile schauen sich um, OK beendet ihn.', framePickHint: 'OK: im Ordner oder nicht · OK halten: Standbild-Ausschnitt',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
     hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
     hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
@@ -445,6 +452,12 @@ function renderTile(entry) {
     card.innerHTML = ICONS.light + '<div class="rname"></div><div class="pct"></div><div class="gloss"></div>';
     card.querySelector('.rname').textContent = entry.title;
     card.querySelector('.pct').textContent = entry.room.on ? entry.room.bri + '%' : t('off');
+    label.textContent = entry.title;
+  } else if (entry.type === 'album') {
+    card.classList.add('album');
+    var mos = '<div class="mos n' + Math.min(entry.pics.length, 4) + '">';
+    entry.pics.slice(0, 4).forEach(function (w) { mos += '<div style="background-image:url(\'' + picThumb(w) + '\')"></div>'; });
+    card.innerHTML = mos + '</div><div class="count">' + entry.pics.length + '</div><div class="gloss"></div>';
     label.textContent = entry.title;
   } else if (entry.type === 'image') {
     card.classList.add('art');
@@ -1535,10 +1548,31 @@ function frameCfg() {
   return c.frame;
 }
 
-function framePictures() {
-  var sel = frameCfg().pictures;
-  return state.wallpapers.filter(function (w) { return !sel || sel.indexOf(w.name) >= 0; });
+function frameFolders() {
+  var f = frameCfg();
+  if (!f.folders) f.folders = [];
+  // Older versions kept one tick-to-skip selection; it becomes a folder.
+  if (f.pictures) {
+    f.folders.push({ id: 'p' + Date.now(), name: t('selection'), items: f.pictures });
+    f.show = f.folders[f.folders.length - 1].id;
+    delete f.pictures;
+    saveConfig();
+  }
+  return f.folders;
 }
+
+function frameFolder(id) {
+  return frameFolders().filter(function (x) { return x.id === id; })[0] || null;
+}
+
+function framePictures() {
+  frameFolders();                      // converts an old selection first
+  var fo = frameFolder(frameCfg().show);
+  var list = state.wallpapers.filter(function (w) { return !fo || fo.items.indexOf(w.name) >= 0; });
+  return list.length ? list : state.wallpapers;
+}
+
+function picThumb(w) { return w ? w.thumb || w.url : ''; }
 
 function everyLabel(m) { return m < 60 ? t('minutes', m) : t('hour'); }
 
@@ -1550,7 +1584,8 @@ function openFrameSettings() {
       var f = frameCfg(), n = framePictures().length;
       var rows = [
         { label: t('frameStart'), action: startFrame },
-        { label: t('framePictures'), value: f.pictures ? String(n) : t('frameAll'), chevron: true, action: chooseFramePictures }
+        { label: t('framePictures'), value: frameFolder(f.show) ? frameFolder(f.show).name : t('allPictures'),
+          chevron: true, action: chooseFrameFolders }
       ];
       if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
         adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
@@ -1567,31 +1602,103 @@ function openFrameSettings() {
   });
 }
 
-// Wallpapers as cards with check marks; OK shows or skips one. At least one
-// stays picked. All picked is stored as "all", so new wallpapers join.
-function chooseFramePictures() {
+// Picture folders: All pictures, the folders, New Folder. OK picks what the
+// frame shows (check mark); hold OK opens a folder's options.
+function chooseFrameFolders() {
   var el = layer('folderView picker');
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
   el.querySelector('.title').textContent = t('framePictures');
-  el.querySelector('.pickhint').textContent = t('framePickHint');
+  el.querySelector('.pickhint').textContent = t('albumHint');
   var inner = el.querySelector('.inner');
   var view = { el: el };
-  function picked(name) { var sel = frameCfg().pictures; return !sel || sel.indexOf(name) >= 0; }
+  function pics(items) {
+    return state.wallpapers.filter(function (w) { return !items || items.indexOf(w.name) >= 0; });
+  }
+  function entries() {
+    var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: pics(null) }];
+    frameFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: pics(fo.items) }); });
+    list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
+    return list;
+  }
+  function shown() { return frameFolder(frameCfg().show) ? frameCfg().show : 'all'; }
   var grid = new Grid({
     container: el.querySelector('.grid'),
     decorate: function (tile, e) {
+      if (e.type !== 'album') return;
+      tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+      tile.classList.toggle('picked', e.key === shown());
+    },
+    onActivate: function (e) {
+      if (e.key === '__new') {
+        askText(t('newFolder'), '', function (name) {
+          var fo = { id: 'p' + Date.now(), name: name.trim() || t('newFolder'), items: [] };
+          frameFolders().push(fo);
+          saveConfig();
+          view.refresh();
+          folderPictures(fo);
+        });
+        return;
+      }
+      frameCfg().show = e.key;
+      saveConfig();
+      var tiles = grid.tiles();
+      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
+    },
+    onLongPress: function (e) {
+      if (e.key === 'all') { folderPictures(null); return; }
+      var fo = frameFolder(e.key);
+      if (!fo) return;
+      menu({ title: fo.name, rows: function () {
+        return [
+          { label: t('choosePictures'), chevron: true, action: function () { pop(); folderPictures(fo); } },
+          { label: t('rename'), action: function () {
+            askText(t('rename'), fo.name, function (name) { if (name.trim()) fo.name = name.trim(); saveConfig(); pop(); });
+          } },
+          { label: t('deleteFolder'), danger: true, action: function () {
+            confirmSheet(t('deleteFolderQ'), t('deleteFolderSub'), t('dissolveYes'), function () {
+              frameCfg().folders = frameFolders().filter(function (x) { return x !== fo; });
+              if (frameCfg().show === fo.id) frameCfg().show = 'all';
+              saveConfig();
+              pop(); pop();
+            });
+          } }
+        ];
+      } });
+    },
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+  });
+  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+  view.ok = function () { grid.activate(grid.focus); };
+  view.longOk = function () { grid.longPress(grid.focus); };
+  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
+  view.grid = grid;
+  push(view);
+  grid.set(entries());
+}
+
+// The pictures of a folder (or all of them, fo = null) as cards. In a folder
+// OK adds or removes a picture; anywhere, hold OK sets its still frame.
+function folderPictures(fo) {
+  var el = layer('folderView picker');
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
+  el.querySelector('.title').textContent = fo ? fo.name : t('allPictures');
+  el.querySelector('.pickhint').textContent = fo ? t('framePickHint') : t('cropPickHint');
+  var inner = el.querySelector('.inner');
+  var view = { el: el };
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    decorate: function (tile, e) {
+      if (!fo) return;
       tile.classList.add('pickable');
       tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
-      tile.classList.toggle('picked', picked(e.key));
+      tile.classList.toggle('picked', fo.items.indexOf(e.key) >= 0);
     },
     onActivate: function (e, i) {
-      var all = state.wallpapers.map(function (w) { return w.name; });
-      var sel = (frameCfg().pictures || all).slice();
-      var at = sel.indexOf(e.key);
-      if (at >= 0) { if (sel.length === 1) return; sel.splice(at, 1); } else sel.push(e.key);
-      frameCfg().pictures = all.every(function (n) { return sel.indexOf(n) >= 0; }) ? null : sel;
+      if (!fo) return;
+      var at = fo.items.indexOf(e.key);
+      if (at >= 0) fo.items.splice(at, 1); else fo.items.push(e.key);
       saveConfig();
-      grid.tiles()[i].classList.toggle('picked', picked(e.key));
+      grid.tiles()[i].classList.toggle('picked', at < 0);
     },
     onLongPress: function (e) {
       var focus = frameCfg().focus;
@@ -1608,7 +1715,7 @@ function chooseFramePictures() {
   view.grid = grid;
   push(view);
   grid.set(state.wallpapers.map(function (w) {
-    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url, wp: w };
+    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
   }));
 }
 
@@ -1732,28 +1839,46 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
   var sctx = strip.getContext('2d', { willReadFrequently: true });
   var times = [], last = 0;
 
-  // Where the picture sits. Pan: cover the screen and travel between two
-  // corners. Still: a picture that isn't 16:9 is shown whole on black; any
-  // picture only drifts a few pixels.
-  function plan(w, h, name) {
-    var still = frameCfg().pan === false, rect = frameCfg().focus[name];
-    var k = Math.max(W / w, H / h);
-    if (still) {
-      // The chosen still frame, or the picture zoomed to fill the screen
-      // (centred); either drifts within 2% of that view.
-      var x = (w - W / k) / 2, y = (h - H / k) / 2;
-      if (rect) { k = W / (rect.w * w); x = rect.x * w; y = rect.y * h; }
-      var k2 = k * 1.02;
-      return { k: k2, x0: x, y0: y, x1: W / k - W / k2, y1: H / k - H / k2, leg: 600000 };
-    }
-    var tx = w - W / k, ty = h - H / k;
-    var drift = tx * k < 40 && ty * k < 40;
-    if (drift) { k *= 1.02; tx = w - W / k; ty = h - H / k; }
-    var dist = Math.sqrt(tx * tx + ty * ty) * k;
-    var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;
-    return { k: k, x0: x0, y0: y0, x1: tx - x0, y1: ty - y0,
-             leg: Math.max(drift ? 600 : 60, dist / PAN_SPEED) * 1000 };
+  // A view into the picture: top-left x, y and width v, in picture pixels
+  // (the height follows from the screen's 16:9).
+  function view_(x, y, v) { return { x: x, y: y, v: v }; }
+  function ease(f) { return (1 - Math.cos(Math.PI * f)) / 2; }
+  function mix(a, b, e) { return view_(a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e, a.v + (b.v - a.v) * e); }
+  // Back and forth within 2% around a view (OLED care).
+  function drift(at) {
+    var v2 = at.v / 1.02;
+    return { a: view_(at.x, at.y, v2), b: view_(at.x + at.v - v2, at.y + (at.v - v2) * H / W, v2), leg: 600000 };
   }
+
+  // How the picture moves. Still: its crop (or the centre, zoomed to fill)
+  // with a slight drift. Pan with a crop: from the far side of the picture
+  // towards the crop, zooming in, arriving before the next picture; then it
+  // rests there. Pan without a crop: corner to corner and back.
+  function plan(w, h, name) {
+    var rect = frameCfg().focus[name];
+    var k = Math.max(W / w, H / h), cv = W / k, chh = H / k;
+    var crop = rect ? view_(rect.x * w, rect.y * h, rect.w * w) : null;
+    var centre = view_((w - cv) / 2, (h - chh) / 2, cv);
+    if (frameCfg().pan === false) return drift(crop || centre);
+    var tx = w - cv, ty = h - chh;
+    if (crop) {
+      var far = [[0, 0], [tx, 0], [0, ty], [tx, ty]].map(function (c) {
+        var dx = c[0] + cv / 2 - (crop.x + crop.v / 2), dy = c[1] + chh / 2 - (crop.y + crop.v * H / W / 2);
+        return { c: c, d: dx * dx + dy * dy };
+      }).sort(function (p, q) { return q.d - p.d; })[0].c;
+      var from = view_(far[0], far[1], cv);
+      var dist = (Math.hypot(from.x - crop.x, from.y - crop.y) + Math.abs(cv - crop.v) / 2) * k;   // screen px
+      var leg = Math.max(20000, dist / PAN_SPEED * 1000);
+      var budget = count > 1 ? frameCfg().every * 60000 * 0.85 : Infinity;
+      if (leg > budget) { from = mix(crop, from, budget / leg); leg = budget; }
+      return { a: from, b: crop, leg: leg, once: true, rest: drift(crop) };
+    }
+    if (tx * k < 40 && ty * k < 40) return drift(centre);
+    var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;
+    return { a: view_(x0, y0, cv), b: view_(tx - x0, ty - y0, cv),
+             leg: Math.max(60, Math.hypot(tx, ty) * k / PAN_SPEED) * 1000 };
+  }
+
 
   // Pictures arrive in 64-row strips, so a new picture never stalls the
   // motion. The file is read as a blob and decoded ONCE, off the main thread
@@ -1912,26 +2037,30 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
 
 
 
-  // Auto position: eased travel between the two ends of the path.
+  // Where the plan is now: a one-way trip (then its rest), or back and forth
+  // with an eased turn at each end.
   function auto(o, now) {
     var p = o.p, t = (now - o.start) / p.leg;
-    var lap = Math.floor(t), f = t - lap;
-    var e = (1 - Math.cos(Math.PI * f)) / 2;
-    if (lap % 2) e = 1 - e;
-    return { x: p.x0 + p.x1 * e, y: p.y0 + p.y1 * e };
+    if (p.once) {
+      if (t < 1) return mix(p.a, p.b, ease(t));
+      t = (t - 1) * p.leg / p.rest.leg;
+      p = p.rest;
+    }
+    var lap = Math.floor(t), e = ease(t - lap);
+    return mix(p.a, p.b, lap % 2 ? 1 - e : e);
   }
 
   function place(o, now) {
-    var p = o.p, x, y;
+    var q;
     if (o.man) {
       // Moved by hand: glide towards the target, frame-rate independent.
       var a = 1 - Math.exp(-(now - o.man.t) / 160);
       o.man.t = now;
       o.man.x += (o.man.tx - o.man.x) * a; o.man.y += (o.man.ty - o.man.y) * a;
-      x = o.man.x; y = o.man.y;
-    } else { var q = auto(o, now); x = q.x; y = q.y; }
-    gl.uniform2f(U.off, x / o.w, y / o.h);
-    gl.uniform2f(U.span, W / p.k / o.w, H / p.k / o.h);
+      q = o.man;
+    } else q = auto(o, now);
+    gl.uniform2f(U.off, q.x / o.w, q.y / o.h);
+    gl.uniform2f(U.span, q.v / o.w, q.v * H / W / o.h);
     gl.bindTexture(gl.TEXTURE_2D, o.tex);
   }
 
@@ -1998,10 +2127,10 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
     var o = cur;
     if (!o) return;
     var now = performance.now();
-    if (!o.man) { var q = auto(o, now); o.man = { x: q.x, y: q.y, tx: q.x, ty: q.y, t: now }; }
-    var vw = W / o.p.k, vh = H / o.p.k, cx = (o.w - vw) / 2, cy = (o.h - vh) / 2;
-    o.man.tx = Math.max(Math.min(0, cx), Math.min(Math.max(o.w - vw, cx), o.man.tx + dx * vw * 0.15));
-    o.man.ty = Math.max(Math.min(0, cy), Math.min(Math.max(o.h - vh, cy), o.man.ty + dy * vh * 0.15));
+    if (!o.man) { var q = auto(o, now); o.man = { x: q.x, y: q.y, v: q.v, tx: q.x, ty: q.y, t: now }; }
+    var vw = o.man.v, vh = vw * H / W;
+    o.man.tx = Math.max(0, Math.min(o.w - vw, o.man.tx + dx * vw * 0.15));
+    o.man.ty = Math.max(0, Math.min(o.h - vh, o.man.ty + dy * vh * 0.15));
   };
 
   load(nextPic(), true);

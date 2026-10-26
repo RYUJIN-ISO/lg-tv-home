@@ -79,10 +79,14 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   re-decodes the whole JPEG per strip on the TV: measured 4 fps.) The next
   picture is preloaded while the current one shows, so CH+ and the timer
   switch at once; crossfades take 0.7 s. Every frame draws the texture at a
-  moving offset: Pan covers the screen and travels between two corners at
-  about 7 screen pixels per second with a cosine ease at each turn; Still
-  fills the screen (centred, or the picture's still frame) and drifts within
-  2%. Still frames live in the config (`frame.focus[name] = {x, y, w}` as
+  moving offset: Every view is a window (x, y, width) into
+  the picture, so travel and zoom interpolate together. Pan with a still
+  frame: a one-way trip from the window farthest from the frame to the frame
+  (cosine eased, about 7 screen pixels per second, started closer when it
+  would not arrive within 85% of the change interval), then a 2% drift on the
+  frame. Pan without one: corner to corner and back. Still: the frame or the
+  centre, filling the screen, with the 2% drift. Picture folders live in the
+  config as `frame.folders = [{id, name, items}]` and `frame.show`. Still frames live in the config (`frame.focus[name] = {x, y, w}` as
   fractions) and never change the file. Dimming happens in the shader. Frame
   times, slow frames during loads and the load path are appended to
   `/tmp/atvhome-frame.txt` when the frame ends.
