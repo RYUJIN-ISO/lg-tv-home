@@ -80,14 +80,19 @@ the TV looks like a framed picture.
   - **Arrows** move the visible area through a large picture. The automatic
     pan stops for that picture and starts again with the next one.
   - **OK, Back** or any other button end it.
-- **Pictures**: the wallpapers as cards; OK shows or skips one. With all of
-  them picked, new wallpapers join automatically. **Hold OK** on a picture to
-  set its **still frame**: the crop screen opens on the whole picture, you
-  move and size a 16:9 frame around the subject, and the label shows how sharp
-  it will be (**4K**, or how much it gets enlarged). **Save** remembers the
-  frame without cutting the file; **Reset** forgets it.
+- **Pictures**: folders to sort your pictures, as cards showing a mosaic of
+  their pictures: **All pictures**, your folders and **New Folder**.
+  - **OK** chooses what the frame shows (check mark).
+  - **Hold OK** on a folder: **Choose Pictures** (OK puts a picture in the
+    folder or takes it out), **Rename**, **Delete Folder** (the pictures stay).
+    A picture can be in several folders.
+  - **Hold OK** on a picture (inside a folder, or in All pictures) sets its
+    **still frame**: the crop screen opens on the whole picture, you move and
+    size a 16:9 frame around the subject, and the label shows how sharp it
+    will be (**4K**, or how much it gets enlarged). **Save** remembers the
+    frame without cutting the file; **Reset** forgets it.
 - **Change every** 1, 5, 15, 30 or 60 minutes (Left and Right), when more than
-  one picture is picked. The order is shuffled and pictures fade into each other.
+  one picture is shown. The order is shuffled and pictures fade into each other.
 - **Motion**: **Pan** (default) glides across large pictures, see below.
   **Still** shows every picture without panning, filling the screen: with
   its still frame if one is set, otherwise centred (a tall photo or a square
@@ -95,10 +100,18 @@ the TV looks like a framed picture.
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
 
-**Large pictures pan** (Motion: Pan). A picture that is bigger than the screen or not 16:9
-(a tall photo, a square painting, a 15000 pixel camera shot) fills the screen
-and glides very slowly from one corner to the other and back, easing into each
-turn. A 16:9 picture stays still and only drifts a few pixels now and then,
+**Large pictures pan** (Motion: Pan). A picture that is bigger than the
+screen or not 16:9 (a tall photo, a square painting, a 15000 pixel camera
+shot) fills the screen and glides very slowly:
+
+- **With a still frame**, it starts at the far side of the picture and glides
+  towards the frame, zooming in, so it arrives before the next picture comes;
+  then it rests on the frame. If the whole way would take longer, it starts
+  closer, so the speed stays just as slow.
+- **Without one**, it travels from one corner to the other and back, easing
+  into each turn, until the next picture.
+
+A 16:9 picture without a still frame only drifts a few pixels now and then,
 which protects an OLED panel.
 
 For the best panning, copy large pictures to the TV at up to about 18

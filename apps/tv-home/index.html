@@ -179,6 +179,16 @@
   .folderView .grid { top: 340px; }
   .folderView .empty { position: absolute; top: 420px; left: 0; right: 0; text-align: center; font-size: 30px; color: rgba(255,255,255,.75); }
 
+  /* Picture folders: a 2x2 mosaic of the folder's pictures. */
+  .card.album { background: #1c1c20; }
+  .card.album .mos { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; }
+  .card.album .mos div { background: center / cover no-repeat #2a2a30; }
+  .card.album .mos.n0, .card.album .mos.n1, .card.album .mos.n2 { grid-template-rows: 1fr; }
+  .card.album .mos.n1 { grid-template-columns: 1fr; }
+  .card.album .mos.n3 div:first-child { grid-row: span 2; }
+  .card.album .count { position: absolute; right: 12px; bottom: 10px; padding: 2px 10px; border-radius: 12px;
+    background: rgba(0,0,0,.6); font-size: 20px; font-weight: 600; }
+
   /* Picture frame: full screen, dimmed; two images crossfade and drift slowly. */
   .layer.frame { z-index: 40; background: #000; cursor: none; }
   .frame .fimg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0;
