@@ -48,6 +48,39 @@ the read-only `keepAliveApps` list, ignores `closeByAppId`, and its
 - i18n: `STRINGS` in `app.js` (English default, German). The Light and
   App-Updates apps read `language` from the launcher config.
 
+## Remote button mapper (no code injection)
+
+LG Input Hook's `ezinject` approach is broken on webOS 24/25. What actually
+decides what a button does:
+
+1. `lginput2` receives the remote and logs `NL_BUTTON_CLICK {KEY_NETFLIX}`.
+   Its `/dev/uinput` devices are *not* how buttons reach the UI (a read-only
+   capture of `/dev/input/event*` saw almost nothing) — evdev grabbing is out.
+2. **surface-manager** runs a chain of QML/JS *key filters*
+   (`/usr/lib/qt5/qml/KeyFilters/*.js`; app buttons in `appLaunch.js`
+   `handleCPHotkeys` → `cpHotkeyInfo.mapping_info`).
+3. LG's own `other/mapping_info` setting can't be used: surface-manager reads
+   it once at start, and on every power-on it fetches LG's server mapping via
+   `sdx` and writes it back.
+4. **The chain itself is a configd value**, `com.webos.surfacemanager.keyFilters`
+   (`[{file, handler}]`), which surface-manager *subscribes to* and reloads
+   live. `com.webos.service.config/setConfigs` (runtime, not persisted) can
+   insert our own filter file — `tv/remote-mapper/remap.js`, loaded with
+   `Qt.include`, same globals as LG's filters (`lunaCall`, `KeyPolicy`,
+   `WebOS`, `Qt`). It sits right after `handleScreenSaver`; for a mapped key it
+   launches the target via `com.webos.applicationManager/launch` and returns
+   `KeyPolicy.Accepted` (swallowed), everything else → `NextPolicy`.
+5. Button names come from LG's `WebOS.Key_webOS_*` constants (resolved by
+   name — QML enums can't be enumerated), `Qt.Key_*`, or `code:<n>`.
+6. Learn mode: the filter publishes presses into a custom configd value
+   (`com.iso.remotemapper.learned`) — surface-manager can't call Homebrew's
+   exec, but configd accepts arbitrary keys. Learn mode expires after 30 s on
+   its own and never swallows navigation keys.
+
+Safety: no LG file is modified; any error in the filter falls back to LG's
+handling; a reboot restores the stock chain until `init.d/86-remote-mapper`
+re-applies it; `remote-mapper/disabled` keeps it off.
+
 ## Privacy / debloat
 
 - Hosts block: `hugobatista/lg-tv-ad-block` base list, duplicated for IPv6

@@ -33,6 +33,25 @@ Layout**. **Back** leaves edit mode — every change is already saved.
   are never offered (removing Homebrew would lose root).
 - Reinstalling an app needs the Content Store → see App-Updates below.
 
+## Remote buttons
+
+Settings (gear, top left) → **Remote Buttons** shows a drawing of the Magic
+Remote next to the list of buttons; the focused one lights up, remapped ones
+are green. Pick a button, then what it should do:
+
+- **LG default** / **Do nothing**
+- **Home screen**, **Light** (Hue toggle, if installed), **Live TV**, **HDMI 1-4**
+- **any installed app** — store apps, Homebrew apps, everything.
+
+Remappable: Netflix, Prime Video, Disney+, Rakuten TV, LG Channels, Alexa,
+Mic, Settings, Input, 123, Mute, Channel ±. **Learn a Button** catches any
+other button: press it within 20 s, then choose its action. Home, Back, OK,
+arrows, volume and power can't be remapped (you'd lose control of the TV).
+
+Changes work immediately — the original app never opens. The **Remote mapper**
+switch at the top turns it all off (stays off across reboots until switched
+on again). Undo from a computer: `ssh <tv> sh /var/lib/webosbrew/remote-mapper/remote-mapper.sh disable`.
+
 ## Settings menu navigation
 
 Up/Down move, **OK or Right** opens a submenu (Right only on rows with ›, so a

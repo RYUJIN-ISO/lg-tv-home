@@ -23,6 +23,9 @@ d.pop('home',None); print(json.dumps(d))")
 luna luna://com.webos.settingsservice/setSystemSettings \
     "{\"category\":\"general\",\"settings\":{\"defaultApps\":$apps}}" > /dev/null || warn "could not reset defaultApps"
 
+say "removing the remote button mapper"
+tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-mapper.sh remove; rm -f $WB/init.d/86-remote-mapper" || true
+
 say "removing boot hooks and background scripts"
 tv "pkill -f app-trim.sh; rm -f $WB/init.d/80-debloat $WB/init.d/85-app-trim $WB/init.d/60-lg-ad-block
     [ -f $WB/debloat.sh ] && sh $WB/debloat.sh lift > /dev/null 2>&1
@@ -34,7 +37,7 @@ for id in "$HOME_APP" "$LIGHT_APP" "$UPDATES_APP"; do
 done
 
 read -rp "Also delete the saved layout, wallpapers and Hue pairing on the TV? [y/N] " a
-case "$a" in [Yy]*) tv "rm -rf $DATA $WB/hue-scene.conf $WB/hue-scene.mode" ;; esac
+case "$a" in [Yy]*) tv "rm -rf $DATA $WB/hue-scene.conf $WB/hue-scene.mode $WB/remote-mapper" ;; esac
 read -rp "Turn the passwordless telnet back on? (not recommended) [y/N] " a
 case "$a" in [Yy]*) tv "rm -f /var/luna/preferences/webosbrew_telnet_disabled" ;; esac
 
