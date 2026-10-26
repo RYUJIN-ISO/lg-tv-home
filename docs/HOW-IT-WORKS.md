@@ -47,6 +47,8 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   LG's launch points (order, HDMI device names) and the installed apps.
   `cache.js` copies icons and wallpapers into the app folder, because the web
   runtime can't load files from other folders.
+- **Previews**: `wallpapers/thumbs/<name>` (640x360) is used on picture
+  cards when it exists, so a grid never decodes every full-size picture.
 - **Config**: `/var/lib/webosbrew/atvhome/config.json`, written by `config.sh`
   (base64 through exec): `{language, wallpaper, clock, order[], folders{},
   hidden[], added[]}`. Apps LG shows are on the home screen unless they are in
@@ -67,8 +69,17 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   argument may not exceed 128 KiB (`MAX_ARG_STRLEN`); `usb.py` puts them back
   together. Originals are kept in `wallpapers/originals/`, and image URLs
   carry `?v=<mtime>` so a new crop is not shown from the cache.
-- **Picture frame**: a full screen layer with two images that crossfade and
-  a black layer for the dimming. LG's screensaver starts after 2 minutes
+- **Picture frame**: drawn with WebGL, not CSS. Each picture is one GPU
+  texture, uploaded in 128-row strips (one per frame, after an off-thread
+  `img.decode()`), so a new picture never stalls the motion. Every frame
+  draws the texture at a slowly moving offset: cover the screen, then travel
+  between two corners at about 7 screen pixels per second with a cosine ease
+  at each turn. CSS animation of a large layer was avoided on purpose: the
+  compositor rasterises big layers in tiles while they move, which can
+  hitch. Crossfades blend the old and new texture; dimming happens in the
+  shader. Frame times are appended to `/tmp/atvhome-frame.txt` when the
+  frame ends. Without WebGL, two CSS images crossfade instead. LG's
+  screensaver starts after 2 minutes
   without input (configd `com.webos.surfacemanager.userActivityTimeout`);
   while the frame runs, the launcher calls
   `com.webos.surfacemanager.screenSaver/restartUserActivityTimer` once a

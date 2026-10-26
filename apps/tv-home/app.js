@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.17.0';
+var VERSION = '0.18.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -1295,7 +1295,7 @@ function chooseWallpaper() {
   function current() { return cfg().wallpaper; }
   function entries() {
     var list = state.wallpapers.map(function (w) {
-      return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.url, wp: w };
+      return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url, wp: w };
     });
     list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
@@ -1580,7 +1580,7 @@ function chooseFramePictures() {
   view.grid = grid;
   push(view);
   grid.set(state.wallpapers.map(function (w) {
-    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.url };
+    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url };
   }));
 }
 
@@ -1588,26 +1588,206 @@ function startFrame() {
   var pics = framePictures();
   if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
   if (frameView) return;
-  var order = [], shown = 0, front = 1;
-  function shuffle() {
-    order = pics.slice();
-    for (var i = order.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1)), x = order[i];
-      order[i] = order[j]; order[j] = x;
+  var order = [], shown = 0;
+  function nextPic() {
+    if (shown >= order.length) {
+      order = pics.slice();
+      for (var i = order.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1)), x = order[i];
+        order[i] = order[j]; order[j] = x;
+      }
+      shown = 0;
     }
+    return order[shown++];
   }
   var el = layer('frame');
-  el.innerHTML = '<div class="fimg"></div><div class="fimg"></div><div class="fdim"></div>';
+  var view = { el: el, timers: [], stop: null };
+  view.key = function () { pop(); };
+  view.ok = function () { pop(); };
+  view.onClose = function () {
+    view.timers.forEach(clearInterval);
+    if (view.stop) view.stop();
+    frameView = null;
+    document.body.classList.remove('framing');
+  };
+  el.addEventListener('click', function () { if (frameView === view) pop(); });
+  frameView = view;
+  document.body.classList.add('framing');
+  push(view);
+  if (!glFrame(view, nextPic, pics.length)) cssFrame(view, nextPic, pics.length);
+  exec(KEEP_AWAKE);
+  view.timers.push(setInterval(function () { exec(KEEP_AWAKE); }, 60000));
+}
+
+// WebGL renderer: every picture is one GPU texture, drawn each frame at a
+// slowly moving offset. Pictures bigger than the screen (or not 16:9) pan
+// across their whole area and turn round gently; 16:9 pictures only drift a
+// few pixels (OLED care). Uploads go in strips, one per frame, so a new
+// picture never stalls the motion.
+var PAN_SPEED = 7;          // screen pixels per second, on average
+var FADE_MS = 2500;
+
+function glFrame(view, nextPic, count) {
+  var canvas = document.createElement('canvas');
+  var dpr = window.devicePixelRatio || 1;
+  var W = Math.round(1920 * dpr), H = Math.round(1080 * dpr);
+  canvas.width = W; canvas.height = H;
+  canvas.className = 'fgl';
+  var gl = null;
+  try { gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false }); } catch (e) {}
+  if (!gl) return false;
+  view.el.appendChild(canvas);
+
+  function shader(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, shader(gl.VERTEX_SHADER,
+    'attribute vec2 p; varying vec2 uv; uniform vec2 off; uniform vec2 span;' +
+    'void main() { uv = off + (p * vec2(0.5, -0.5) + 0.5) * span; gl_Position = vec4(p, 0.0, 1.0); }'));
+  gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
+    'precision mediump float; varying vec2 uv; uniform sampler2D tex; uniform float alpha; uniform float bri;' +
+    'void main() { gl_FragColor = vec4(texture2D(tex, uv).rgb * bri, alpha); }'));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { view.el.removeChild(canvas); return false; }
+  gl.useProgram(prog);
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  var loc = gl.getAttribLocation(prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  var U = {};
+  ['off', 'span', 'alpha', 'bri', 'tex'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+  gl.uniform1f(U.bri, frameCfg().bri / 100);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+
+  var cur = null, prev = null, fadeStart = 0, raf = 0, stopped = false, loading = false;
+  var strip = document.createElement('canvas');
+  var sctx = strip.getContext('2d', { willReadFrequently: true });
+  var times = [], last = 0;
+
+  // Where the picture sits: cover the screen, pan between two corners.
+  function plan(w, h) {
+    var k = Math.max(W / w, H / h);
+    var tx = w - W / k, ty = h - H / k;
+    var drift = tx * k < 40 && ty * k < 40;
+    if (drift) { k *= 1.02; tx = w - W / k; ty = h - H / k; }
+    var dist = Math.sqrt(tx * tx + ty * ty) * k;
+    var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;
+    return { k: k, x0: x0, y0: y0, x1: tx - x0, y1: ty - y0,
+             leg: Math.max(drift ? 600 : 60, dist / PAN_SPEED) * 1000 };
+  }
+
+  function load(pic) {
+    loading = true;
+    var img = new Image();
+    img.src = pic.url;
+    var ready = img.decode ? img.decode() : new Promise(function (ok, bad) { img.onload = ok; img.onerror = bad; });
+    ready.then(function () {
+      if (stopped) return;
+      var w = img.naturalWidth, h = img.naturalHeight, s = Math.min(1, maxTex / Math.max(w, h));
+      w = Math.floor(w * s); h = Math.floor(h * s);
+      var tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+      var SH = 128, y = 0;
+      strip.width = w; strip.height = SH;
+      (function upload() {
+        if (stopped) return;
+        var hh = Math.min(SH, h - y);
+        sctx.clearRect(0, 0, w, SH);
+        sctx.drawImage(img, 0, y / s, img.naturalWidth, hh / s, 0, 0, w, hh);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, gl.RGB, gl.UNSIGNED_BYTE,
+          hh === SH ? strip : sctx.getImageData(0, 0, w, hh));
+        y += hh;
+        if (y < h) { requestAnimationFrame(upload); return; }
+        img.src = '';
+        if (prev) gl.deleteTexture(prev.tex);
+        prev = cur;
+        cur = { tex: tex, w: w, h: h, p: plan(w, h), start: performance.now() };
+        fadeStart = cur.start;
+        loading = false;
+      })();
+    }, function () { loading = false; });
+  }
+
+  function place(o, now) {
+    var p = o.p, t = (now - o.start) / p.leg;
+    var lap = Math.floor(t), f = t - lap;
+    var e = (1 - Math.cos(Math.PI * f)) / 2;
+    if (lap % 2) e = 1 - e;
+    var x = p.x0 + p.x1 * e, y = p.y0 + p.y1 * e;
+    gl.uniform2f(U.off, x / o.w, y / o.h);
+    gl.uniform2f(U.span, W / p.k / o.w, H / p.k / o.h);
+    gl.bindTexture(gl.TEXTURE_2D, o.tex);
+  }
+
+  function draw(now) {
+    if (stopped) return;
+    raf = requestAnimationFrame(draw);
+    if (last) times.push(now - last);
+    last = now;
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!cur) return;
+    // Fade the new picture in over the old one (or over black at the start).
+    var a = Math.min(1, (now - fadeStart) / FADE_MS);
+    gl.disable(gl.BLEND);
+    if (prev && a < 1) {
+      gl.uniform1f(U.alpha, 1);
+      place(prev, now);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    } else if (prev) { gl.deleteTexture(prev.tex); prev = null; }
+    if (a < 1) gl.enable(gl.BLEND);
+    gl.uniform1f(U.alpha, a);
+    place(cur, now);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  load(nextPic());
+  raf = requestAnimationFrame(draw);
+  if (count > 1) view.timers.push(setInterval(function () { if (!loading) load(nextPic()); }, frameCfg().every * 60000));
+
+  // Frame times go to /tmp/atvhome-frame.txt when the frame ends.
+  view.stop = function () {
+    stopped = true;
+    cancelAnimationFrame(raf);
+    if (times.length > 60) {
+      var sorted = times.slice().sort(function (a, b) { return a - b; });
+      var total = times.reduce(function (a, b) { return a + b; }, 0);
+      var slow = times.filter(function (x) { return x > 25; }).length;
+      exec('echo "v' + VERSION + ' webgl frames=' + times.length + ' fps=' + (times.length / total * 1000).toFixed(1) +
+        ' p99=' + sorted[Math.floor(sorted.length * 0.99)].toFixed(1) + 'ms max=' + sorted[sorted.length - 1].toFixed(1) +
+        'ms over25ms=' + slow + ' tex=' + maxTex + '" >> /tmp/atvhome-frame.txt');
+    }
+    [cur, prev].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
+    var lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+  };
+  return true;
+}
+
+// Fallback without WebGL: two images crossfade, 16:9 only (cover).
+function cssFrame(view, nextPic, count) {
+  var el = view.el, front = 1;
+  el.insertAdjacentHTML('beforeend', '<div class="fimg"></div><div class="fimg"></div><div class="fdim"></div>');
   var imgs = el.querySelectorAll('.fimg');
   el.querySelector('.fdim').style.opacity = (1 - frameCfg().bri / 100).toFixed(2);
   function drift(img) {
     var dx = Math.round(Math.random() * 24 - 12), dy = Math.round(Math.random() * 24 - 12);
     img.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.02)';
   }
-  // Next picture in shuffled order; it fades in once loaded.
   function show() {
-    if (shown >= order.length) { shuffle(); shown = 0; }
-    var pic = order[shown++];
+    var pic = nextPic();
     var pre = new Image();
     pre.onload = pre.onerror = function () {
       if (frameView !== view) return;
@@ -1620,22 +1800,8 @@ function startFrame() {
     };
     pre.src = pic.url;
   }
-  var view = { el: el, timers: [] };
-  view.key = function () { pop(); };
-  view.ok = function () { pop(); };
-  view.onClose = function () {
-    view.timers.forEach(clearInterval);
-    frameView = null;
-    document.body.classList.remove('framing');
-  };
-  el.addEventListener('click', function () { if (frameView === view) pop(); });
-  frameView = view;
-  document.body.classList.add('framing');
-  push(view);
   show();
-  exec(KEEP_AWAKE);
-  view.timers.push(setInterval(function () { exec(KEEP_AWAKE); }, 60000));
-  if (pics.length > 1) view.timers.push(setInterval(show, frameCfg().every * 60000));
+  if (count > 1) view.timers.push(setInterval(show, frameCfg().every * 60000));
   else view.timers.push(setInterval(function () { drift(imgs[front]); }, 10 * 60000));
 }
 

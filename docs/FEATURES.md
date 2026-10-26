@@ -77,10 +77,20 @@ the TV looks like a framed picture.
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
 
+**Large pictures pan.** A picture that is bigger than the screen or not 16:9
+(a tall photo, a square painting, a 15000 pixel camera shot) fills the screen
+and glides very slowly from one corner to the other and back, easing into each
+turn. A 16:9 picture stays still and only drifts a few pixels now and then,
+which protects an OLED panel.
+
+For the best panning, copy large pictures to the TV at up to about 18
+megapixels (for example 4800x3700, or 3840 wide for tall ones): much bigger
+files only cost memory, the TV can't show more detail. A 640x360 preview with
+the same name in `wallpapers/thumbs/` keeps the picture cards quick.
+
 LG's screensaver stays away while it runs. LG's own auto power off (if it is
 on in the TV settings) still switches the TV off after a few hours without
-input. To protect an OLED panel the picture drifts by a few pixels from time
-to time. A remote button can also start it (Remote Buttons, **Picture Frame**).
+input. A remote button can also start it (Remote Buttons, **Picture Frame**).
 
 ## Remote buttons
 
