@@ -45,6 +45,7 @@ to the keys in `setup.conf`:
 | English or German? | `LANGUAGE` | en |
 | **Light**: see below | `LIGHT` | n |
 | Should the remote's buttons be remappable (set up later in TV Home's Settings)? | `REMOTE` | y |
+| Add the 16 museum prints (public-domain paintings, about 49 MB) as wallpapers and for the picture frame? | `PRINTS` | y |
 | Block LG's ad, tracking and ACR servers? | `ADBLOCK` | y |
 | Only without TV Home: install the small App-Updates app to open the LG Store? | `APP_UPDATES` | y |
 | Stop LG's tracking and profiling services on the TV? | `DEBLOAT` | y |

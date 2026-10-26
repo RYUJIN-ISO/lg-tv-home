@@ -63,6 +63,9 @@ if [ "$LAUNCHER" = y ]; then
     echo "   Remote buttons: give the remote's app buttons (Netflix, Prime, ...), Mic, Input,"
     echo "   colour and number keys any app or action, in TV Home's Settings."
     ask REMOTE "Install the remote button mapper?" y yn
+    echo "   Museum prints: 16 public-domain paintings (Monet, Turner, Cross, Twachtman) as"
+    echo "   wallpapers and for the picture frame, uncropped, about 49 MB on the TV."
+    ask PRINTS "Add the museum prints?" y yn
 fi
 
 echo
@@ -92,6 +95,7 @@ SET_HOME=${SET_HOME:-n}
 LANGUAGE=${LANGUAGE:-en}
 LIGHT=${LIGHT:-n}
 REMOTE=${REMOTE:-n}
+PRINTS=${PRINTS:-n}
 ADBLOCK=$ADBLOCK
 APP_UPDATES=${APP_UPDATES:-n}
 DEBLOAT=$DEBLOAT
@@ -132,6 +136,13 @@ d['home']='$HOME_APP'; print(json.dumps(d))")
         tv "echo '{\"idleApp\":{\"support\":true,\"appId\":\"$HOME_APP\"},\"defaultApps\":{\"support\":true,\"categories\":{\"home\":\"$HOME_APP\",\"aod\":\"com.webos.app.lifeonscreen\"}}}' > /var/webos-profile/override/atvhome_profile.json"
         luna luna://com.webos.service.systemprofile/debug/rescan > /dev/null || warn "profile rescan failed; it applies after the next reboot"
     fi
+fi
+
+if [ "$PRINTS" = y ]; then
+    say "museum prints"
+    tv "mkdir -p $DATA/wallpapers/thumbs"
+    scp -q -o BatchMode=yes prints/*.jpg "$TV:$DATA/wallpapers/" || warn "copying the prints failed"
+    scp -q -o BatchMode=yes prints/thumbs/*.jpg "$TV:$DATA/wallpapers/thumbs/" || warn "copying the print previews failed"
 fi
 
 if [ "$LIGHT" = y ]; then

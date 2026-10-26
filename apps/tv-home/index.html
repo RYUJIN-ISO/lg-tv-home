@@ -186,7 +186,8 @@
   .frame .fimg.on { opacity: 1; }
   .frame .fdim { position: absolute; inset: 0; background: #000; }
   .frame .fgl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
-  body.framing #clock, body.framing #topbar { visibility: hidden; }
+  /* The home screen is hidden under the frame, so it isn't composited every frame. */
+  body.framing #clock, body.framing #topbar, body.framing #page, body.framing #wall, body.framing #wallDim { visibility: hidden; }
 
   /* Hue: room cards glow warmer with brightness; Light button glows in cinema mode. */
   .card.room { background: #2b2b31; }
