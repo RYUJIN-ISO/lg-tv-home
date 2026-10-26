@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.18.1';
+var VERSION = '0.18.2';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -1627,7 +1627,7 @@ function startFrame() {
 // WebGL renderer: every picture is one GPU texture, drawn each frame at a
 // slowly moving offset. Pictures bigger than the screen (or not 16:9) pan
 // across their whole area and turn round gently; 16:9 pictures only drift a
-// few pixels (OLED care). Uploads go in strips, one per frame, so a new
+// few pixels (OLED care). Uploads go in strips, a few per frame, so a new
 // picture never stalls the motion.
 var PAN_SPEED = 7;          // screen pixels per second, on average
 var FADE_MS = 2500;
@@ -1669,6 +1669,8 @@ function glFrame(view, nextPic, count) {
   ['off', 'span', 'alpha', 'bri', 'tex'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
   gl.uniform1f(U.bri, frameCfg().bri / 100);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
 
   var cur = null, prev = null, fadeStart = 0, raf = 0, stopped = false, loading = false;
@@ -1696,6 +1698,11 @@ function glFrame(view, nextPic, count) {
              leg: Math.max(drift ? 600 : 60, dist / PAN_SPEED) * 1000 };
   }
 
+  // Pictures arrive in 64-row strips. createImageBitmap decodes and cuts each
+  // strip off the main thread; a frame then only hands one small, ready strip
+  // to the GPU. Without createImageBitmap a 2D canvas cuts the strips.
+  var SH = 64, useBitmap = typeof createImageBitmap === 'function';
+  var stats = { loads: 0, alloc: 0, upload: 0, slowLoading: 0 };
   function load(pic) {
     loading = true;
     var img = new Image();
@@ -1703,27 +1710,54 @@ function glFrame(view, nextPic, count) {
     var ready = img.decode ? img.decode() : new Promise(function (ok, bad) { img.onload = ok; img.onerror = bad; });
     ready.then(function () {
       if (stopped) return;
-      var w = img.naturalWidth, h = img.naturalHeight, s = Math.min(1, maxTex / Math.max(w, h));
-      w = Math.floor(w * s); h = Math.floor(h * s);
+      var nw = img.naturalWidth, nh = img.naturalHeight, s = Math.min(1, maxTex / Math.max(nw, nh));
+      var w = Math.floor(nw * s), h = Math.floor(nh * s);
       var tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      var t0 = performance.now();
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-      var SH = 128, y = 0;
-      strip.width = w; strip.height = SH;
-      (function upload() {
-        if (stopped) return;
-        var hh = Math.min(SH, h - y);
+      stats.alloc = Math.max(stats.alloc, performance.now() - t0);
+      stats.loads++;
+      var n = Math.ceil(h / SH), parts = [], asked = 0, done = 0;
+      function rows(i) { return Math.min(SH, h - i * SH); }
+      function ask() {
+        while (asked < n && asked - done < 6) {
+          (function (i) {
+            if (!useBitmap) { parts[i] = 'canvas'; return; }
+            var sy = Math.floor(i * SH / s), sh = Math.min(nh - sy, Math.ceil(rows(i) / s));
+            createImageBitmap(img, 0, sy, nw, sh, { resizeWidth: w, resizeHeight: rows(i), resizeQuality: 'medium',
+              premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' })
+              .then(function (bm) { parts[i] = bm; }, function () { parts[i] = 'canvas'; });
+          })(asked++);
+        }
+      }
+      function canvasStrip(i) {
+        var hh = rows(i);
+        if (strip.width !== w) { strip.width = w; strip.height = SH; }
         sctx.clearRect(0, 0, w, SH);
-        sctx.drawImage(img, 0, y / s, img.naturalWidth, hh / s, 0, 0, w, hh);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, gl.RGB, gl.UNSIGNED_BYTE,
-          hh === SH ? strip : sctx.getImageData(0, 0, w, hh));
-        y += hh;
-        if (y < h) { requestAnimationFrame(upload); return; }
+        sctx.drawImage(img, 0, i * SH / s, nw, hh / s, 0, 0, w, hh);
+        return hh === SH ? strip : sctx.getImageData(0, 0, w, hh);
+      }
+      (function upload() {
+        if (stopped) { parts.forEach(function (p) { if (p && p.close) p.close(); }); return; }
+        ask();
+        // As many ready strips as fit in 4 ms of this frame.
+        var begin = performance.now();
+        while (done < n && parts[done] !== undefined && performance.now() - begin < 4) {
+          var part = parts[done], t1 = performance.now();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, done * SH, gl.RGB, gl.UNSIGNED_BYTE,
+            part === 'canvas' ? canvasStrip(done) : part);
+          stats.upload = Math.max(stats.upload, performance.now() - t1);
+          if (part.close) part.close();
+          parts[done++] = null;
+          ask();
+        }
+        if (done < n) { requestAnimationFrame(upload); return; }
         img.src = '';
         if (prev) gl.deleteTexture(prev.tex);
         prev = cur;
@@ -1733,6 +1767,7 @@ function glFrame(view, nextPic, count) {
       })();
     }, function () { loading = false; });
   }
+
 
   function place(o, now) {
     var p = o.p, t = (now - o.start) / p.leg;
@@ -1748,7 +1783,7 @@ function glFrame(view, nextPic, count) {
   function draw(now) {
     if (stopped) return;
     raf = requestAnimationFrame(draw);
-    if (last) times.push(now - last);
+    if (last) { times.push(now - last); if (loading && now - last > 25) stats.slowLoading++; }
     last = now;
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1781,7 +1816,9 @@ function glFrame(view, nextPic, count) {
       var slow = times.filter(function (x) { return x > 25; }).length;
       exec('echo "v' + VERSION + ' webgl frames=' + times.length + ' fps=' + (times.length / total * 1000).toFixed(1) +
         ' p99=' + sorted[Math.floor(sorted.length * 0.99)].toFixed(1) + 'ms max=' + sorted[sorted.length - 1].toFixed(1) +
-        'ms over25ms=' + slow + ' tex=' + maxTex + '" >> /tmp/atvhome-frame.txt');
+        'ms over25ms=' + slow + ' whileLoading=' + stats.slowLoading + ' loads=' + stats.loads +
+        ' alloc=' + stats.alloc.toFixed(0) + 'ms strip=' + stats.upload.toFixed(1) + 'ms bitmap=' + useBitmap +
+        ' pan=' + (frameCfg().pan !== false) + ' tex=' + maxTex + '" >> /tmp/atvhome-frame.txt');
     }
     [cur, prev].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
     var lose = gl.getExtension('WEBGL_lose_context');
