@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.18.0';
+var VERSION = '0.18.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -31,7 +31,7 @@ var DEFAULT_CONFIG = {
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
   added: [],      // keys of installed apps without a launch point, put on it
-  frame: { pictures: null, every: 5, bri: 60 }   // picture frame (null = all wallpapers)
+  frame: { pictures: null, every: 5, bri: 60, pan: true }   // picture frame (null = all wallpapers)
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -154,6 +154,7 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
+    frameMotion: 'Motion', pan: 'Pan', still: 'Still',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
     frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
@@ -206,6 +207,7 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
+    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
     frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
@@ -1538,6 +1540,9 @@ function openFrameSettings() {
       if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
         adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
         action: function () { f.every = step(FRAME_EVERY, f.every, 1); saveConfig(); refreshTop(); } });
+      function motion() { f.pan = f.pan === false; saveConfig(); refreshTop(); }
+      rows.push({ label: t('frameMotion'), value: f.pan === false ? t('still') : t('pan'),
+        action: motion, adjust: motion });
       rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
         adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
         action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
@@ -1649,7 +1654,8 @@ function glFrame(view, nextPic, count) {
     'void main() { uv = off + (p * vec2(0.5, -0.5) + 0.5) * span; gl_Position = vec4(p, 0.0, 1.0); }'));
   gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
     'precision mediump float; varying vec2 uv; uniform sampler2D tex; uniform float alpha; uniform float bri;' +
-    'void main() { gl_FragColor = vec4(texture2D(tex, uv).rgb * bri, alpha); }'));
+    'void main() { float m = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);' +
+    ' gl_FragColor = vec4(texture2D(tex, uv).rgb * bri * m, alpha); }'));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { view.el.removeChild(canvas); return false; }
   gl.useProgram(prog);
@@ -1670,11 +1676,19 @@ function glFrame(view, nextPic, count) {
   var sctx = strip.getContext('2d', { willReadFrequently: true });
   var times = [], last = 0;
 
-  // Where the picture sits: cover the screen, pan between two corners.
+  // Where the picture sits. Pan: cover the screen and travel between two
+  // corners. Still: a picture that isn't 16:9 is shown whole on black; any
+  // picture only drifts a few pixels.
   function plan(w, h) {
+    var still = frameCfg().pan === false;
     var k = Math.max(W / w, H / h);
+    if (still && Math.abs(w / h - W / H) > 0.03) {
+      k = Math.min(W / w, H / h) * 0.97;   // a thin black margin, so the drift never clips it
+      var d = 12 / k, cx = (w - W / k) / 2, cy = (h - H / k) / 2;
+      return { k: k, x0: cx - d, y0: cy - d, x1: 2 * d, y1: 2 * d, leg: 600000 };
+    }
     var tx = w - W / k, ty = h - H / k;
-    var drift = tx * k < 40 && ty * k < 40;
+    var drift = still || (tx * k < 40 && ty * k < 40);
     if (drift) { k *= 1.02; tx = w - W / k; ty = h - H / k; }
     var dist = Math.sqrt(tx * tx + ty * ty) * k;
     var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;

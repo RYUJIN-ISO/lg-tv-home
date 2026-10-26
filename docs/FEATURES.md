@@ -74,10 +74,14 @@ the TV looks like a framed picture.
   them picked, new wallpapers join automatically.
 - **Change every** 1, 5, 15, 30 or 60 minutes (Left and Right), when more than
   one picture is picked. The order is shuffled and pictures fade into each other.
+- **Motion**: **Pan** (default) glides across large pictures, see below.
+  **Still** shows every picture without panning; one that isn't 16:9 (a tall
+  photo, a square painting) is shown whole, centred on black like a print in
+  a mat.
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
 
-**Large pictures pan.** A picture that is bigger than the screen or not 16:9
+**Large pictures pan** (Motion: Pan). A picture that is bigger than the screen or not 16:9
 (a tall photo, a square painting, a 15000 pixel camera shot) fills the screen
 and glides very slowly from one corner to the other and back, easing into each
 turn. A 16:9 picture stays still and only drifts a few pixels now and then,
