@@ -3,6 +3,7 @@
 #                                       print [{name, url, w, h}]
 #   python3 usb.py chunk <id> <base64>  append part of a cropped JPEG
 #   python3 usb.py finish <id> <name>   decode it into the wallpapers data dir
+#   python3 usb.py keep <cache path> <name>  keep the full-size original for re-cropping
 # The web runtime can't read files outside the app folder, hence the staging.
 import base64, glob, json, os, re, shutil, struct, sys
 
@@ -86,5 +87,13 @@ elif cmd == "finish":
         o.write(base64.b64decode(f.read()))
     os.remove(tmp)
     print(name)
+elif cmd == "keep":
+    src = os.path.join(APP, sys.argv[2].split("?")[0])
+    dst_dir = os.path.join(WALLS, "originals")
+    os.makedirs(dst_dir, exist_ok=True)
+    for old in glob.glob(os.path.join(dst_dir, safe(sys.argv[3]) + ".*")):
+        os.remove(old)
+    shutil.copyfile(src, os.path.join(dst_dir, safe(sys.argv[3]) + os.path.splitext(src)[1].lower()))
+    print("kept")
 else:
     sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name>")
