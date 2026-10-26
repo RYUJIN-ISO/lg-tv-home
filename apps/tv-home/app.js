@@ -1,20 +1,19 @@
-// TV Home — Apple TV–style launcher for webOS (com.iso.atvhome).
+// TV Home: an Apple TV style home screen for rooted LG webOS TVs
+// (com.iso.atvhome, the TV's default "home" app).
 //
-// Data comes from launchpoints.sh (run as root via Homebrew Channel exec):
-// LG's launch points (order, icons, HDMI bookmarks), available wallpapers and
-// the saved config. The config lives in /var/lib/webosbrew/atvhome/config.json
-// (written by config.sh) so it survives reinstalls; localStorage only caches
-// the last state for an instant first paint.
+// Data comes from launchpoints.sh, run as root through Homebrew Channel's
+// exec service: LG's launch points (order, icons, HDMI device names), the
+// installed apps, the wallpapers and the saved config. The config lives in
+// /var/lib/webosbrew/atvhome/config.json (written by config.sh), so it
+// survives reinstalls; localStorage only caches it for a fast first paint.
 //
-// Remote: arrows / OK / Back. Hold OK on a tile for its options (move, put in
-// folder, remove from home). Top-left buttons (Up from the first row):
-// Settings, Organize Apps (edit mode: OK opens options directly; add apps,
-// new folder, uninstall) and Light (Hue movie scene). Magic Remote: hover +
-// click, click-and-hold, wheel.
+// Remote: arrows, OK, Back. Hold OK on a tile for its options. Up from the
+// first row reaches the top-left buttons: Settings, Organize Apps (edit mode)
+// and Light. The Magic Remote works too: hover, click, click and hold, wheel.
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.14.0';
+var VERSION = '0.15.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -152,13 +151,14 @@ var STRINGS = {
     cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: 'Arrows: move · OK: options',
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
+    appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
     remoteButtons: 'Remote Buttons', remoteTip: 'Arrows or pointer: pick a button · OK: change it · Back: close', otherButton: 'Other button …',
     remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
     learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
     learnBlocked: 'This button can\'t be changed (needed to control the TV).',
     lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps',
     tvHome: 'Home screen (TV Home)', liveTv: 'Live TV', hdmi: 'HDMI {0}', button: 'Button {0}',
-    saved: 'Saved — works right away.',
+    saved: 'Saved. Works right away.',
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_chup: 'Channel +', b_chdown: 'Channel −'
@@ -193,13 +193,14 @@ var STRINGS = {
     cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: 'Pfeile: verschieben · OK: Optionen',
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
+    appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
     remoteButtons: 'Fernbedienungstasten', remoteTip: 'Pfeile oder Zeiger: Taste wählen · OK: ändern · Zurück: schließen', otherButton: 'Andere Taste …',
     remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
     learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
     learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
     lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps',
     tvHome: 'Startbildschirm (TV Home)', liveTv: 'Live-TV', hdmi: 'HDMI {0}', button: 'Taste {0}',
-    saved: 'Gespeichert – wirkt sofort.',
+    saved: 'Gespeichert. Wirkt sofort.',
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_chup: 'Kanal +', b_chdown: 'Kanal −'
@@ -793,8 +794,8 @@ function openFolder(id) {
 }
 
 // Generic list menu (settings panel or centered sheet).
-// spec: { title, sub, sheet, rows: function () -> [{label, value, chevron,
-//         check, danger, info, thumb, action}] }
+// spec: { title, sub, sheet, onFocus, onClose,
+//         rows: function () -> [{label, value, chevron, check, danger, info, action}] }
 function menu(spec) {
   var el = layer();
   var panel = document.createElement('div');
@@ -811,12 +812,6 @@ function menu(spec) {
     view.rows.forEach(function (r, i) {
       var row = document.createElement('div');
       row.className = 'row' + (r.info ? ' info' : '') + (r.danger ? ' danger' : '');
-      if (r.thumb) {
-        var th = document.createElement('div');
-        th.className = 'thumb';
-        th.style.backgroundImage = r.thumb === 'none' ? 'radial-gradient(#26262c, #0d0d0f)' : 'url("' + r.thumb + '")';
-        row.appendChild(th);
-      }
       var lab = document.createElement('span');
       lab.textContent = (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
       row.appendChild(lab);
@@ -1088,6 +1083,15 @@ function renameFolder(id) {
 }
 
 
+
+
+function refreshTop() {
+  var top = stack[stack.length - 1];
+  if (top && top.refresh) top.refresh();
+}
+
+// ---------------------------------------------------------------- organize (pickers)
+
 // Card picker: apps as home-screen tiles. Multi mode: OK toggles a badge
 // (changes apply live via onToggle), Back is done. Single mode: OK picks and
 // closes. tone 'remove' = red trash badges, unpicked cards stay bright.
@@ -1143,9 +1147,44 @@ function chooseFolderApps(id) {
   });
 }
 
-function refreshTop() {
-  var top = stack[stack.length - 1];
-  if (top && top.refresh) top.refresh();
+// All installed apps as cards; ticked = on the home screen (add + remove in one place).
+function chooseAddApps() {
+  appPicker({
+    title: t('homeAppsTitle'),
+    keys: appOrder,
+    isPicked: onHome,
+    onToggle: function (k, on) { setOnHome(k, on); },
+    onDone: function () { refreshMain(); }
+  });
+}
+
+function resetLayout() {
+  confirmSheet(t('resetQ'), t('resetSub'), t('resetYes'), function () {
+    var c = cfg();
+    c.order = []; c.folders = {}; c.hidden = []; c.added = [];
+    saveConfig(); closeAll(); refreshMain();
+  });
+}
+
+function chooseUninstall() {
+  appPicker({
+    title: t('uninstallApps'),
+    tone: 'remove',
+    keys: appOrder.filter(function (k) { return apps[k].removable; }),
+    emptyText: t('noUninstall'),
+    onDone: function (sel) {
+      if (!sel.length) return;
+      var list = sel.map(function (k) { return apps[k]; });
+      var q = list.length === 1 ? t('uninstallQ', list[0].title) : t('uninstallNQ', list.length);
+      confirmSheet(q, t('uninstallWarn'), t('uninstallYes'), function () { uninstallMany(list); });
+    }
+  });
+}
+
+function uninstallMany(list) {
+  (function next(i) {
+    if (i < list.length) uninstall(list[i], function () { next(i + 1); });
+  })(0);
 }
 
 // ---------------------------------------------------------------- settings
@@ -1156,7 +1195,37 @@ function wallpaperLabel() {
   return c.wallpaper.replace(/\.[a-z]+$/i, '');
 }
 
+// LG Content Store access (tv/store-mode.sh): the privacy block also blocks
+// the store, this opens it for 10 minutes (it re-locks on its own).
+var STORE_MODE = '/var/lib/webosbrew/store-mode.sh';
+var storeState = { available: false, open: false, left: 0 };
+
+function loadStore(cb) {
+  exec('[ -f ' + STORE_MODE + ' ] && sh ' + STORE_MODE + ' status', function (res) {
+    var out = (res.stdoutString || '').trim();
+    storeState.available = /^(blocked|open)/.test(out);
+    storeState.open = out.indexOf('open') === 0;
+    storeState.left = parseInt(out.split(' ')[1], 10) || 0;
+    if (cb) cb();
+  });
+}
+
+function storeLabel() {
+  return storeState.open ? t('storeOpen', Math.max(1, Math.ceil(storeState.left / 60))) : t('storeLocked');
+}
+
+function toggleStore() {
+  var opening = !storeState.open;
+  exec('sh ' + STORE_MODE + ' ' + (opening ? 'on' : 'off'), function () {
+    loadStore(function () {
+      refreshTop();
+      if (opening) launch({ id: 'com.webos.app.discovery', params: {} });
+    });
+  });
+}
+
 function openSettings() {
+  loadStore(refreshTop);
   menu({
     title: function () { return t('settingsTitle'); },
     rows: function () {
@@ -1164,13 +1233,14 @@ function openSettings() {
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: chooseWallpaper },
-        { label: t('remoteButtons'), chevron: true, action: openRemote },
+        { label: t('remoteButtons'), chevron: true, action: openRemote }
+      ].concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
         } },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
-      ];
+      ]);
     }
   });
 }
@@ -1228,45 +1298,9 @@ function indexOfKey(key) {
   return 0;
 }
 
-// All installed apps as cards; ticked = on the home screen (add + remove in one place).
-function chooseAddApps() {
-  appPicker({
-    title: t('homeAppsTitle'),
-    keys: appOrder,
-    isPicked: onHome,
-    onToggle: function (k, on) { setOnHome(k, on); },
-    onDone: function () { refreshMain(); }
-  });
-}
 
-function resetLayout() {
-  confirmSheet(t('resetQ'), t('resetSub'), t('resetYes'), function () {
-    var c = cfg();
-    c.order = []; c.folders = {}; c.hidden = []; c.added = [];
-    saveConfig(); closeAll(); refreshMain();
-  });
-}
 
-function chooseUninstall() {
-  appPicker({
-    title: t('uninstallApps'),
-    tone: 'remove',
-    keys: appOrder.filter(function (k) { return apps[k].removable; }),
-    emptyText: t('noUninstall'),
-    onDone: function (sel) {
-      if (!sel.length) return;
-      var list = sel.map(function (k) { return apps[k]; });
-      var q = list.length === 1 ? t('uninstallQ', list[0].title) : t('uninstallNQ', list.length);
-      confirmSheet(q, t('uninstallWarn'), t('uninstallYes'), function () { uninstallMany(list); });
-    }
-  });
-}
 
-function uninstallMany(list) {
-  (function next(i) {
-    if (i < list.length) uninstall(list[i], function () { next(i + 1); });
-  })(0);
-}
 
 // ---------------------------------------------------------------- usb wallpapers
 

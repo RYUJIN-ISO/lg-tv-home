@@ -4,6 +4,14 @@
 # apps. System apps, the launcher, Homebrew stuff and inputs are never closed.
 # Deployed to /var/lib/webosbrew/app-trim.sh; started by init.d/85-app-trim.
 
+# One watcher only (the boot hook and a manual start must not double up).
+PIDFILE=/tmp/app-trim.pid
+if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+    echo "already running" >&2
+    exit 0
+fi
+echo $$ > "$PIDFILE"
+
 KEEP_ALWAYS=" com.iso.atvhome com.webos.app.home com.webos.app.livetv com.webos.app.screensaver "
 # LG's own apps that behave like user apps (preloaded or opened from home).
 LG_USER_APPS=" com.webos.app.browser com.webos.app.lgchannels com.webos.app.voice com.webos.app.discovery com.webos.app.mediadiscovery com.webos.app.homeconnect com.webos.app.lifeonscreen com.webos.app.sportsteamsettings amazon.alexa.view "

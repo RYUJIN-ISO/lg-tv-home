@@ -1,98 +1,103 @@
-# AGENTS.md — installing lg-tv-home for a user
+# AGENTS.md: installing lg-tv-home for someone
 
-You are helping someone put lg-tv-home on their LG TV. Read README.md,
-docs/FEATURES.md and docs/HOW-IT-WORKS.md first. The installer does the work;
-your job is to get the prerequisites right, ask the user the setup questions
-in plain language, run it, and verify.
+You are helping a person put lg-tv-home on their LG TV. Read README.md,
+docs/FEATURES.md and docs/HOW-IT-WORKS.md first. The installer does the
+work. Your job: get the prerequisites right, ask the setup questions in plain
+words, run the installer and check the result.
 
-## 0. Ground rules
+## 1. Ground rules
 
-- **The TV is in someone's living room.** Before anything that changes the
-  screen (launching apps, `tools/bench.sh`, screenshots of a running app),
-  check what's on: `luna-send -n 1 luna://com.webos.applicationManager/getForegroundAppInfo '{}'`
-  and tail `/var/log/messages` for `BUTTON_CLICK` (someone holding the remote).
-- **Never** uninstall or stub `org.webosbrew.*` (Homebrew Channel = root),
-  never write to `/`, `/usr`, `/etc` (read-only anyway), never flash or
-  downgrade firmware.
-- **Light control switches real lights.** Don't press/test the Light button
-  or run `scene.sh` without the user's OK.
-- Default UI language is **English**; German is a setting.
-- Run `./install.sh` interactively in a terminal the user can see, or fill
-  `setup.conf` yourself from their answers and run `./install.sh --yes`.
+- **The TV stands in someone's living room.** Before anything that changes the
+  screen (launching apps, `tools/bench.sh`), check what is on:
+  `luna-send -n 1 luna://com.webos.applicationManager/getForegroundAppInfo '{}'`,
+  and look at `/var/log/messages` for `BUTTON_CLICK` (someone is holding the
+  remote).
+- **Never** uninstall or stub `org.webosbrew.*` (Homebrew Channel is the root
+  access). Never write to `/`, `/usr` or `/etc` (read only anyway). Never
+  flash or downgrade firmware.
+- **The Light switches real lights.** Don't press it or run `scene.sh`
+  without asking.
+- **Boot scripts must return at once.** Homebrew Channel keeps its failsafe
+  flag armed until every `init.d` script has finished; a slow one means a
+  "crash" message after the next power cycle. Put slow work in the background.
+- The interface language defaults to **English**; German is a setting.
+- Run `./install.sh` in a terminal the person can see, or fill in
+  `setup.conf` from their answers and run `./install.sh --yes`.
 
-## 1. Prerequisites — check, don't assume
+## 2. Check the prerequisites
 
-1. Rooted with Homebrew Channel, SSH key login works: `ssh <host> true`
-   (see docs/PREREQUISITES.md; walk them through it if not).
-2. Homebrew Channel → "Block system updates" is ON (else an LG update can
-   silently remove root).
-3. Computer has `ssh python3 curl ar`.
+1. The TV is rooted with Homebrew Channel and SSH key login works:
+   `ssh <host> true` (docs/PREREQUISITES.md walks through it).
+2. Homebrew Channel's **Block system updates** is on (otherwise an LG update
+   can silently remove root).
+3. The computer has `ssh`, `python3`, `curl` and `ar`.
 
-## 2. Setup questions to ask the user
+## 3. The setup questions
 
-Ask conversationally; the defaults in brackets are what most people want.
-Map answers to `setup.conf` keys:
+Ask them in a conversation; the defaults are what most people want. They map
+to the keys in `setup.conf`:
 
 | Ask | Key | Default |
 |---|---|---|
-| What's the TV's SSH alias / IP? | `TV` | `lgtv` |
-| Do you want the Apple TV-style home screen? | `LAUNCHER` | y |
-| Should it fully replace LG's home (Home button, after power-on)? | `SET_HOME` | y |
-| English or German for the home screen? | `LANGUAGE` | en |
-| **Light control** — see below | `LIGHT` | n |
-| Remap remote buttons (Netflix/Prime/… buttons, Mic, Settings, Input, …)? Configured later in the launcher's Settings → Remote Buttons | `REMOTE` | y |
-| Block LG's ads/tracking/ACR domains? | `ADBLOCK` | y |
-| …then: want the App-Updates toggle to still update apps from the LG Store? | `APP_UPDATES` | y |
-| Stop LG's tracking/profiling background services? | `DEBLOAT` | y |
-| …does anyone use **voice search** (mic button)? (y = keep) | `KEEP_VOICE` | n |
-| …do they use the **LG ThinQ app, Google Home or Alexa** with the TV? (y = keep) | `KEEP_SMARTHOME` | n |
-| Keep only the current + previous app in memory (faster, less swapping)? | `APP_TRIM` | y |
+| What is the TV's SSH name or IP? | `TV` | `lgtv` |
+| Do you want the Apple TV style home screen? | `LAUNCHER` | y |
+| Should it replace LG's home completely (Home button, after power on)? | `SET_HOME` | y |
+| English or German? | `LANGUAGE` | en |
+| **Light**: see below | `LIGHT` | n |
+| Should the remote's buttons be remappable (set up later in TV Home's Settings)? | `REMOTE` | y |
+| Block LG's ad, tracking and ACR servers? | `ADBLOCK` | y |
+| Only without TV Home: install the small App-Updates app to open the LG Store? | `APP_UPDATES` | y |
+| Stop LG's tracking and profiling services on the TV? | `DEBLOAT` | y |
+| ...does anyone use **voice search** with the mic button? (y keeps it) | `KEEP_VOICE` | n |
+| ...do they use the **LG ThinQ app, Google Home or Alexa** with the TV? (y keeps it) | `KEEP_SMARTHOME` | n |
+| Keep only the current and previous app in memory (faster)? | `APP_TRIM` | y |
 | Turn off the passwordless root telnet? | `TELNET_OFF` | y |
 
-### Light control (central optional feature — ask properly)
+### The Light (ask properly, it is the main optional feature)
 
-The launcher's top-left **Light** button toggles a Philips Hue scene:
-1st press saves the room's current lighting and recalls a "movie" scene,
-2nd press restores the saved lighting exactly. Ask:
+The top-left **Light** button toggles a Philips Hue scene: the first press
+saves the room's current lighting and starts a movie scene, the next press
+brings the saved lighting back exactly. Ask:
 
-1. *Do you have Philips Hue lights in the TV room, with a Hue bridge?*
-   No → `LIGHT=n` (the button simply doesn't appear). Other brands
-   (Govee, Nanoleaf, Home Assistant) are not supported yet — say so, and
-   offer to note it as a wish.
+1. *Are there Philips Hue lights in the TV room, with a Hue bridge?*
+   If not, `LIGHT=n` and the button simply doesn't appear. Other systems
+   (Govee, Nanoleaf, Home Assistant) are not supported yet; say so and note
+   the wish.
 2. *Which room or zone are the TV lights in, and which scene should play when
-   watching?* If they have no fitting scene, ask them to create one in the Hue
-   app first (e.g. dim warm light behind the TV).
-3. *Are you near the bridge?* `tools/hue-setup.sh` asks them to press its
-   link button within 60 s, lists rooms and scenes, and creates the "TV Home
-   before" snapshot scene. It needs the computer on the same network as the
-   bridge.
+   watching?* If no scene fits, they should create one in the Hue app first
+   (for example dim warm light behind the TV).
+3. *Can you get to the bridge?* `tools/hue-setup.sh` asks them to press its
+   button within 60 seconds, lists rooms and scenes and creates the "TV Home
+   before" snapshot scene. The computer must be in the bridge's network.
 
-## 3. Install and verify
+## 4. Install and check
 
 ```bash
 ./install.sh            # or: write setup.conf, then ./install.sh --yes
 ```
 
-Then verify, and report honestly what you checked:
+Then check, and report honestly what you actually verified:
 
-- `tools/screenshot.sh` → home screen shows (only if nobody is watching).
-- Press Home on the remote (ask the user) → TV Home, no LG screen first.
-- After 2-3 min: `ssh <tv> cat /tmp/debloat.state` → `applied`;
-  `ssh <tv> cat /tmp/app-trim.log` shows closed preloaded apps.
-- Ask the user to power-cycle the TV once; everything must come back by
-  itself (~2 min after boot for the service block).
-- Optional: `tools/bench.sh` (moves focus on screen ~30 s) → ~60 fps, 0-2
-  frames > 25 ms on the tested model.
+- `tools/screenshot.sh` shows the home screen (only if nobody is watching).
+- Ask them to press Home: TV Home appears, without LG's screen first.
+- After 2 to 3 minutes: `ssh <tv> cat /tmp/debloat.state` says `applied`,
+  `ssh <tv> cat /tmp/app-trim.log` lists the preloaded apps it closed.
+- Ask them to power the TV off and on once: everything must come back by
+  itself, with no Homebrew failsafe message.
+- Optional: `tools/bench.sh` (moves the focus on screen for about 30 seconds)
+  should show about 60 fps and 0 to 2 frames over 25 ms on the tested model.
 
-## 4. Different TV model?
+## 5. A different TV model?
 
-Tested: LG OLED 2024 (OLED65G49LS), webOS 10.3.1. On other models:
-`debloat.sh` skips units/binaries that don't exist; check
-`/var/log/messages` and the user's experience for anything broken (voice,
-casting, inputs) and lift with `ssh <tv> sh /var/lib/webosbrew/debloat.sh lift`
-if needed. Report differences back to the repo owner.
+Tested: LG OLED 2024 (OLED65G49LS), webOS 10.3.1. On other models,
+`debloat.sh` skips services and programs that don't exist. Watch
+`/var/log/messages` and ask whether voice, casting and inputs still work; if
+something broke, lift the block with `ssh <tv> sh /var/lib/webosbrew/debloat.sh lift`.
+The remote mapper's button names come from LG's key constants and work on
+any remote; buttons the drawing lacks can be set with **Other button**.
+Report differences to the repo owner.
 
-## 5. Undo
+## 6. Undo
 
-`./uninstall.sh` (asks before deleting the saved layout / Hue pairing), then
-reboot the TV.
+`./uninstall.sh` (it asks before deleting the saved layout and the Hue
+pairing), then a reboot of the TV.

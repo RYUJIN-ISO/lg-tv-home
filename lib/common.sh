@@ -61,12 +61,17 @@ EOF
 install_app() {
     ipk=$(build_ipk "$1" "$2" "$3")
     scp -q -o BatchMode=yes "$ipk" "$TV:/tmp/$2.ipk" 2>/dev/null || die "copying $2 to the TV failed"
-    res=$(tv "luna-send -w 120000 -i luna://com.webos.appInstallService/dev/install \
-        '{\"id\":\"$2\",\"ipkUrl\":\"/tmp/$2.ipk\",\"subscribe\":true}' < /dev/null 2>&1 | \
-        while read -r l; do echo \"\$l\"; case \"\$l\" in *installed*|*failed*|*errorText*) break;; esac; done; rm -f /tmp/$2.ipk")
+    # The install subscription keeps running after the final status, so watch
+    # its log and stop it as soon as the result is in.
+    res=$(tv "L=/tmp/install-$2.log
+        luna-send -w 120000 -i luna://com.webos.appInstallService/dev/install \
+            '{\"id\":\"$2\",\"ipkUrl\":\"/tmp/$2.ipk\",\"subscribe\":true}' > \$L 2>&1 &
+        P=\$!
+        for i in \$(seq 1 120); do grep -qE 'installed|failed|errorText' \$L && break; sleep 1; done
+        kill \$P 2>/dev/null; tail -n 1 \$L; rm -f \$L /tmp/$2.ipk")
     case "$res" in
         *'"state":"installed"'*) say "installed $2" ;;
-        *) die "installing $2 failed: $(echo "$res" | tail -1)" ;;
+        *) die "installing $2 failed: $res" ;;
     esac
     rm -rf "$(dirname "$ipk")"
 }
