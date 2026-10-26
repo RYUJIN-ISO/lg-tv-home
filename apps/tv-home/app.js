@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.15.1';
+var VERSION = '0.16.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -41,6 +41,7 @@ var topFocus = -1;      // focused top-left button, -1 = focus is in the grid
 var LIGHT_APP = 'com.iso.moviescene';
 var LIGHT_SCRIPT = '/media/developer/apps/usr/palm/applications/' + LIGHT_APP + '/scene.sh';
 var lightFlash = '';    // '', 'ok' or 'err': ring around the Light button
+var lightCinema = false; // cinema scene active (button glows)
 var apps = {};          // key -> app item
 var appOrder = [];      // keys in LG's order
 var stack = [];         // open overlay views, top = last
@@ -152,6 +153,13 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
+    hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
+    hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
+    huePress: 'Press the button on the Hue bridge', huePressSub: 'Waiting up to 60 seconds.',
+    huePaired: 'Hue connected.', lightButton: 'Light button', power: 'Power', brightness: 'Brightness',
+    scenes: 'Scenes', lights: 'Lights', room: 'Room', cinemaScene: 'Cinema scene', backTo: 'Back to',
+    backPrevious: 'Lighting before cinema', lightHow: 'One press: cinema. Next press: {0}.',
+    notSet: 'Not set', unreachable: 'unreachable',
     remoteButtons: 'Remote Buttons', remoteTip: 'Arrows or pointer: pick a button · OK: change it · Back: close', otherButton: 'Other button …',
     remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
     learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
@@ -194,6 +202,13 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
+    hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
+    hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
+    huePress: 'Den Knopf auf der Hue Bridge drücken', huePressSub: 'Wartet bis zu 60 Sekunden.',
+    huePaired: 'Hue verbunden.', lightButton: 'Licht-Taste', power: 'Ein / Aus', brightness: 'Helligkeit',
+    scenes: 'Szenen', lights: 'Lampen', room: 'Raum', cinemaScene: 'Kino-Szene', backTo: 'Zurück zu',
+    backPrevious: 'Licht vor dem Kino', lightHow: 'Einmal drücken: Kino. Nochmal: {0}.',
+    notSet: 'Nicht gesetzt', unreachable: 'nicht erreichbar',
     remoteButtons: 'Fernbedienungstasten', remoteTip: 'Pfeile oder Zeiger: Taste wählen · OK: ändern · Zurück: schließen', otherButton: 'Andere Taste …',
     remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
     learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
@@ -405,14 +420,22 @@ var ICONS = {
 var GEAR = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>';
 
 function renderTile(entry) {
-  var t = document.createElement('div');
-  t.className = 'tile';
+  var tile = document.createElement('div');
+  tile.className = 'tile';
   var card = document.createElement('div');
   card.className = 'card';
   var label = document.createElement('div');
   label.className = 'label';
 
-  if (entry.type === 'image') {
+  if (entry.type === 'room') {
+    card.classList.add('room');
+    card.classList.toggle('lit', entry.room.on);
+    card.style.setProperty('--glow', entry.room.on ? (0.35 + entry.room.bri / 160).toFixed(2) : 0);
+    card.innerHTML = ICONS.light + '<div class="rname"></div><div class="pct"></div><div class="gloss"></div>';
+    card.querySelector('.rname').textContent = entry.title;
+    card.querySelector('.pct').textContent = entry.room.on ? entry.room.bri + '%' : t('off');
+    label.textContent = entry.title;
+  } else if (entry.type === 'image') {
     card.classList.add('art');
     card.innerHTML = '<img alt=""><div class="gloss"></div>';
     card.querySelector('img').src = entry.url;
@@ -451,9 +474,9 @@ function renderTile(entry) {
     card.innerHTML = (entry.icon === 'gear' ? GEAR : ICONS[entry.icon]) + '<div class="gloss"></div>';
     label.textContent = entry.title;
   }
-  t.appendChild(card);
-  t.appendChild(label);
-  return t;
+  tile.appendChild(card);
+  tile.appendChild(label);
+  return tile;
 }
 
 // ---------------------------------------------------------------- grid
@@ -481,11 +504,11 @@ Grid.prototype.render = function () {
   var c = this.o.container;
   c.innerHTML = '';
   this.entries.forEach(function (e, i) {
-    var t = renderTile(e);
-    if (self.o.decorate) self.o.decorate(t, e, i);
-    t.addEventListener('mouseenter', function () { if (self.moving < 0) self.setFocus(i); });
-    pressable(t, function () { self.activate(i); }, function () { self.longPress(i); });
-    c.appendChild(t);
+    var tile = renderTile(e);
+    if (self.o.decorate) self.o.decorate(tile, e, i);
+    tile.addEventListener('mouseenter', function () { if (self.moving < 0) self.setFocus(i); });
+    pressable(tile, function () { self.activate(i); }, function () { self.longPress(i); });
+    c.appendChild(tile);
   });
   this.setFocus(Math.max(0, this.focus), true);
 };
@@ -609,8 +632,7 @@ function topButtons() {
     { icon: GEAR, title: t('settings'), action: openSettings },
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
   ];
-  var hasLight = state.installed.some(function (a) { return a.id === LIGHT_APP; });
-  if (hasLight) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight });
+  if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight });
   return b;
 }
 
@@ -621,7 +643,7 @@ function renderTop() {
   buttons.forEach(function (btn, i) {
     var el = document.createElement('div');
     el.className = 'tbtn' + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
-      (btn.light && lightFlash ? ' flash-' + lightFlash : '');
+      (btn.light && lightFlash ? ' flash-' + lightFlash : '') + (btn.light && lightCinema ? ' cinema' : '');
     el.innerHTML = btn.icon + '<div class="tlabel"></div>';
     el.querySelector('.tlabel').textContent = btn.title;
     el.addEventListener('mouseenter', function () { focusTop(i); });
@@ -639,6 +661,8 @@ function toggleLight() {
   exec('sh ' + LIGHT_SCRIPT, function (res) {
     var out = (res.stdoutString || '').trim();
     var ok = res.returnValue !== false && (out === 'movie' || out === 'restored');
+    if (!ok && /not set up|KEY|BRIDGE/.test(res.stderrString || '')) { setLightFlash(''); openHue(); return; }
+    if (ok) { lightCinema = out === 'movie'; renderTop(); }
     setLightFlash(ok ? 'ok' : 'err');
     clearTimeout(lightTimer);
     lightTimer = setTimeout(function () { setLightFlash(''); }, 1200);
@@ -869,6 +893,11 @@ function menu(spec) {
   // sideways press can't flip a setting); Left goes back like Back.
   view.key = function (e) {
     var r = view.rows[view.focus];
+    // Rows with adjust(): Left/Right change the value instead of navigating.
+    if (r && r.adjust && (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT)) {
+      r.adjust(e.keyCode === KEY.LEFT ? -1 : 1);
+      return;
+    }
     // Lists wrap around: Up on the first row goes to the last and vice versa.
     if (e.keyCode === KEY.UP) view.setFocus(wrapSel(view.focus - 1, -1));
     else if (e.keyCode === KEY.DOWN) view.setFocus(wrapSel(view.focus + 1, 1));
@@ -1234,7 +1263,7 @@ function openSettings() {
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: chooseWallpaper },
         { label: t('remoteButtons'), chevron: true, action: openRemote }
-      ].concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
+      ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
         } },
@@ -1459,6 +1488,211 @@ function openCrop(pic, W, H) {
   });
   push(view);
   paint();
+}
+
+// ---------------------------------------------------------------- hue
+
+// Philips Hue through hue.py (in the Light app, run as root): rooms and
+// lights, scenes, and the Light button setup (room, cinema scene, back to).
+var HUE_PY = 'python3 /media/developer/apps/usr/palm/applications/' + LIGHT_APP + '/hue.py';
+var HUE_MODE = '/var/lib/webosbrew/hue-scene.mode';
+var hueData = null;
+var hueSend = {};   // debounce timers for brightness changes
+
+function hasLight() {
+  return state.installed.some(function (a) { return a.id === LIGHT_APP; });
+}
+
+function hue(args, cb) {
+  exec(HUE_PY + ' ' + args, function (res) {
+    var ok = res.returnValue !== false;
+    if (cb) cb((res.stdoutString || '').trim(), ok, (res.stderrString || '').trim());
+  });
+}
+
+function loadHue(cb) {
+  hue('status', function (out, ok) {
+    try { hueData = ok ? JSON.parse(out) : null; } catch (e) { hueData = null; }
+    if (hueData && hueData.paired) { lightCinema = hueData.mode === 'movie'; renderTop(); }
+    if (cb) cb();
+  });
+}
+
+function hueRoom(id) {
+  var r = null;
+  (hueData && hueData.rooms || []).forEach(function (x) { if (x.id === id) r = x; });
+  return r;
+}
+
+function sceneName(room, id) {
+  var n = '';
+  (room && room.scenes || []).forEach(function (s) { if (s.id === id) n = s.name; });
+  return n;
+}
+
+function openHue() {
+  closeAll();
+  showHint(t('hueConnecting'));
+  loadHue(function () {
+    showHint('');
+    if (!hueData) { showHint(t('hueFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    if (!hueData.paired) { pairBridge(); return; }
+    openHueRooms();
+  });
+}
+
+// Rooms as cards: OK switches a room, hold OK opens it. Plus the Light
+// button card.
+function openHueRooms() {
+  var el = layer('folderView picker');
+  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
+  el.querySelector('.title').textContent = 'Hue';
+  el.querySelector('.pickhint').textContent = t('hueHint');
+  var inner = el.querySelector('.inner');
+  var view = { el: el };
+  function entries() {
+    var list = (hueData.rooms || []).map(function (r) { return { type: 'room', key: 'room' + r.id, title: r.name, room: r }; });
+    list.push({ type: 'special', key: '__button', icon: 'light', title: t('lightButton') });
+    return list;
+  }
+  var grid = new Grid({
+    container: el.querySelector('.grid'),
+    onActivate: function (e) {
+      if (e.key === '__button') { lightButtonMenu(); return; }
+      e.room.on = !e.room.on;
+      grid.set(entries(), e.key);
+      hue('room ' + e.room.id + (e.room.on ? ' on' : ' off'), function () { loadHue(view.refresh); });
+    },
+    onLongPress: function (e) { if (e.room) roomMenu(e.room.id); },
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+  });
+  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
+  view.ok = function () { grid.activate(grid.focus); };
+  view.longOk = function () { grid.longPress(grid.focus); };
+  view.refresh = function () { if (hueData && hueData.rooms) grid.set(entries()); };
+  view.grid = grid;
+  push(view);
+  grid.set(entries());
+}
+
+// Brightness: change locally right away, send after a short pause.
+function hueBri(kind, id, value) {
+  clearTimeout(hueSend[kind + id]);
+  hueSend[kind + id] = setTimeout(function () { hue(kind + ' ' + id + ' bri ' + value); }, 350);
+}
+
+function roomMenu(id) {
+  menu({
+    title: function () { var r = hueRoom(id); return r ? r.name : ''; },
+    rows: function () {
+      var r = hueRoom(id);
+      if (!r) return [];
+      var rows = [
+        { label: t('power'), value: r.on ? t('on') : t('off'), action: function () {
+          r.on = !r.on; refreshTop(); hue('room ' + id + (r.on ? ' on' : ' off'), function () { loadHue(refreshTop); });
+        } },
+        { label: t('brightness'), value: '‹ ' + (r.on ? r.bri + '%' : t('off')) + ' ›', adjust: function (d) {
+          r.bri = Math.max(1, Math.min(100, (r.on ? r.bri : 0) + d * 10)); r.on = true;
+          refreshTop(); hueBri('room', id, r.bri);
+        } }
+      ];
+      if (r.scenes.length) rows.push({ info: true, label: t('scenes') });
+      r.scenes.forEach(function (sc) {
+        rows.push({ label: sc.name, action: function () {
+          hue('scene ' + id + ' ' + sc.id, function () { lightCinema = false; renderTop(); loadHue(refreshTop); });
+        } });
+      });
+      rows.push({ info: true, label: t('lights') });
+      r.lights.forEach(function (l) {
+        rows.push({ label: l.name, value: !l.reachable ? t('unreachable') : (l.on ? '‹ ' + l.bri + '% ›' : t('off')),
+          action: function () {
+            l.on = !l.on; refreshTop(); hue('light ' + l.id + (l.on ? ' on' : ' off'));
+          },
+          adjust: function (d) {
+            l.bri = Math.max(1, Math.min(100, (l.on ? l.bri : 0) + d * 10)); l.on = true;
+            refreshTop(); hueBri('light', l.id, l.bri);
+          } });
+      });
+      return rows;
+    }
+  });
+}
+
+// Light button: room, cinema scene, and what the second press goes back to.
+function lightButtonMenu() {
+  function save(args) { hue('set ' + args, function () { loadHue(refreshTop); }); }
+  function pick(title, items, current, onPick) {
+    menu({ title: title, rows: function () {
+      return items.map(function (it) {
+        return { label: it.name, check: it.id === current(), action: function () { onPick(it.id); pop(); } };
+      });
+    } });
+  }
+  menu({
+    title: t('lightButton'),
+    rows: function () {
+      var b = hueData.button, r = hueRoom(b.group);
+      var backLabel = b.back === 'scene' ? (sceneName(r, b.backScene) || t('notSet')) : t('backPrevious');
+      return [
+        { label: t('room'), value: r ? r.name : t('notSet'), chevron: true, action: function () {
+          pick(t('room'), hueData.rooms, function () { return hueData.button.group; }, function (gid) {
+            hueData.button.group = gid; hueData.button.scene = ''; save('group=' + gid);
+          });
+        } },
+        { label: t('cinemaScene'), value: sceneName(r, b.scene) || t('notSet'), chevron: true, action: function () {
+          if (!r) return;
+          pick(t('cinemaScene'), r.scenes, function () { return hueData.button.scene; }, function (sid) {
+            hueData.button.scene = sid; save('scene=' + sid);
+          });
+        } },
+        { label: t('backTo'), value: backLabel, chevron: true, action: function () {
+          if (!r) return;
+          var items = [{ id: 'previous', name: t('backPrevious') }].concat(r.scenes);
+          pick(t('backTo'), items, function () {
+            return hueData.button.back === 'scene' ? hueData.button.backScene : 'previous';
+          }, function (sid) {
+            hueData.button.back = sid === 'previous' ? 'previous' : 'scene';
+            hueData.button.backScene = sid === 'previous' ? '' : sid;
+            save('back=' + sid);
+          });
+        } },
+        { info: true, label: t('lightHow', backLabel) }
+      ];
+    }
+  });
+}
+
+// Pairing on the TV: find the bridge (or type its IP), press its button.
+function pairBridge() {
+  hue('discover', function (out) {
+    var list = [];
+    try { list = JSON.parse(out || '[]'); } catch (e) {}
+    if (list.length) waitForButton(list[0].ip);
+    else askText(t('hueIp'), '', function (ip) { waitForButton(ip.trim()); });
+  });
+}
+
+function waitForButton(ip) {
+  var tries = 0, done = false;
+  var sheet = menu({ title: t('huePress'), sub: t('huePressSub'), sheet: true,
+    onClose: function () { done = true; },
+    rows: function () { return [{ label: t('cancel'), action: pop }]; } });
+  (function poll() {
+    if (done) return;
+    hue('pair ' + ip, function (out) {
+      if (done) return;
+      if (out === 'ok') {
+        done = true;
+        closeAll();
+        showHint(t('huePaired')); setTimeout(function () { showHint(''); }, 2500);
+        loadHue(function () { openHueRooms(); if (!hueData.button.group) lightButtonMenu(); });
+        return;
+      }
+      if (++tries >= 30) { pop(); showHint(t('hueFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+      setTimeout(poll, 2000);
+    });
+  })();
+  return sheet;
 }
 
 // ---------------------------------------------------------------- remote buttons
@@ -1864,6 +2098,10 @@ function load() {
     }
     showMsg('');
     var changed = adopt(data, true);
+    if (hasLight()) exec('cat ' + HUE_MODE + ' 2>/dev/null', function (res) {
+      var on = (res.stdoutString || '').trim() === 'movie';
+      if (on !== lightCinema) { lightCinema = on; renderTop(); }
+    });
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
     persistLocal();

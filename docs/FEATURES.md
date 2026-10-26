@@ -15,9 +15,9 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 
 | Button | What it does |
 |---|---|
-| **Settings** (gear) | Language, wallpaper, remote buttons, App Store, clock |
+| **Settings** (gear) | Language, wallpaper, remote buttons, Hue, App Store, clock |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
-| **Light** (bulb) | Toggles the Hue movie scene. A green ring flashes when it worked, a red one if the bridge didn't answer. Only shown when the Light is set up. |
+| **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. Only shown when Hue is installed. |
 
 ## Organize Apps
 
@@ -83,6 +83,22 @@ under control. Below the card:
 - **Reset** sets every button back to LG default.
 
 Changes work at once and the original app never opens.
+
+## Hue
+
+Settings, **Hue** shows your rooms and zones as cards: warm when the lights
+are on (warmer the brighter), dark when they are off.
+
+- **OK** switches a room on or off.
+- **Hold OK** opens the room: power, **brightness** (Left and Right change it
+  in 10% steps), its **scenes** (OK starts one) and every **light** (OK
+  switches it, Left and Right change its brightness).
+- The **Light button** card sets up the top-left button: the **room**, the
+  **cinema scene**, and what the next press goes **back to**: the lighting
+  from just before cinema (default) or a scene you pick.
+
+A TV without a paired bridge shows **Connect** instead: it finds the bridge
+(or asks for its IP) and waits for you to press the button on the bridge.
 
 ## App Store
 

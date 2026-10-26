@@ -20,7 +20,7 @@ skipped when they are missing. The TV must be rooted first, see
 | **Organize Apps** | Move apps, make folders, add or remove apps, uninstall, reset. App choices are always cards, never text lists. |
 | **Wallpapers** | Your own pictures, from the TV or a USB stick, cropped on the TV to 16:9 at up to 4K. |
 | **Remote buttons** | Netflix, Prime, Mic, Input, colour and number keys and more can open any app or action. Set up on a drawing of the remote. |
-| **Light** *(optional)* | One press saves the room's Hue lighting and starts your movie scene; the next press brings the old lighting back. |
+| **Hue** *(optional)* | Rooms and lights in Settings, and a Light button that switches between cinema and the lighting from before (or a chosen scene). Paired on the TV, no computer needed. |
 | **Privacy** | Blocks LG's ad, tracking and ACR servers and stops the tracking services on the TV. An App Store switch in Settings opens the LG Store for 10 minutes when apps need updating. |
 | **Speed** | Only the current and previous app stay in memory instead of 5 or 6 preloaded ones. Unused voice and smart home services can go too. |
 | **Security** | Turns off the passwordless root telnet that rooting leaves open. |
@@ -44,7 +44,7 @@ default), shows a summary and only then changes anything. Your answers are
 saved in `setup.conf`, so after pulling an update `./install.sh --yes`
 applies it without asking again.
 
-The Hue light can be set up later at any time: `TV=<your-tv> tools/hue-setup.sh`.
+Hue is paired on the TV (Settings, Hue). From a computer, `TV=<your-tv> tools/hue-setup.sh` does the same.
 
 ## Undo
 

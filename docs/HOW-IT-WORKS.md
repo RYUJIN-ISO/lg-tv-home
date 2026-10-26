@@ -103,6 +103,26 @@ No LG file is changed, any error in the filter falls back to LG's handling,
 and a reboot restores the stock chain until `86-remote-mapper` adds ours again.
 `remote-mapper/disabled` keeps it off.
 
+## Hue
+
+`apps/hue-light/hue.py` (Python standard library, run as root) talks to the
+bridge's v1 API over HTTPS (self-signed certificate) and keeps its settings
+in `/var/lib/webosbrew/hue-scene.conf`: `BRIDGE`, `KEY`, `GROUP`, `SCENE`
+(cinema), `RESTORE` (a GroupScene named "TV Home before" that stores the
+lighting before cinema), `BACK` (`previous` or `scene`) and `BACK_SCENE`.
+`hue-scene.mode` remembers whether cinema is on.
+
+- **toggle**: cinema off, so (when `BACK=previous`) save the current lighting
+  into the snapshot scene with `storelightstate`, then recall the cinema
+  scene. Cinema on, so recall the snapshot or `BACK_SCENE`. `scene.sh` is a
+  wrapper for it (Light button and the Movie app).
+- **status** returns rooms and zones with their lights and scenes (without the
+  snapshot scene) in one call for the Hue screen; **room**, **light** and
+  **scene** change things; **set** saves the button setup and creates the
+  snapshot scene in the chosen room.
+- **pair**: POST `/api` with `devicetype` until the bridge button is pressed;
+  **discover** asks `discovery.meethue.com`.
+
 ## Privacy
 
 - **Block list**: the base list of `hugobatista/lg-tv-ad-block`, duplicated

@@ -57,9 +57,9 @@ ask LAUNCHER "Install TV Home, the Apple TV style home screen?" y yn
 if [ "$LAUNCHER" = y ]; then
     ask SET_HOME "Make it the TV's home screen (Home button, after power on)? LG's stays installed." y yn
     ask LANGUAGE "Language, en or de (can be changed later in its Settings):" en text
-    echo "   Light button: one press saves the room's current Hue lighting and switches to"
-    echo "   your movie scene, the next press brings the old lighting back."
-    ask LIGHT "Set up the Light button with Philips Hue? (needs a Hue bridge on this network)" n yn
+    echo "   Philips Hue: rooms and lights in TV Home's Settings, plus a Light button that"
+    echo "   switches between a cinema scene and the lighting from before (or a chosen scene)."
+    ask LIGHT "Add Philips Hue control? (needs a Hue bridge on this network)" n yn
     echo "   Remote buttons: give the remote's app buttons (Netflix, Prime, ...), Mic, Input,"
     echo "   colour and number keys any app or action, in TV Home's Settings."
     ask REMOTE "Install the remote button mapper?" y yn
@@ -137,10 +137,8 @@ fi
 if [ "$LIGHT" = y ]; then
     say "Light button"
     install_app apps/hue-light "$LIGHT_APP" "Hue movie scene toggle"
-    if tv "test -f $WB/hue-scene.conf"; then
-        say "Hue is already set up on the TV (tools/hue-setup.sh changes it)"
-    else
-        TV=$TV tools/hue-setup.sh || warn "Hue setup not finished. Run: TV=$TV tools/hue-setup.sh"
+    if ! tv "test -f $WB/hue-scene.conf"; then
+        say "Pair the Hue bridge on the TV: TV Home, Settings, Hue (or run tools/hue-setup.sh)"
     fi
 fi
 
