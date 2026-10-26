@@ -84,6 +84,13 @@ var originals = {};
 list(ORIG).forEach(function (f) {
   try { originals[f.replace(/\.[a-z]+$/i, '')] = copy(path.join(ORIG, f), path.join(CACHE, 'orig-' + f)) + ver(path.join(ORIG, f)); } catch (e) {}
 });
+// Small previews for the pickers (wallpapers/thumbs/<same name>), so a grid
+// of cards doesn't decode every full-size picture.
+var THUMBS = path.join(DATA, 'wallpapers', 'thumbs');
+var thumbs = {};
+list(THUMBS).forEach(function (f) {
+  try { thumbs[f] = copy(path.join(THUMBS, f), path.join(CACHE, 'th-' + f)) + ver(path.join(THUMBS, f)); } catch (e) {}
+});
 var wallpapers = list(BUNDLED_WP).map(function (f) {
   return { name: f, url: 'wallpapers/' + f, bundled: true };
 });
@@ -91,7 +98,7 @@ list(path.join(DATA, 'wallpapers')).forEach(function (f) {
   try {
     var src = path.join(DATA, 'wallpapers', f);
     wallpapers.push({ name: f, url: copy(src, path.join(CACHE, 'wp-' + f)) + ver(src),
-                      orig: originals[f.replace(/\.[a-z]+$/i, '')] || '' });
+                      orig: originals[f.replace(/\.[a-z]+$/i, '')] || '', thumb: thumbs[f] || '' });
   } catch (e) {}
 });
 
