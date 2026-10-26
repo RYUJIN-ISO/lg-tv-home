@@ -85,13 +85,13 @@ the TV looks like a framed picture.
   set its **still frame**: the crop screen opens on the whole picture, you
   move and size a 16:9 frame around the subject, and the label shows how sharp
   it will be (**4K**, or how much it gets enlarged). **Save** remembers the
-  frame without cutting the file; **Whole picture** forgets it.
+  frame without cutting the file; **Reset** forgets it.
 - **Change every** 1, 5, 15, 30 or 60 minutes (Left and Right), when more than
   one picture is picked. The order is shuffled and pictures fade into each other.
 - **Motion**: **Pan** (default) glides across large pictures, see below.
-  **Still** shows every picture without panning: with its still frame if
-  one is set, otherwise a picture that isn't 16:9 (a tall photo, a square
-  painting) is shown whole, centred on black like a print in a mat.
+  **Still** shows every picture without panning, filling the screen: with
+  its still frame if one is set, otherwise centred (a tall photo or a square
+  painting is zoomed in to 16:9).
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
 

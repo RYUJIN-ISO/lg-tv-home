@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.20.1';
+var VERSION = '0.21.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -156,7 +156,7 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
-    frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Whole picture', upscaled: 'Upscaled {0}%',
+    frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
     frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip · hold OK: still frame',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
@@ -209,7 +209,7 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
-    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Ganzes Bild', upscaled: 'Hochskaliert {0} %',
+    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
     frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen · OK halten: Standbild-Ausschnitt',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
@@ -1518,11 +1518,14 @@ function openCrop(pic, W, H) {
 // ---------------------------------------------------------------- picture frame
 
 // Wallpapers full screen and dimmed, like a framed picture. Any key ends it.
-// LG's screensaver (2 min without input) is held off by restarting
-// surface-manager's idle timer once a minute; LG's own auto power off still
-// applies. Against OLED burn-in the picture drifts a few pixels now and then.
+// LG's screensaver is held off by keepawake.py (see AWAKE_*); LG's own auto
+// power off still applies. Against OLED burn-in the picture drifts a few pixels now and then.
 var FRAME_EVERY = [1, 5, 15, 30, 60];   // minutes
-var KEEP_AWAKE = "luna-send -n 1 luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer '{}'";
+// keepawake.py answers tvpowerd's screensaver requests with "no" while the
+// heartbeat file is fresh; the idle timer restart covers surface-manager.
+var AWAKE_BEAT = "touch /tmp/atvhome-awake.beat; luna-send -n 1 luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer '{}' > /dev/null";
+var AWAKE_START = AWAKE_BEAT + "; setsid python3 " + APP_DIR + "keepawake.py > /dev/null 2>&1 < /dev/null &";
+var AWAKE_STOP = "rm -f /tmp/atvhome-awake.beat; [ -f /tmp/atvhome-awake.pid ] && kill $(cat /tmp/atvhome-awake.pid) 2>/dev/null; true";
 var frameView = null;
 
 function frameCfg() {
@@ -1632,6 +1635,11 @@ function startFrame() {
     return history[at = history.length - 1];
   }
   function prevPic() { return at > 0 ? history[--at] : null; }
+  // The picture nextPic() will return, without moving on (for preloading).
+  function peekNext() {
+    if (at >= history.length - 1) history.push(shuffled());
+    return history[at + 1];
+  }
   var el = layer('frame');
   var view = { el: el, timers: [], stop: null };
   view.key = function () { pop(); };
@@ -1651,6 +1659,7 @@ function startFrame() {
   };
   view.onClose = function () {
     view.timers.forEach(clearInterval);
+    exec(AWAKE_STOP);
     if (view.stop) view.stop();
     frameView = null;
     document.body.classList.remove('framing');
@@ -1659,9 +1668,9 @@ function startFrame() {
   frameView = view;
   document.body.classList.add('framing');
   push(view);
-  if (!glFrame(view, nextPic, prevPic, pics.length)) cssFrame(view, nextPic, prevPic, pics.length);
-  exec(KEEP_AWAKE);
-  view.timers.push(setInterval(function () { exec(KEEP_AWAKE); }, 60000));
+  if (!glFrame(view, nextPic, prevPic, peekNext, pics.length)) cssFrame(view, nextPic, prevPic, pics.length);
+  exec(AWAKE_START);
+  view.timers.push(setInterval(function () { exec(AWAKE_BEAT); }, 60000));
 }
 
 // WebGL renderer: every picture is one GPU texture, drawn each frame at a
@@ -1670,9 +1679,9 @@ function startFrame() {
 // few pixels (OLED care). Uploads go in strips, a few per frame, so a new
 // picture never stalls the motion.
 var PAN_SPEED = 7;          // screen pixels per second, on average
-var FADE_MS = 2500;
+var FADE_MS = 700;
 
-function glFrame(view, nextPic, prevPic, count) {
+function glFrame(view, nextPic, prevPic, peekNext, count) {
   var canvas = document.createElement('canvas');
   var dpr = window.devicePixelRatio || 1;
   var W = Math.round(1920 * dpr), H = Math.round(1080 * dpr);
@@ -1714,9 +1723,11 @@ function glFrame(view, nextPic, prevPic, count) {
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);   // RGB strips from the worker are tightly packed
   var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
 
   var cur = null, prev = null, fadeStart = 0, raf = 0, stopped = false, loading = false, queued = null, timer = 0;
+  var ready = null, busyPic = null, showWhenDone = false;   // ready = preloaded next picture
   var strip = document.createElement('canvas');
   var sctx = strip.getContext('2d', { willReadFrequently: true });
   var times = [], last = 0;
@@ -1727,20 +1738,16 @@ function glFrame(view, nextPic, prevPic, count) {
   function plan(w, h, name) {
     var still = frameCfg().pan === false, rect = frameCfg().focus[name];
     var k = Math.max(W / w, H / h);
-    if (still && rect) {
-      // The chosen 16:9 frame fills the screen, drifting within 2% of it.
-      var rw = rect.w * w;
-      k = W / rw * 1.02;
-      var m = (rw - W / k) / 2;
-      return { k: k, x0: rect.x * w, y0: rect.y * h, x1: 2 * m, y1: 2 * m * 9 / 16, leg: 600000 };
-    }
-    if (still && Math.abs(w / h - W / H) > 0.03) {
-      k = Math.min(W / w, H / h) * 0.97;   // a thin black margin, so the drift never clips it
-      var d = 12 / k, cx = (w - W / k) / 2, cy = (h - H / k) / 2;
-      return { k: k, x0: cx - d, y0: cy - d, x1: 2 * d, y1: 2 * d, leg: 600000 };
+    if (still) {
+      // The chosen still frame, or the picture zoomed to fill the screen
+      // (centred); either drifts within 2% of that view.
+      var x = (w - W / k) / 2, y = (h - H / k) / 2;
+      if (rect) { k = W / (rect.w * w); x = rect.x * w; y = rect.y * h; }
+      var k2 = k * 1.02;
+      return { k: k2, x0: x, y0: y, x1: W / k - W / k2, y1: H / k - H / k2, leg: 600000 };
     }
     var tx = w - W / k, ty = h - H / k;
-    var drift = still || (tx * k < 40 && ty * k < 40);
+    var drift = tx * k < 40 && ty * k < 40;
     if (drift) { k *= 1.02; tx = w - W / k; ty = h - H / k; }
     var dist = Math.sqrt(tx * tx + ty * ty) * k;
     var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;
@@ -1756,23 +1763,91 @@ function glFrame(view, nextPic, prevPic, count) {
   var SH = 64, BM_OPTS = { premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' };
   var stats = { loads: 0, alloc: 0, upload: 0, slowLoading: 0, loadMs: 0, mode: '' };
 
-  function decodeOnce(url, done) {
-    if (typeof createImageBitmap !== 'function') { done(null); return; }
+  function fetchBlob(url, done) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url);
     xhr.responseType = 'blob';
-    xhr.onload = function () {
-      if (!xhr.response || !xhr.response.size) { done(null); return; }
-      createImageBitmap(xhr.response, BM_OPTS).then(done, function () { done(null); });
-    };
+    xhr.onload = function () { done(xhr.response && xhr.response.size ? xhr.response : null); };
     xhr.onerror = function () { done(null); };
     xhr.send();
   }
 
-  function load(pic) {
-    loading = true;
+  // Best path: frameworker.js decodes and cuts RGB strips in a worker thread;
+  // the main thread only copies them to the texture (4 ms per frame at most).
+  var worker = null, jobs = {}, jobId = 0;
+  try { if (window.Worker) worker = new Worker('frameworker.js'); } catch (e) {}
+  if (worker) {
+    worker.onmessage = function (e) { var j = jobs[e.data.id]; if (j) j(e.data); };
+    // A worker that fails to start sends every waiting picture down the fallback.
+    worker.onerror = function () {
+      Object.keys(jobs).forEach(function (id) { if (jobs[id]) jobs[id]({ id: +id, type: 'fail' }); });
+      worker = null;
+    };
+  }
+
+  function viaWorker(pic, blob, t0, fallback) {
+    var id = ++jobId, tex = null, w = 0, h = 0, queue = [], finished = false, done = 0;
+    jobs[id] = function (m) {
+      if (stopped) return;
+      if (m.type === 'fail') { delete jobs[id]; if (tex) gl.deleteTexture(tex); worker = null; fallback(); return; }
+      if (m.type === 'size') {
+        w = m.w; h = m.h;
+        tex = newTexture(w, h);
+        stats.mode = 'worker';
+        requestAnimationFrame(upload);
+      } else if (m.type === 'strip') queue.push(m);
+      else if (m.type === 'done') finished = true;
+    };
+    worker.postMessage({ id: id, blob: blob, maxTex: maxTex, rows: SH });
+    function upload() {
+      if (stopped) { delete jobs[id]; return; }
+      var begin = performance.now();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      while (queue.length && performance.now() - begin < 4) {
+        var m = queue.shift(), t1 = performance.now();
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, m.y, w, m.h, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array(m.data));
+        stats.upload = Math.max(stats.upload, performance.now() - t1);
+        done += m.h;
+      }
+      if (!(finished && !queue.length && done >= h)) { requestAnimationFrame(upload); return; }
+      delete jobs[id];
+      stats.loadMs = Math.max(stats.loadMs, performance.now() - t0);
+      loaded({ tex: tex, w: w, h: h, pic: pic });
+    }
+  }
+
+  function newTexture(w, h) {
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    var ta = performance.now();
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+    stats.alloc = Math.max(stats.alloc, performance.now() - ta);
+    stats.loads++;
+    return tex;
+  }
+
+  function decodeOnce(blob, done) {
+    if (!blob || typeof createImageBitmap !== 'function') { done(null); return; }
+    createImageBitmap(blob, BM_OPTS).then(done, function () { done(null); });
+  }
+
+  function load(pic, show) {
+    loading = true; busyPic = pic; showWhenDone = show;
     var t0 = performance.now();
-    decodeOnce(pic.url, function (full) {
+    fetchBlob(pic.url, function (blob) {
+      if (stopped) return;
+      if (blob && worker) viaWorker(pic, blob, t0, function () { slowLoad(pic, blob, t0); });
+      else slowLoad(pic, blob, t0);
+    });
+  }
+
+  // Fallbacks: decode on this thread (blob), or an <img> cut by a canvas.
+  function slowLoad(pic, blob, t0) {
+    decodeOnce(blob, function (full) {
       if (stopped) { if (full) full.close(); return; }
       if (full) { build(pic, full, null, t0); return; }
       var img = new Image();
@@ -1787,16 +1862,7 @@ function glFrame(view, nextPic, prevPic, count) {
     var s = Math.min(1, maxTex / Math.max(nw, nh));
     var w = Math.floor(nw * s), h = Math.floor(nh * s);
     stats.mode = full ? 'blob' : 'canvas';
-    var tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    var ta = performance.now();
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-    stats.alloc = Math.max(stats.alloc, performance.now() - ta);
-    stats.loads++;
+    var tex = newTexture(w, h);
     var n = Math.ceil(h / SH), parts = [], asked = 0, done = 0;
     function rows(i) { return Math.min(SH, h - i * SH); }
     function ask() {
@@ -1840,12 +1906,7 @@ function glFrame(view, nextPic, prevPic, count) {
       if (full) full.close();
       if (img) img.src = '';
       stats.loadMs = Math.max(stats.loadMs, performance.now() - t0);
-      if (prev) gl.deleteTexture(prev.tex);
-      prev = cur;
-      cur = { tex: tex, w: w, h: h, p: plan(w, h, pic.name), start: performance.now() };
-      fadeStart = cur.start;
-      loading = false;
-      if (queued) { var q = queued; queued = null; load(q); }
+      loaded({ tex: tex, w: w, h: h, pic: pic });
     })();
   }
 
@@ -1896,7 +1957,32 @@ function glFrame(view, nextPic, prevPic, count) {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  function change() { if (!loading) load(nextPic()); }
+  function loaded(o) {
+    loading = false; busyPic = null;
+    if (showWhenDone) show(o);
+    else { if (ready) gl.deleteTexture(ready.tex); ready = o; }
+    if (queued) { var q = queued; queued = null; go(q); } else preload();
+  }
+  function show(o) {
+    if (prev) gl.deleteTexture(prev.tex);
+    prev = cur;
+    o.p = plan(o.w, o.h, o.pic.name);
+    o.start = fadeStart = performance.now();
+    cur = o;
+  }
+  // Show a picture: instantly when it is the preloaded one.
+  function go(pic) {
+    if (ready && ready.pic === pic) { var o = ready; ready = null; show(o); preload(); return; }
+    if (loading && busyPic === pic) { showWhenDone = true; return; }
+    if (loading) { queued = pic; return; }
+    load(pic, true);
+  }
+  function preload() {
+    if (loading || stopped) return;
+    var pic = peekNext();
+    if (!ready || ready.pic !== pic) load(pic, false);
+  }
+  function change() { go(nextPic()); }
   function restartTimer() {
     clearInterval(timer);
     if (count > 1) timer = setInterval(change, frameCfg().every * 60000);
@@ -1904,7 +1990,7 @@ function glFrame(view, nextPic, prevPic, count) {
   view.skip = function (d) {
     var pic = d > 0 ? nextPic() : prevPic();
     if (!pic) return;
-    if (loading) queued = pic; else load(pic);
+    go(pic);
     restartTimer();
   };
   // Arrows: stop the auto pan and move the visible area by 15% of the screen.
@@ -1918,7 +2004,7 @@ function glFrame(view, nextPic, prevPic, count) {
     o.man.ty = Math.max(Math.min(0, cy), Math.min(Math.max(o.h - vh, cy), o.man.ty + dy * vh * 0.15));
   };
 
-  load(nextPic());
+  load(nextPic(), true);
   raf = requestAnimationFrame(draw);
   restartTimer();
 
@@ -1938,7 +2024,8 @@ function glFrame(view, nextPic, prevPic, count) {
         'ms via=' + stats.mode +
         ' pan=' + (frameCfg().pan !== false) + ' tex=' + maxTex + '" >> /tmp/atvhome-frame.txt');
     }
-    [cur, prev].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
+    [cur, prev, ready].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
+    if (worker) worker.terminate();
     var lose = gl.getExtension('WEBGL_lose_context');
     if (lose) lose.loseContext();
   };

@@ -69,29 +69,33 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   argument may not exceed 128 KiB (`MAX_ARG_STRLEN`); `usb.py` puts them back
   together. Originals are kept in `wallpapers/originals/`, and image URLs
   carry `?v=<mtime>` so a new crop is not shown from the cache.
-- **Picture frame**: drawn with WebGL, not CSS. Each picture is one GPU
-  texture, uploaded in 64-row strips. The file is read as a blob and decoded
-  once off the main thread (`createImageBitmap(blob)`); strips are crops of
-  that decoded copy, and a frame uploads only as many as fit in 4 ms. Cropping
-  strips straight from an `<img>` re-decodes the whole JPEG for every strip on
-  the TV (measured: 4 fps while loading), so that path is avoided. Without
-  blob decoding, a 2D canvas cuts the strips. Every frame
-  draws the texture at a slowly moving offset: cover the screen, then travel
-  between two corners at about 7 screen pixels per second with a cosine ease
-  at each turn. Still frames are stored per picture in the config
-  (`frame.focus[name] = {x, y, w}` as fractions), so they survive any
-  resizing of the file and never change it. CSS animation of a large layer was avoided on purpose: the
-  compositor rasterises big layers in tiles while they move, which can
-  hitch. Crossfades blend the old and new texture; dimming happens in the
-  shader. Frame times (and slow frames during loads, texture allocation
-  and strip upload times) are appended to `/tmp/atvhome-frame.txt` when the
-  frame ends. Without WebGL, two CSS images crossfade instead. LG's
-  screensaver starts after 2 minutes
-  without input (configd `com.webos.surfacemanager.userActivityTimeout`);
-  while the frame runs, the launcher calls
-  `com.webos.surfacemanager.screenSaver/restartUserActivityTimer` once a
-  minute through `exec`. That only restarts the timer and never wakes the
-  screen. Remote buttons start it by launching TV Home with `{"frame": true}`.
+- **Picture frame**: drawn with WebGL, not CSS (CSS animation of a large
+  layer makes the compositor rasterise tiles while it moves, which hitches).
+  Each picture is one GPU texture. Loading never touches the motion:
+  `frameworker.js` (a Web Worker) decodes the file once and sends RGB strips
+  of 64 rows; the main thread only copies ready strips into the texture,
+  4 ms per frame at most. Fallbacks: decode on the main thread from a blob,
+  or an `<img>` cut by a canvas. (Cutting strips straight from an `<img>`
+  re-decodes the whole JPEG per strip on the TV: measured 4 fps.) The next
+  picture is preloaded while the current one shows, so CH+ and the timer
+  switch at once; crossfades take 0.7 s. Every frame draws the texture at a
+  moving offset: Pan covers the screen and travels between two corners at
+  about 7 screen pixels per second with a cosine ease at each turn; Still
+  fills the screen (centred, or the picture's still frame) and drifts within
+  2%. Still frames live in the config (`frame.focus[name] = {x, y, w}` as
+  fractions) and never change the file. Dimming happens in the shader. Frame
+  times, slow frames during loads and the load path are appended to
+  `/tmp/atvhome-frame.txt` when the frame ends.
+- **Screensaver**: tvpowerd starts it, after asking every client registered
+  with `com.webos.service.tvpower/power/registerScreenSaverRequest`; a single
+  `responseScreenSaverRequest {clientName, ack: false, timestamp}` keeps it
+  away. `keepawake.py` (started in the background through `exec` when the
+  frame starts) answers "no" while the launcher touches
+  `/tmp/atvhome-awake.beat` every minute, and quits when the heartbeat is
+  older than 150 s, so it can never block the screensaver for good. The
+  launcher also restarts surface-manager's idle timer
+  (`com.webos.surfacemanager.screenSaver/restartUserActivityTimer`). Remote
+  buttons start the frame by launching TV Home with `{"frame": true}`.
 - **Languages**: `STRINGS` in `app.js`, English by default and German. The
   Light and App-Updates apps read the language from the launcher config.
 
