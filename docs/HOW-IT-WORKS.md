@@ -75,7 +75,9 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   strips as fit in 4 ms, so a new picture never stalls the motion. Every frame
   draws the texture at a slowly moving offset: cover the screen, then travel
   between two corners at about 7 screen pixels per second with a cosine ease
-  at each turn. CSS animation of a large layer was avoided on purpose: the
+  at each turn. Still frames are stored per picture in the config
+  (`frame.focus[name] = {x, y, w}` as fractions), so they survive any
+  resizing of the file and never change it. CSS animation of a large layer was avoided on purpose: the
   compositor rasterises big layers in tiles while they move, which can
   hitch. Crossfades blend the old and new texture; dimming happens in the
   shader. Frame times (and slow frames during loads, texture allocation

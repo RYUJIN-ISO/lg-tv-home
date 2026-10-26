@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.18.2';
+var VERSION = '0.19.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -31,7 +31,9 @@ var DEFAULT_CONFIG = {
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
   added: [],      // keys of installed apps without a launch point, put on it
-  frame: { pictures: null, every: 5, bri: 60, pan: true }   // picture frame (null = all wallpapers)
+  // picture frame: pictures null = all wallpapers; focus = per picture 16:9
+  // still frame {x, y, w} as fractions of the picture
+  frame: { pictures: null, every: 5, bri: 60, pan: true, focus: {} }
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -154,9 +156,9 @@ var STRINGS = {
     cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
-    frameMotion: 'Motion', pan: 'Pan', still: 'Still',
+    frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Whole picture', upscaled: 'Upscaled {0}%',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
-    frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip',
+    frameEvery: 'Change every', frameHow: 'Any button on the remote ends it.', framePickHint: 'OK: show / skip · hold OK: still frame',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
     hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
     hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
@@ -207,9 +209,9 @@ var STRINGS = {
     cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
-    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still',
+    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Ganzes Bild', upscaled: 'Hochskaliert {0} %',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
-    frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen',
+    frameEvery: 'Wechsel alle', frameHow: 'Jede Taste der Fernbedienung beendet ihn.', framePickHint: 'OK: zeigen / auslassen · OK halten: Standbild-Ausschnitt',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
     hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
     hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
@@ -1390,7 +1392,8 @@ function openCrop(pic, W, H) {
   var el = layer('cropView');
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
-    '<div class="pill" data-a="res"></div><div class="pill save" data-a="save"></div></div>' +
+    '<div class="pill" data-a="res"></div>' + (pic.onFrame ? '<div class="pill" data-a="whole"></div>' : '') +
+    '<div class="pill save" data-a="save"></div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
   var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
@@ -1401,6 +1404,8 @@ function openCrop(pic, W, H) {
   img.src = pic.url;
   var fw = Math.min(W, H * 16 / 9);                   // frame in source px
   var f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 };
+  if (pic.rect) f = { w: pic.rect.w * W, x: pic.rect.x * W, y: pic.rect.y * H };
+  var SAVE = pills.length - 1;
   var focus = -1;                                     // -1 = frame, else pill index
   var outW = 0;
   var wantW = OUT_SIZES[0];                           // what the viewer chose; 4K by default
@@ -1426,8 +1431,12 @@ function openCrop(pic, W, H) {
       'px;height:' + f.w * 9 / 16 * k + 'px';
     frameEl.classList.toggle('sel', focus < 0);
     pills.forEach(function (p, i) { p.classList.toggle('sel', i === focus); });
-    pills[2].textContent = (outW === 3840 ? '4K · ' : '') + outW + '×' + Math.round(outW * 9 / 16);
-    pills[3].textContent = t('save');
+    if (pic.onFrame) {
+      // Still frame: how sharp it will look on the 4K screen.
+      pills[2].textContent = f.w >= 3840 * 0.99 ? '4K' : t('upscaled', Math.round((3840 / f.w - 1) * 100));
+      pills[3].textContent = t('wholePicture');
+    } else pills[2].textContent = (outW === 3840 ? '4K · ' : '') + outW + '×' + Math.round(outW * 9 / 16);
+    pills[SAVE].textContent = t('save');
     el.querySelector('.crophint').textContent = t('cropHint', W + '×' + H) + '  ·  ' +
       (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar'));
   }
@@ -1441,7 +1450,9 @@ function openCrop(pic, W, H) {
   function act(a) {
     if (a === 'minus') resize(0.9);
     else if (a === 'plus') resize(1 / 0.9);
-    else if (a === 'res') { var s = sizes(); wantW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
+    else if (a === 'res') { if (pic.onFrame) return; var s = sizes(); wantW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
+    else if (a === 'whole') { pic.onFrame(null); pop(); }
+    else if (a === 'save' && pic.onFrame) { pic.onFrame({ x: f.x / W, y: f.y / H, w: f.w / W }); pop(); }
     else if (a === 'save') save();
   }
   function save() {
@@ -1484,7 +1495,7 @@ function openCrop(pic, W, H) {
     paint();
   };
   view.ok = function () {
-    if (focus < 0) { focus = 3; paint(); return; }
+    if (focus < 0) { focus = SAVE; paint(); return; }
     if (once()) act(pills[focus].getAttribute('data-a'));
   };
   // Magic Remote: drag the frame, wheel resizes, click the pills.
@@ -1517,6 +1528,7 @@ var frameView = null;
 function frameCfg() {
   var c = cfg();
   if (!c.frame) c.frame = clone(DEFAULT_CONFIG.frame);
+  if (!c.frame.focus) c.frame.focus = {};
   return c.frame;
 }
 
@@ -1578,14 +1590,22 @@ function chooseFramePictures() {
       saveConfig();
       grid.tiles()[i].classList.toggle('picked', picked(e.key));
     },
+    onLongPress: function (e) {
+      var focus = frameCfg().focus;
+      cropPicture({ url: e.wp.url, name: e.title, rect: focus[e.key], onFrame: function (rect) {
+        if (rect) focus[e.key] = rect; else delete focus[e.key];
+        saveConfig();
+      } });
+    },
     onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
   });
   view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
   view.ok = function () { grid.activate(grid.focus); };
+  view.longOk = function () { grid.longPress(grid.focus); };
   view.grid = grid;
   push(view);
   grid.set(state.wallpapers.map(function (w) {
-    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url };
+    return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: w.thumb || w.url, wp: w };
   }));
 }
 
@@ -1681,9 +1701,16 @@ function glFrame(view, nextPic, count) {
   // Where the picture sits. Pan: cover the screen and travel between two
   // corners. Still: a picture that isn't 16:9 is shown whole on black; any
   // picture only drifts a few pixels.
-  function plan(w, h) {
-    var still = frameCfg().pan === false;
+  function plan(w, h, name) {
+    var still = frameCfg().pan === false, rect = frameCfg().focus[name];
     var k = Math.max(W / w, H / h);
+    if (still && rect) {
+      // The chosen 16:9 frame fills the screen, drifting within 2% of it.
+      var rw = rect.w * w;
+      k = W / rw * 1.02;
+      var m = (rw - W / k) / 2;
+      return { k: k, x0: rect.x * w, y0: rect.y * h, x1: 2 * m, y1: 2 * m * 9 / 16, leg: 600000 };
+    }
     if (still && Math.abs(w / h - W / H) > 0.03) {
       k = Math.min(W / w, H / h) * 0.97;   // a thin black margin, so the drift never clips it
       var d = 12 / k, cx = (w - W / k) / 2, cy = (h - H / k) / 2;
@@ -1761,7 +1788,7 @@ function glFrame(view, nextPic, count) {
         img.src = '';
         if (prev) gl.deleteTexture(prev.tex);
         prev = cur;
-        cur = { tex: tex, w: w, h: h, p: plan(w, h), start: performance.now() };
+        cur = { tex: tex, w: w, h: h, p: plan(w, h, pic.name), start: performance.now() };
         fadeStart = cur.start;
         loading = false;
       })();
