@@ -17,7 +17,7 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 |---|---|
 | **Settings** (gear) | Language, wallpaper, remote buttons, Hue, App Store, clock |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
-| **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. Only shown when Hue is installed. |
+| **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 
 ## Organize Apps
 
@@ -53,7 +53,9 @@ Settings, **Wallpaper** shows your wallpapers as cards, plus **None** and
 - **From USB** shows the pictures (JPG, PNG) on a USB stick as cards. OK opens
   the same crop screen and Save adds the picture as a new wallpaper.
 - Saved wallpapers are **4K (3840x2160) by default** whenever the framed area
-  is big enough. The resolution button steps down to 2560 and 1920 wide.
+  is big enough. A smaller frame lowers it only as far as needed, and it goes
+  back up when the frame grows again. The resolution button picks a lower
+  size (2560 or 1920 wide) on purpose; that choice is kept.
   Pictures are never enlarged. The best source is 3840x2160 or larger.
 - The full size original of every imported picture is kept, so cropping
   again later never loses quality. The bundled default wallpaper is never
@@ -86,7 +88,7 @@ Changes work at once and the original app never opens.
 
 ## Hue
 
-Settings, **Hue** shows your rooms and zones as cards: warm when the lights
+Settings, **Hue** (or holding OK on the Light button) shows your rooms and zones as cards: warm when the lights
 are on (warmer the brighter), dark when they are off.
 
 - **OK** switches a room on or off.

@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.16.0';
+var VERSION = '0.16.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -632,7 +632,7 @@ function topButtons() {
     { icon: GEAR, title: t('settings'), action: openSettings },
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
   ];
-  if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight });
+  if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight, longAction: openHue });
   return b;
 }
 
@@ -647,7 +647,8 @@ function renderTop() {
     el.innerHTML = btn.icon + '<div class="tlabel"></div>';
     el.querySelector('.tlabel').textContent = btn.title;
     el.addEventListener('mouseenter', function () { focusTop(i); });
-    el.addEventListener('click', function () { focusTop(i); if (once()) btn.action(); });
+    pressable(el, function () { focusTop(i); if (once()) btn.action(); },
+      function () { focusTop(i); if (btn.longAction && once()) btn.longAction(); });
     bar.appendChild(el);
   });
   if (topFocus >= buttons.length) topFocus = buttons.length - 1;
@@ -1392,6 +1393,7 @@ function openCrop(pic, W, H) {
   var f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 };
   var focus = -1;                                     // -1 = frame, else pill index
   var outW = 0;
+  var wantW = OUT_SIZES[0];                           // what the viewer chose; 4K by default
 
   function sizes() {
     var max = Math.floor(f.w);
@@ -1404,7 +1406,9 @@ function openCrop(pic, W, H) {
     f.x = Math.max(0, Math.min(W - f.w, f.x));
     f.y = Math.max(0, Math.min(H - f.w * 9 / 16, f.y));
     var s = sizes();
-    if (s.indexOf(outW) < 0) outW = s[0];              // 4K whenever the frame allows it
+    // Highest size up to the chosen one that the frame allows, so shrinking and
+    // growing the frame again returns to 4K unless a lower size was chosen.
+    outW = s.filter(function (w) { return w <= wantW; })[0] || s[s.length - 1];
   }
   function paint() {
     clamp();
@@ -1427,7 +1431,7 @@ function openCrop(pic, W, H) {
   function act(a) {
     if (a === 'minus') resize(0.9);
     else if (a === 'plus') resize(1 / 0.9);
-    else if (a === 'res') { var s = sizes(); outW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
+    else if (a === 'res') { var s = sizes(); wantW = s[(s.indexOf(outW) + 1) % s.length]; paint(); }
     else if (a === 'save') save();
   }
   function save() {
@@ -2010,7 +2014,11 @@ var mainView = {
     if (!mainGrid.entries.length) { load(); return; }
     mainGrid.activate(mainGrid.focus);
   },
-  longOk: function () { if (topFocus < 0) mainGrid.longPress(mainGrid.focus); }
+  longOk: function () {
+    if (topFocus < 0) { mainGrid.longPress(mainGrid.focus); return; }
+    var b = topButtons()[topFocus];
+    if (b && b.longAction && once()) b.longAction();
+  }
 };
 
 // OK is handled on keyup so a long hold can open the options instead.

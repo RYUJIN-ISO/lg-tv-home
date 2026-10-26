@@ -1,6 +1,6 @@
 {
   "id": "com.iso.atvhome",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "vendor": "Iso",
   "type": "web",
   "main": "index.html",
