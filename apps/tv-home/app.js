@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.9.1';
+var VERSION = '0.10.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -148,7 +148,16 @@ var STRINGS = {
     folderEmpty: 'This folder is empty. Hold OK on an app and choose "Add to Folder".',
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
     moveHint: 'Use the arrow keys to move, OK to drop',
-    loadFailed: 'Could not load apps. Press OK to retry.'
+    loadFailed: 'Could not load apps. Press OK to retry.',
+    remoteButtons: 'Remote Buttons', remoteSub: 'Choose what each button on the remote does.',
+    remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
+    learn: 'Learn a Button', learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
+    learnBlocked: 'This button can\'t be changed (needed to control the TV).',
+    lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps',
+    tvHome: 'Home screen (TV Home)', liveTv: 'Live TV', hdmi: 'HDMI {0}', button: 'Button {0}',
+    saved: 'Saved — works right away.',
+    b_mic: 'Mic', b_settings: 'Settings', b_input: 'Input', b_alexa: 'Alexa', b_123: '123 / Screen remote',
+    b_mute: 'Mute', b_chup: 'Channel +', b_chdown: 'Channel −'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -176,7 +185,16 @@ var STRINGS = {
     folderEmpty: 'Dieser Ordner ist leer. Lange OK auf einer App drücken → „In Ordner legen“.',
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
     moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
-    loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.'
+    loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
+    remoteButtons: 'Fernbedienungstasten', remoteSub: 'Lege fest, was jede Taste der Fernbedienung macht.',
+    remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
+    learn: 'Taste anlernen', learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
+    learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
+    lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps',
+    tvHome: 'Startbildschirm (TV Home)', liveTv: 'Live-TV', hdmi: 'HDMI {0}', button: 'Taste {0}',
+    saved: 'Gespeichert – wirkt sofort.',
+    b_mic: 'Mikrofon', b_settings: 'Einstellungen', b_input: 'Eingang', b_alexa: 'Alexa', b_123: '123 / Bildschirm-Fernbedienung',
+    b_mute: 'Stumm', b_chup: 'Kanal +', b_chdown: 'Kanal −'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -804,6 +822,7 @@ function menu(spec) {
     if (rows[view.focus]) rows[view.focus].classList.remove('focus');
     view.focus = i;
     if (rows[i]) rows[i].classList.add('focus');
+    if (spec.onFocus) spec.onFocus(view.rows[i]);
     // Keep the focused row visible in long lists.
     var list = panel.querySelector('.rows');
     var limit = panel.clientHeight - list.offsetTop - 120;
@@ -827,6 +846,7 @@ function menu(spec) {
   };
   view.ok = view.select;
 
+  view.onClose = spec.onClose;
   push(view);
   view.refresh();
   return view;
@@ -1068,6 +1088,7 @@ function openSettings() {
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: chooseWallpaper },
+        { label: t('remoteButtons'), chevron: true, action: openRemote },
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
         } },
@@ -1136,6 +1157,176 @@ function chooseUninstall() {
       });
       return rows.length ? rows : [{ info: true, label: t('noUninstall') }];
     }
+  });
+}
+
+// ---------------------------------------------------------------- remote buttons
+
+// Remote mapper (tv/remote-mapper): a surface-manager key filter that reads
+// /var/lib/webosbrew/remote-mapper/map.json. This UI edits that map via the
+// control script; changes apply immediately (the script reloads the filter).
+var MAPPER = '/var/lib/webosbrew/remote-mapper/remote-mapper.sh';
+// Buttons of the Magic Remote that can be remapped, as the filter names them.
+// Home, Back, OK, arrows, volume and power are deliberately not offered.
+var REMOTE_BUTTONS = [
+  { key: 'Key_webOS_Voice', label: 'b_mic' },
+  { key: 'Key_webOS_Settings', label: 'b_settings' },
+  { key: 'Key_webOS_InputSource', label: 'b_input' },
+  { key: 'Key_webOS_ALEXA', label: 'b_alexa' },
+  { key: 'Key_webOS_ScreenRemote', label: 'b_123' },
+  { key: 'Qt.Key_VolumeMute', label: 'b_mute' },
+  { key: 'Key_webOS_ChannelUp', label: 'b_chup' },
+  { key: 'Key_webOS_ChannelDown', label: 'b_chdown' },
+  { key: 'Key_webOS_Netflix', text: 'Netflix' },
+  { key: 'Key_webOS_Amazon', text: 'Prime Video' },
+  { key: 'Key_webOS_Disneyplus', text: 'Disney+' },
+  { key: 'Key_webOS_RakutenTV', text: 'Rakuten TV' },
+  { key: 'Key_webOS_LGChannels', text: 'LG Channels' }
+];
+var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_Back|Key_webOS_Exit|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|PowerOff))$/;
+var remoteState = { map: { buttons: {} }, active: false, installed: false };
+
+function buttonLabel(key) {
+  for (var i = 0; i < REMOTE_BUTTONS.length; i++) {
+    var b = REMOTE_BUTTONS[i];
+    if (b.key === key) return b.text || t(b.label);
+  }
+  var m = /^code:(\d+)$/.exec(key);
+  if (m) return t('button', m[1]);
+  return key.replace(/^(Qt\.)?Key_(webOS_)?/, '');
+}
+
+function specialActions() {
+  var list = [{ id: APP_ID, title: t('tvHome') }];
+  if (state.installed.some(function (a) { return a.id === LIGHT_APP; })) list.push({ id: LIGHT_APP, title: t('light') });
+  list.push({ id: 'com.webos.app.livetv', title: t('liveTv') });
+  for (var n = 1; n <= 4; n++) list.push({ id: 'com.webos.app.hdmi' + n, title: t('hdmi', n) });
+  return list;
+}
+
+function actionLabel(a) {
+  if (!a) return t('lgDefault');
+  if (a.action === 'none') return t('doNothing');
+  var sp = specialActions();
+  for (var i = 0; i < sp.length; i++) if (sp[i].id === a.app) return sp[i].title;
+  for (var j = 0; j < state.installed.length; j++) if (state.installed[j].id === a.app) return state.installed[j].title;
+  return a.app || '?';
+}
+
+function mapper(args, cb) {
+  exec('sh ' + MAPPER + ' ' + args, function (res) {
+    cb && cb((res.stdoutString || '').trim(), res.returnValue !== false && !res.stderrString);
+  });
+}
+
+function loadRemote(cb) {
+  mapper('getmap; echo @@; sh ' + MAPPER + ' status', function (out, ok) {
+    var parts = out.split('@@');
+    remoteState.installed = ok && parts.length === 2;
+    try { remoteState.map = JSON.parse(parts[0]); } catch (e) { remoteState.map = { buttons: {} }; }
+    if (!remoteState.map.buttons) remoteState.map.buttons = {};
+    remoteState.active = (parts[1] || '').trim() === 'active';
+    cb && cb();
+  });
+}
+
+function saveRemote() {
+  var b64 = btoa(unescape(encodeURIComponent(JSON.stringify({ buttons: remoteState.map.buttons }))));
+  mapper('setmap ' + b64, function () { showHint(t('saved')); setTimeout(function () { showHint(''); }, 2500); });
+  paintRemote(null);
+}
+
+// Highlight the focused button and mark mapped ones on the drawing.
+function paintRemote(selKey) {
+  var els = document.querySelectorAll('#remoteArt [data-key]');
+  for (var i = 0; i < els.length; i++) {
+    var k = els[i].getAttribute('data-key');
+    els[i].classList.toggle('mapped', !!remoteState.map.buttons[k]);
+    els[i].classList.toggle('sel', k === selKey);
+  }
+}
+
+function openRemote() {
+  document.body.classList.add('remote');
+  loadRemote(function () {
+    var view = menu({
+      title: function () { return t('remoteButtons'); },
+      sub: t('remoteSub'),
+      onFocus: function (row) { paintRemote(row && row.key); },
+      onClose: function () { document.body.classList.remove('remote'); },
+      rows: function () {
+        if (!remoteState.installed) return [{ info: true, label: t('remoteMissing') }];
+        var rows = [
+          { label: t('remoteOff'), value: remoteState.active ? t('on') : t('off'), action: function () {
+            mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(refreshTop); });
+          } },
+          { label: t('learn'), chevron: true, action: learnButton }
+        ];
+        var keys = REMOTE_BUTTONS.map(function (b) { return b.key; });
+        Object.keys(remoteState.map.buttons).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+        keys.forEach(function (k) {
+          rows.push({ key: k, label: buttonLabel(k), value: actionLabel(remoteState.map.buttons[k]), chevron: true,
+            action: function () { chooseButtonAction(k); } });
+        });
+        return rows;
+      }
+    });
+    paintRemote(null);
+    return view;
+  });
+}
+
+function chooseButtonAction(key) {
+  function set(a) {
+    if (a) remoteState.map.buttons[key] = a; else delete remoteState.map.buttons[key];
+    saveRemote();
+    pop();
+    refreshTop();
+  }
+  menu({
+    title: buttonLabel(key),
+    sub: actionLabel(remoteState.map.buttons[key]),
+    onFocus: function () { paintRemote(key); },
+    rows: function () {
+      var cur = remoteState.map.buttons[key];
+      var rows = [
+        { label: t('lgDefault'), check: !cur, action: function () { set(null); } },
+        { label: t('doNothing'), check: !!(cur && cur.action === 'none'), action: function () { set({ action: 'none' }); } },
+        { info: true, label: t('actions') }
+      ];
+      specialActions().forEach(function (sp) {
+        rows.push({ label: sp.title, check: !!(cur && cur.app === sp.id), action: function () { set({ app: sp.id }); } });
+      });
+      rows.push({ info: true, label: t('appsHead') });
+      state.installed.slice().sort(function (a, b) { return a.title.localeCompare(b.title); }).forEach(function (a) {
+        if (a.id === APP_ID) return;
+        rows.push({ label: a.title, check: !!(cur && cur.app === a.id), action: function () { set({ app: a.id }); } });
+      });
+      return rows;
+    }
+  });
+}
+
+// Learn mode: the filter publishes presses; poll them for ~20 s.
+function learnButton() {
+  showHint(t('learnSub'));
+  mapper('learn on', function () {
+    var tries = 0;
+    var timer = setInterval(function () {
+      mapper('learned', function (out) {
+        var list = [];
+        try { list = JSON.parse(out || '[]'); } catch (e) {}
+        var hit = list.filter(function (e) { return e.code; })[0];
+        if (!hit && ++tries < 25) return;
+        clearInterval(timer);
+        mapper('learn off');
+        showHint('');
+        if (!hit) { showHint(t('learnNone')); setTimeout(function () { showHint(''); }, 2500); return; }
+        var key = hit.name || ('code:' + hit.code);
+        if (BLOCKED_KEYS.test(key)) { showHint(t('learnBlocked')); setTimeout(function () { showHint(''); }, 3000); return; }
+        chooseButtonAction(key);
+      });
+    }, 800);
   });
 }
 

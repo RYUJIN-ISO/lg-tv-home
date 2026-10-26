@@ -16,6 +16,7 @@ LG's tracking switched off, less background bloat, optional Philips Hue
 |---|---|
 | **TV Home launcher** | Apple TV-style home screen: wallpaper, big app tiles, folders, 60 fps on the tested TV. Replaces LG's home screen properly (Home button, after boot) — no flash of the old one. |
 | **Organize Apps** | Move apps, Android-style folders, add/remove apps, uninstall, reset — all with the remote. |
+| **Remote buttons** | Remap the Magic Remote's buttons (app buttons, Mic, Settings, Input, …) to any app or action from the launcher's Settings — instant, no flash of the old app. |
 | **Light button** *(optional)* | One press: save the current Hue lighting and switch to your movie scene. Press again: back to how it was. |
 | **Privacy** | Blocks LG's ad/tracking/ACR domains and stops the on-TV tracking services (viewing profiling, usage uploads, promos). |
 | **App-Updates** *(with privacy)* | One app to unlock the LG Content Store for 10 minutes so apps can update, then everything re-locks. |

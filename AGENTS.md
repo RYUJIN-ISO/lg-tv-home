@@ -40,6 +40,7 @@ Map answers to `setup.conf` keys:
 | Should it fully replace LG's home (Home button, after power-on)? | `SET_HOME` | y |
 | English or German for the home screen? | `LANGUAGE` | en |
 | **Light control** — see below | `LIGHT` | n |
+| Remap remote buttons (Netflix/Prime/… buttons, Mic, Settings, Input, …)? Configured later in the launcher's Settings → Remote Buttons | `REMOTE` | y |
 | Block LG's ads/tracking/ACR domains? | `ADBLOCK` | y |
 | …then: want the App-Updates toggle to still update apps from the LG Store? | `APP_UPDATES` | y |
 | Stop LG's tracking/profiling background services? | `DEBLOAT` | y |

@@ -59,6 +59,9 @@ if [ "$LAUNCHER" = y ]; then
     echo "   The launcher's top-left Light button can toggle a Philips Hue 'movie' scene:"
     echo "   1st press saves the current lights and recalls your movie scene, 2nd press restores them."
     ask LIGHT    "Set up light control with Philips Hue? (needs a Hue bridge on this network)" n yn
+    echo "   Remote buttons: remap the Magic Remote's app buttons (Netflix, Prime, ...), Mic,"
+    echo "   Settings, Input, Mute, ... to any app or action - configured in the launcher's Settings."
+    ask REMOTE   "Install the remote button mapper?" y yn
 fi
 
 echo
@@ -87,6 +90,7 @@ LAUNCHER=$LAUNCHER
 SET_HOME=${SET_HOME:-n}
 LANGUAGE=${LANGUAGE:-en}
 LIGHT=${LIGHT:-n}
+REMOTE=${REMOTE:-n}
 ADBLOCK=$ADBLOCK
 APP_UPDATES=${APP_UPDATES:-n}
 DEBLOAT=$DEBLOAT
@@ -137,6 +141,16 @@ if [ "$LIGHT" = y ]; then
     else
         TV=$TV tools/hue-setup.sh || warn "Hue setup not finished - run: TV=$TV tools/hue-setup.sh"
     fi
+fi
+
+if [ "$REMOTE" = y ]; then
+    say "remote button mapper"
+    tv "mkdir -p $WB/remote-mapper"
+    put tv/remote-mapper/remap.js "$WB/remote-mapper/remap.js"
+    put tv/remote-mapper/remote-mapper.sh "$WB/remote-mapper/remote-mapper.sh" 755
+    put tv/init.d/86-remote-mapper "$WB/init.d/86-remote-mapper" 755
+    tv "[ -f $WB/remote-mapper/map.json ] || echo '{\"buttons\":{}}' > $WB/remote-mapper/map.json"
+    tv "sh $WB/remote-mapper/remote-mapper.sh apply" > /dev/null || warn "mapper not active yet (applies after reboot)"
 fi
 
 if [ "$ADBLOCK" = y ]; then
