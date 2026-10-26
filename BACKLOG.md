@@ -12,12 +12,11 @@ and simsim (3840x2160 became 2560x1440). Since 0.23 a crop is only a stored
 position and never changes the file, so this can't happen again. Reset
 cannot bring these three back.
 
-**Recovery, when wanted:** the originals still exist (the two photos in
-`~/Projects/lg-tv-rooted/wallpapers/photos-2026-10-26/tv/`, simsim in the
-TV's `wallpapers/originals/`). Copy them back and turn each cut into a
-stored crop: the script `find_crop.py` in `~/Projects/lg-tv-rooted/wallpapers/`
-(arguments: original, cut) finds where the cut sits inside the original and
-prints the crop (`{x, y, w, r}`). Working copies are in `restore/` next to it.
+**Recovered (2026-10-26):** the three originals are back on TV #1 with their
+cuts stored as crops (found with `find_crop.py`). simsim's camera file carries
+EXIF orientation 3 (upside down); it went back as an upright copy, because the
+matcher (and possibly the WebGL frame) reads raw pixels. Watch for EXIF
+rotation in USB imports too.
 
 **UX to design properly:**
 - **Discoverable controls:** Reset is a pill at the end of the crop bar,
