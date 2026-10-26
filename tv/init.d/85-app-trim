@@ -1,4 +1,4 @@
 #!/bin/sh
-# Keeps only the current + previous app in RAM (see app-trim.sh).
-sleep 60
-setsid sh /var/lib/webosbrew/app-trim.sh > /tmp/app-trim.log 2>&1 < /dev/null &
+# Keeps only the current + previous app in RAM (see app-trim.sh). Runs in the
+# background so Homebrew's startup (and its failsafe flag) isn't held up.
+setsid sh -c 'sleep 60; exec sh /var/lib/webosbrew/app-trim.sh' > /tmp/app-trim.log 2>&1 < /dev/null &

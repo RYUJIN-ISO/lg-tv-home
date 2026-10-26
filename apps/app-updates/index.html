@@ -28,6 +28,7 @@ var STRINGS = {
 };
 var T = STRINGS.en;
 var APP_DIR = '/media/developer/apps/usr/palm/applications/com.iso.appupdates/';
+var STORE_MODE = '/var/lib/webosbrew/store-mode.sh';   // shared with TV Home's Settings
 var STORE_APP = 'com.webos.app.discovery';
 var bridges = [];
 
@@ -44,7 +45,7 @@ function luna(uri, params, cb) {
 }
 
 function run(arg, cb) {
-  luna('luna://org.webosbrew.hbchannel.service/exec', { command: 'sh ' + APP_DIR + 'store-mode.sh ' + arg }, function (res) {
+  luna('luna://org.webosbrew.hbchannel.service/exec', { command: 'sh ' + STORE_MODE + ' ' + arg }, function (res) {
     if (!res.returnValue) {
       finish(T.error + (res.stderrString || res.errorText || T.unknown).trim());
       return;

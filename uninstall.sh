@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Removes everything install.sh set up and restores LG's behaviour.
+# Removes everything install.sh set up and restores LG's own behaviour.
 #   ./uninstall.sh            (uses TV from setup.conf, or asks)
 # Rooting / Homebrew Channel / SSH are left alone.
 set -e
@@ -27,9 +27,10 @@ say "removing the remote button mapper"
 tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-mapper.sh remove; rm -f $WB/init.d/86-remote-mapper" || true
 
 say "removing boot hooks and background scripts"
-tv "pkill -f app-trim.sh; rm -f $WB/init.d/80-debloat $WB/init.d/85-app-trim $WB/init.d/60-lg-ad-block
+tv "[ -f /tmp/app-trim.pid ] && kill \$(cat /tmp/app-trim.pid); rm -f $WB/init.d/80-debloat $WB/init.d/85-app-trim $WB/init.d/60-lg-ad-block
     [ -f $WB/debloat.sh ] && sh $WB/debloat.sh lift > /dev/null 2>&1
-    rm -f $WB/debloat.sh $WB/debloat.conf $WB/debloat-stub $WB/app-trim.sh $WB/lg-ad-block-hosts.txt"
+    [ -f $WB/store-mode.sh ] && sh $WB/store-mode.sh off > /dev/null 2>&1
+    rm -f $WB/debloat.sh $WB/debloat.conf $WB/debloat-stub $WB/app-trim.sh $WB/lg-ad-block-hosts.txt $WB/store-mode.sh"
 
 say "uninstalling apps"
 for id in "$HOME_APP" "$LIGHT_APP" "$UPDATES_APP"; do

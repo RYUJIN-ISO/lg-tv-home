@@ -1,35 +1,37 @@
 # lg-tv-home
 
-Make a rooted LG webOS TV feel like an Apple TV: a fast custom home screen,
-LG's tracking switched off, less background bloat, optional Philips Hue
-"movie lighting" button. One interactive installer, fully reversible.
+A calmer, faster home for rooted LG webOS TVs. It replaces LG's home screen
+with an Apple TV style launcher, switches off LG's tracking, trims background
+bloat, lets you give the remote's buttons new jobs and adds an optional
+Philips Hue movie lighting button. One interactive installer, fully reversible.
 
 ![TV Home](docs/screenshot.jpg)
 
-> Tested on an **LG OLED 2024 (OLED65G49LS), webOS 25 / 10.3.1**. Other
-> 2022+ webOS TVs will probably work; anything model-specific is skipped
-> when missing. Rooting is required — see [docs/PREREQUISITES.md](docs/PREREQUISITES.md).
+Tested on an **LG OLED 2024 (OLED65G49LS) with webOS 25 (10.3.1)**. Other
+webOS 22+ TVs will most likely work; parts that depend on the model are
+skipped when they are missing. The TV must be rooted first, see
+[docs/PREREQUISITES.md](docs/PREREQUISITES.md).
 
 ## What you get
 
-| Feature | What it does |
+| Feature | In short |
 |---|---|
-| **TV Home launcher** | Apple TV-style home screen: wallpaper, big app tiles, folders, 60 fps on the tested TV. Replaces LG's home screen properly (Home button, after boot) — no flash of the old one. |
-| **Organize Apps** | Move apps, Android-style folders, add/remove apps, uninstall, reset — all with the remote. |
-| **Remote buttons** | Remap the Magic Remote's buttons (app buttons, Mic, Settings, Input, …) to any app or action from the launcher's Settings — instant, no flash of the old app. |
-| **Light button** *(optional)* | One press: save the current Hue lighting and switch to your movie scene. Press again: back to how it was. |
-| **Privacy** | Blocks LG's ad/tracking/ACR domains and stops the on-TV tracking services (viewing profiling, usage uploads, promos). |
-| **App-Updates** *(with privacy)* | One app to unlock the LG Content Store for 10 minutes so apps can update, then everything re-locks. |
-| **Speed** | Only the current and previous app stay in RAM instead of LG preloading 5-6; optional removal of voice / smart-home services you don't use. |
+| **TV Home** | Wallpaper, large app tiles, folders, a smooth 60 fps. It becomes the TV's real home screen (Home button, after power on) without the old one flashing up first. |
+| **Organize Apps** | Move apps, make folders, add or remove apps, uninstall, reset. App choices are always cards, never text lists. |
+| **Wallpapers** | Your own pictures, from the TV or a USB stick, cropped on the TV to 16:9 at up to 4K. |
+| **Remote buttons** | Netflix, Prime, Mic, Input, colour and number keys and more can open any app or action. Set up on a drawing of the remote. |
+| **Light** *(optional)* | One press saves the room's Hue lighting and starts your movie scene; the next press brings the old lighting back. |
+| **Privacy** | Blocks LG's ad, tracking and ACR servers and stops the tracking services on the TV. An App Store switch in Settings opens the LG Store for 10 minutes when apps need updating. |
+| **Speed** | Only the current and previous app stay in memory instead of 5 or 6 preloaded ones. Unused voice and smart home services can go too. |
 | **Security** | Turns off the passwordless root telnet that rooting leaves open. |
 
-Details for everyday use: **[docs/FEATURES.md](docs/FEATURES.md)**.
-How it works under the hood: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+How to use everything: **[docs/FEATURES.md](docs/FEATURES.md)**.
+How it works inside: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 ## Install
 
-On a Linux or macOS computer on the same network as the TV
-(needs `ssh`, `python3`, `curl`, `ar` from binutils):
+On a Linux or macOS computer in the same network as the TV, with `ssh`,
+`python3`, `curl` and `ar` (binutils) available:
 
 ```bash
 git clone https://github.com/RYUJIN-ISO/lg-tv-home.git
@@ -37,13 +39,12 @@ cd lg-tv-home
 ./install.sh
 ```
 
-The installer checks the TV, asks a few questions (everything has a sane
-default), shows a summary and only then changes anything. Answers are saved to
-`setup.conf`, so `./install.sh --yes` re-applies them, e.g. after an update of
-this repo.
+The installer checks the TV, asks a few questions (each with a sensible
+default), shows a summary and only then changes anything. Your answers are
+saved in `setup.conf`, so after pulling an update `./install.sh --yes`
+applies it without asking again.
 
-Hue light control can be set up later at any time:
-`TV=<your-tv> tools/hue-setup.sh`.
+The Hue light can be set up later at any time: `TV=<your-tv> tools/hue-setup.sh`.
 
 ## Undo
 
@@ -51,19 +52,20 @@ Hue light control can be set up later at any time:
 ./uninstall.sh
 ```
 
-Restores LG's home screen, removes the apps and boot hooks, and lifts the
-service block; a reboot returns everything else to stock. Rooting itself is
-left alone.
+This brings back LG's home screen, removes the apps and boot scripts and
+restarts the stopped services. A reboot returns the rest to stock. The root
+access itself stays.
 
-## Using an AI agent to install
+## Installing with an AI agent
 
-Point your agent (Claude Code, Codex, …) at this repo — **[AGENTS.md](AGENTS.md)**
-tells it which questions to ask you, how to install safely, and the gotchas.
+Point your agent (Claude Code, Codex and others) at this repo.
+[AGENTS.md](AGENTS.md) tells it which questions to ask you, how to install
+safely and what to watch out for.
 
 ## Tools
 
 | Script | Use |
 |---|---|
-| `tools/hue-setup.sh` | Pair a Hue bridge and pick the room + movie scene |
-| `tools/bench.sh` | Measure home screen smoothness on the TV (moves the focus on screen for ~30 s) |
-| `tools/screenshot.sh` | Save a screenshot of the TV screen |
+| `tools/hue-setup.sh` | Pair a Hue bridge, pick the room and the movie scene |
+| `tools/bench.sh` | Measure how smooth the home screen is (moves the focus on screen for about 30 seconds) |
+| `tools/screenshot.sh` | Save a screenshot of the TV |

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# lg-tv-home installer. Run from a Linux/macOS computer that can SSH into a
-# rooted LG webOS TV as root (Homebrew Channel + SSH key, see docs/PREREQUISITES.md).
-#   ./install.sh                 ask the setup questions, then install
-#   ./install.sh --yes           reuse the answers saved in setup.conf
-# Re-running is safe: everything is (re)installed idempotently.
+# lg-tv-home installer. Run it on a Linux or macOS computer that can SSH into
+# a rooted LG webOS TV as root (Homebrew Channel plus an SSH key, see
+# docs/PREREQUISITES.md).
+#   ./install.sh          ask the setup questions, show a summary, then install
+#   ./install.sh --yes    reuse the answers saved in setup.conf
+# Running it again is safe: every step installs or updates in place.
 set -e
 cd "$(dirname "$0")"
 . lib/common.sh
@@ -14,7 +15,7 @@ REUSE=0
 
 # ------------------------------------------------------------ questions
 
-ask() { # ask VAR "question" default [y/n|text]
+ask() { # ask VAR "question" default yn|text
     local var=$1 q=$2 def=$3 kind=$4 cur="${!1:-$3}" a
     if [ "$REUSE" = 1 ]; then printf -v "$var" '%s' "$cur"; return; fi
     if [ "$kind" = yn ]; then
@@ -28,7 +29,7 @@ ask() { # ask VAR "question" default [y/n|text]
 
 [ -f "$CONF" ] && . "./$CONF"
 if [ -f "$CONF" ] && [ "$REUSE" = 0 ]; then
-    read -rp "Found answers from last time in $CONF. Reuse them without asking? [Y/n] " a
+    read -rp "Found your answers from last time in $CONF. Use them without asking again? [Y/n] " a
     case "${a:-y}" in [Yy]*) REUSE=1 ;; esac
 fi
 
@@ -36,54 +37,54 @@ cat <<'EOF'
 
   lg-tv-home setup
   ----------------
-  Every answer has a default in [brackets]; Enter accepts it.
+  Every question has a default in [brackets]; Enter accepts it.
   Nothing on the TV changes until you confirm the summary at the end.
 
 EOF
-ask TV "SSH host of the TV (alias from ~/.ssh/config or root@<ip>):" "lgtv" text
-say "checking the TV ..."
+ask TV "SSH host of the TV (an alias from ~/.ssh/config, or root@<ip>):" "lgtv" text
+say "checking the TV"
 tv true || die "cannot SSH into '$TV' as root (see docs/PREREQUISITES.md)"
 tv "test -d /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service" ||
-    die "Homebrew Channel not found on the TV - it must be rooted first"
+    die "Homebrew Channel is not installed on the TV. Root it first (docs/PREREQUISITES.md)."
 MODEL=$(luna luna://com.webos.service.tv.systemproperty/getSystemInfo '{"keys":["modelName"]}' |
     python3 -c "import json,sys; print(json.load(sys.stdin).get('modelName','?'))" 2>/dev/null || echo "?")
 WEBOS=$(tv "nyx-cmd OSInfo query webos_release" 2>/dev/null || echo "?")
-say "TV: $MODEL, webOS $WEBOS (tested: LG OLED 2024 / webOS 25 = 10.3.x)"
+say "TV: $MODEL, webOS $WEBOS (tested on an LG OLED 2024 with webOS 10.3)"
 
 echo
 echo "1) Home screen"
-ask LAUNCHER   "Install the TV Home launcher (Apple TV-style home screen)?" y yn
+ask LAUNCHER "Install TV Home, the Apple TV style home screen?" y yn
 if [ "$LAUNCHER" = y ]; then
-    ask SET_HOME "Make it THE home screen (Home button, after boot)? LG's stays installed." y yn
-    ask LANGUAGE "Launcher language (en/de, changeable later in its Settings):" en text
-    echo "   The launcher's top-left Light button can toggle a Philips Hue 'movie' scene:"
-    echo "   1st press saves the current lights and recalls your movie scene, 2nd press restores them."
-    ask LIGHT    "Set up light control with Philips Hue? (needs a Hue bridge on this network)" n yn
-    echo "   Remote buttons: remap the Magic Remote's app buttons (Netflix, Prime, ...), Mic,"
-    echo "   Settings, Input, Mute, ... to any app or action - configured in the launcher's Settings."
-    ask REMOTE   "Install the remote button mapper?" y yn
+    ask SET_HOME "Make it the TV's home screen (Home button, after power on)? LG's stays installed." y yn
+    ask LANGUAGE "Language, en or de (can be changed later in its Settings):" en text
+    echo "   Light button: one press saves the room's current Hue lighting and switches to"
+    echo "   your movie scene, the next press brings the old lighting back."
+    ask LIGHT "Set up the Light button with Philips Hue? (needs a Hue bridge on this network)" n yn
+    echo "   Remote buttons: give the remote's app buttons (Netflix, Prime, ...), Mic, Input,"
+    echo "   colour and number keys any app or action, in TV Home's Settings."
+    ask REMOTE "Install the remote button mapper?" y yn
 fi
 
 echo
 echo "2) Privacy"
-ask ADBLOCK    "Block LG's ad / tracking / ACR domains on the TV (community hosts list)?" y yn
-if [ "$ADBLOCK" = y ]; then
-    echo "   With the block on, the LG Content Store can't update apps. The App-Updates app"
-    echo "   lifts the block for 10 minutes on demand."
-    ask APP_UPDATES "Install the App-Updates toggle app?" y yn
+ask ADBLOCK "Block LG's ad, tracking and ACR domains on the TV?" y yn
+if [ "$ADBLOCK" = y ] && [ "$LAUNCHER" != y ]; then
+    echo "   The block also locks the LG Content Store. TV Home has an App Store switch in its"
+    echo "   Settings for that; without TV Home, a small App-Updates app does the same."
+    ask APP_UPDATES "Install the App-Updates app?" y yn
 fi
-ask DEBLOAT    "Stop LG's tracking/profiling background services (viewing data, usage logs, promos)?" y yn
+ask DEBLOAT "Stop LG's tracking and profiling background services (viewing data, usage logs, promos)?" y yn
 if [ "$DEBLOAT" = y ]; then
-    ask KEEP_VOICE     "Does anyone use voice search (mic button on the remote)? (y = keep it)" n yn
-    ask KEEP_SMARTHOME "Use LG ThinQ app, Google Home or Alexa linking? (y = keep it)" n yn
+    ask KEEP_VOICE "Does anyone use voice search with the mic button? (y keeps it)" n yn
+    ask KEEP_SMARTHOME "Do you use the LG ThinQ app, Google Home or Alexa with the TV? (y keeps it)" n yn
 fi
 
 echo
-echo "3) Speed"
-ask APP_TRIM   "Keep only the current + previous app in RAM instead of LG preloading 5-6 apps?" y yn
-ask TELNET_OFF "Turn off the passwordless root telnet that rooting leaves open (SSH keeps working)?" y yn
+echo "3) Speed and security"
+ask APP_TRIM "Keep only the current and the previous app in memory instead of LG preloading 5 or 6?" y yn
+ask TELNET_OFF "Turn off the passwordless root telnet that rooting leaves open? (SSH keeps working)" y yn
 
-# Save answers (no secrets in here; the Hue key only lives on the TV).
+# Save the answers. No secrets in here; the Hue key only lives on the TV.
 cat > "$CONF" <<EOF
 TV=$TV
 LAUNCHER=$LAUNCHER
@@ -105,7 +106,7 @@ say "Summary"
 sed 's/^/    /' "$CONF"
 if [ "$REUSE" = 0 ]; then
     read -rp "Install this on the TV now? [Y/n] " a
-    case "${a:-y}" in [Yy]*) ;; *) echo "Nothing changed. Answers saved in $CONF."; exit 0 ;; esac
+    case "${a:-y}" in [Yy]*) ;; *) echo "Nothing changed. Your answers are saved in $CONF."; exit 0 ;; esac
 fi
 
 # ------------------------------------------------------------ install
@@ -113,13 +114,13 @@ fi
 tv "mkdir -p $WB/init.d $DATA/wallpapers $DATA/tiles"
 
 if [ "$LAUNCHER" = y ]; then
-    say "launcher"
+    say "TV Home"
     install_app apps/tv-home "$HOME_APP" "TV Home launcher"
-    # First install: seed the config with the chosen language.
+    # First install: start in the chosen language.
     tv "[ -f $DATA/config.json ] || echo '{\"language\":\"$LANGUAGE\"}' > $DATA/config.json"
     if [ "$SET_HOME" = y ]; then
         say "making TV Home the home screen"
-        # 1) settings general/defaultApps.home (merge, keep other categories)
+        # Settings general/defaultApps.home, keeping the other categories.
         cur=$(luna luna://com.webos.settingsservice/getSystemSettings '{"category":"general","keys":["defaultApps"]}')
         apps=$(echo "$cur" | python3 -c "
 import json,sys
@@ -127,19 +128,19 @@ d=json.load(sys.stdin).get('settings',{}).get('defaultApps') or {}
 d['home']='$HOME_APP'; print(json.dumps(d))")
         luna luna://com.webos.settingsservice/setSystemSettings \
             "{\"category\":\"general\",\"settings\":{\"defaultApps\":$apps}}" > /dev/null
-        # 2) profile override: idle app (after boot / closing the last app)
+        # Profile override: the idle app shown after boot or closing the last app.
         tv "echo '{\"idleApp\":{\"support\":true,\"appId\":\"$HOME_APP\"},\"defaultApps\":{\"support\":true,\"categories\":{\"home\":\"$HOME_APP\",\"aod\":\"com.webos.app.lifeonscreen\"}}}' > /var/webos-profile/override/atvhome_profile.json"
-        luna luna://com.webos.service.systemprofile/debug/rescan > /dev/null || warn "profile rescan failed (applies after reboot)"
+        luna luna://com.webos.service.systemprofile/debug/rescan > /dev/null || warn "profile rescan failed; it applies after the next reboot"
     fi
 fi
 
 if [ "$LIGHT" = y ]; then
-    say "light control"
+    say "Light button"
     install_app apps/hue-light "$LIGHT_APP" "Hue movie scene toggle"
     if tv "test -f $WB/hue-scene.conf"; then
-        say "Hue already configured on the TV (re-run tools/hue-setup.sh to change it)"
+        say "Hue is already set up on the TV (tools/hue-setup.sh changes it)"
     else
-        TV=$TV tools/hue-setup.sh || warn "Hue setup not finished - run: TV=$TV tools/hue-setup.sh"
+        TV=$TV tools/hue-setup.sh || warn "Hue setup not finished. Run: TV=$TV tools/hue-setup.sh"
     fi
 fi
 
@@ -150,20 +151,21 @@ if [ "$REMOTE" = y ]; then
     put tv/remote-mapper/remote-mapper.sh "$WB/remote-mapper/remote-mapper.sh" 755
     put tv/init.d/86-remote-mapper "$WB/init.d/86-remote-mapper" 755
     tv "[ -f $WB/remote-mapper/map.json ] || echo '{\"buttons\":{}}' > $WB/remote-mapper/map.json"
-    tv "sh $WB/remote-mapper/remote-mapper.sh apply" > /dev/null || warn "mapper not active yet (applies after reboot)"
+    tv "sh $WB/remote-mapper/remote-mapper.sh apply" > /dev/null || warn "the mapper is not active yet; it starts after the next reboot"
 fi
 
 if [ "$ADBLOCK" = y ]; then
-    say "ad / tracking block list"
+    say "ad and tracking block list"
     tmp=$(mktemp)
-    # Base ("safe") list only; list-store breaks the Content Store entirely.
+    # The base ("safe") list only: list-store would break the Content Store for good.
     curl -sfL https://raw.githubusercontent.com/hugobatista/lg-tv-ad-block/main/list |
         awk '/^#/||/^$/{print;next}{print "0.0.0.0 " $2; print ":: " $2}' > "$tmp"
     [ -s "$tmp" ] || die "could not download the block list"
     put "$tmp" "$WB/lg-ad-block-hosts.txt"
     rm -f "$tmp"
     put tv/init.d/60-lg-ad-block "$WB/init.d/60-lg-ad-block" 755
-    # Apply now unless already in /etc/hosts (the hook appends on every boot).
+    put tv/store-mode.sh "$WB/store-mode.sh" 755
+    # Apply now unless it is already in /etc/hosts (the hook adds it on every boot).
     tv "grep -q 'lgsmartad.com' /etc/hosts || sh $WB/init.d/60-lg-ad-block"
     if [ "$APP_UPDATES" = y ]; then
         install_app apps/app-updates "$UPDATES_APP" "Temporarily unblocks the LG Content Store"
@@ -180,26 +182,27 @@ if [ "$DEBLOAT" = y ]; then
     rm -f "$conf"
     put tv/debloat.sh "$WB/debloat.sh" 755
     put tv/init.d/80-debloat "$WB/init.d/80-debloat" 755
-    # systemctl is slow on these TVs: apply in the background (2-3 min).
+    # systemctl is slow on these TVs, so this runs in the background (2 to 3 minutes).
     tv "setsid sh $WB/debloat.sh apply > /tmp/debloat.log 2>&1 < /dev/null &"
-    say "stopping services in the background (takes 2-3 minutes)"
+    say "stopping services in the background (2 to 3 minutes)"
 fi
 
 if [ "$APP_TRIM" = y ]; then
     say "app trimming"
     put tv/app-trim.sh "$WB/app-trim.sh" 755
     put tv/init.d/85-app-trim "$WB/init.d/85-app-trim" 755
-    tv "pgrep -f app-trim.sh > /dev/null || setsid sh $WB/app-trim.sh > /tmp/app-trim.log 2>&1 < /dev/null &"
+    # app-trim.sh refuses to start a second copy on its own.
+    tv "setsid sh $WB/app-trim.sh > /tmp/app-trim.log 2>&1 < /dev/null &"
 fi
 
 if [ "$TELNET_OFF" = y ]; then
     say "turning off telnet"
-    tv "touch /var/luna/preferences/webosbrew_telnet_disabled; pkill -f 'bin/telnetd' || true"
+    tv "touch /var/luna/preferences/webosbrew_telnet_disabled; pkill -x telnetd || true"
 fi
 
 if [ "$LAUNCHER" = y ]; then
     luna luna://com.webos.applicationManager/launch "{\"id\":\"$HOME_APP\"}" > /dev/null || true
 fi
 
-say "Done. A reboot (power off/on) confirms everything comes back on its own."
-echo "    Features and tips: docs/FEATURES.md   Undo: ./uninstall.sh"
+say "Done. Power the TV off and on once to check that everything comes back by itself."
+echo "    How to use it: docs/FEATURES.md    Undo: ./uninstall.sh"

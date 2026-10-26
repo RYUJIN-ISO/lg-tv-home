@@ -1,6 +1,8 @@
 #!/bin/sh
 # Temporarily lifts the /etc/hosts block so the LG Content Store can update apps.
-# Called as root by the "App-Updates" TV app via org.webosbrew.hbchannel.service/exec.
+# Deployed to /var/lib/webosbrew/store-mode.sh; called as root (via
+# org.webosbrew.hbchannel.service/exec) by TV Home's Settings and by the
+# standalone App-Updates app.
 #   on      strip /etc/hosts to its stock header, auto-restore after TIMEOUT seconds
 #   off     restore the saved (blocked) hosts file
 #   status  print "blocked" or "open <seconds left>"

@@ -83,7 +83,7 @@ lift() {
 # still be running when the App-Updates toggle flips again: newest call wins.
 case "$1" in
 apply|lift)
-    for p in $(pgrep -f "debloat.sh (apply|lift)"); do
+    for p in $(pgrep -f "^sh [^ ]*debloat\.sh (apply|lift)"); do
         [ "$p" != "$$" ] && kill "$p" 2>/dev/null
     done
     ;;
