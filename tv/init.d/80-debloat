@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stops LG tracking/profiling/unused services at boot (see debloat.sh).
+# Waits for boot to settle so the services exist before they're stopped.
+sleep 45
+sh /var/lib/webosbrew/debloat.sh apply > /tmp/debloat.log 2>&1

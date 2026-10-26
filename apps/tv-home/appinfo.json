@@ -1,0 +1,18 @@
+{
+  "id": "com.iso.atvhome",
+  "version": "0.9.0",
+  "vendor": "Iso",
+  "type": "web",
+  "main": "index.html",
+  "title": "TV Home",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#1c1c1f",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "spinnerOnLaunch": false,
+  "splashBackground": "",
+  "appCategory": [
+    "home"
+  ]
+}

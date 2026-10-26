@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TV Home</title>
+<style>
+  :root {
+    --tile-w: 320px; --tile-h: 192px; --gap-x: 44px; --row-h: 264px;
+    --cols: 5; --grid-top: 640px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #0d0d0f; color: #fff;
+    font-family: "LG Smart UI", "Museo Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Wallpaper: fixed behind everything; dims when scrolled or a menu is open. */
+  #wall { /* wallpaper + readability gradient in ONE full-screen layer */
+    position: fixed; inset: 0; background-color: #0d0d0f;
+    background-position: center; background-size: cover; background-repeat: no-repeat;
+  }
+  #wall.none { background-image: radial-gradient(90% 80% at 50% 30%, #26262c, #0d0d0f 70%); }
+  /* Dim overlay: a plain solid-colour layer that stays promoted (never hidden),
+     so scrolling never creates/uploads a full-screen texture mid-animation.
+     Fading the wallpaper image itself was measured slower (4K blend). */
+  #wallDim { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 400ms; will-change: opacity; }
+  body.scrolled #wallDim { opacity: .55; }
+  body.overlay #wallDim { opacity: .6; }
+
+  #page { position: absolute; inset: 0; transition: transform 420ms cubic-bezier(.2,.8,.2,1), opacity 250ms; will-change: transform; }
+  body.overlay #page { opacity: .08; }
+
+  .grid {
+    position: absolute; left: 0; width: 1920px;
+    display: grid; justify-content: center;
+    grid-template-columns: repeat(var(--cols), var(--tile-w));
+    column-gap: var(--gap-x); grid-auto-rows: var(--row-h);
+  }
+  #grid { top: var(--grid-top); }
+
+  /* ---- Tiles ---- */
+  .tile { position: relative; width: var(--tile-w); height: var(--row-h); }
+  .tile::before { /* focus shadow: pre-promoted layer, only opacity animates (no filter) */
+    content: ""; position: absolute; left: 8%; right: 8%; top: 30px; height: 170px;
+    border-radius: 30px; box-shadow: 0 34px 60px rgba(0,0,0,.7);
+    opacity: 0; transition: opacity 200ms; will-change: opacity;
+  }
+  .card {
+    position: relative; width: var(--tile-w); height: var(--tile-h);
+    border-radius: 22px; overflow: hidden; background: var(--c, #2a2a2e);
+    transition: transform 200ms cubic-bezier(.2,.8,.2,1); transform-origin: 50% 50%;
+    will-change: transform;
+  }
+  .card > img {
+    position: absolute; left: 50%; top: 50%; width: 136px; height: 136px;
+    transform: translate(-50%, -50%); object-fit: contain;
+  }
+  .card.bleed > img { width: var(--tile-h); height: var(--tile-h); }
+  .card .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18)); }
+  .card .gloss {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 200ms; will-change: opacity;
+    background: radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%);
+  }
+  .label {
+    margin-top: 26px; text-align: center; font-size: 26px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transform: translateY(-6px); transition: opacity 200ms, transform 200ms;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7); will-change: opacity, transform;
+  }
+  .tile.focus { z-index: 2; }
+  .tile.focus::before { opacity: 1; }
+  .tile.focus .card { transform: scale(1.12) translateY(-4px); }
+  .tile.focus .gloss { opacity: 1; }
+  .tile.focus .label { opacity: 1; transform: translateY(8px); }
+
+  /* Move mode: the picked-up tile floats and wobbles slightly. */
+  .tile.moving .card { transform: scale(1.18) translateY(-10px); outline: 4px solid rgba(255,255,255,.9); outline-offset: 4px; }
+  .tile.moving .label { opacity: 1; transform: translateY(14px); }
+
+  /* Folder tile: frosted card with up to six mini app cards. */
+  .card.folder { background: rgba(255,255,255,.16); }
+  .minis {
+    position: absolute; inset: 18px 22px; display: grid;
+    grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 12px;
+  }
+  .mini { position: relative; border-radius: 10px; overflow: hidden; background: var(--c, #2a2a2e); }
+  .mini img { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); object-fit: contain; }
+  .mini.bleed img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Top-left buttons: three squares as wide as one card (3 x 96 + 2 x 16). */
+  #topbar { position: absolute; top: 40px; left: 72px; display: flex; gap: 16px; z-index: 3; }
+  .tbtn {
+    position: relative; width: 96px; height: 96px; border-radius: 20px;
+    background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center;
+    transition: transform 160ms, background 160ms;
+  }
+  .tbtn svg { width: 46px; height: 46px; fill: #fff; }
+  .tbtn.on { background: rgba(52,199,89,.55); }
+  .tbtn.focus { background: #fff; transform: scale(1.12); }
+  .tbtn.focus svg { fill: #111; }
+  .tbtn .tlabel {
+    position: absolute; top: 112px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 22px; font-weight: 500;
+    opacity: 0; transition: opacity 160ms; text-shadow: 0 2px 6px rgba(0,0,0,.8);
+  }
+  .tbtn.focus .tlabel { opacity: 1; }
+  /* Light button feedback ring (outline: no repaint of the layer below). */
+  .tbtn { outline: 5px solid transparent; outline-offset: 5px; transition: transform 160ms, background 160ms, outline-color 200ms; }
+  .tbtn.flash-ok { outline-color: #34c759; }
+  .tbtn.flash-err { outline-color: #ff453a; }
+
+  /* Full-card tile art (tiles/<appId>.png). */
+  .card.art > img, .mini.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
+
+  /* Edit mode: every movable tile gets a dashed outline. */
+  body.editing .tile .card:not(.settings) { outline: 3px dashed rgba(255,255,255,.45); outline-offset: 6px; }
+  body.editing .tile.focus .card:not(.settings) { outline-style: solid; outline-color: #fff; }
+
+  /* Settings / pen / edit-mode cards */
+  .card.settings { background: linear-gradient(160deg, #4a4a52, #24242a); }
+  .card.settings svg { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; transform: translate(-50%, -50%); }
+
+  #clock {
+    position: fixed; top: 44px; right: 72px; font-size: 34px; font-weight: 500;
+    letter-spacing: .5px; text-shadow: 0 2px 8px rgba(0,0,0,.6); z-index: 5;
+  }
+  #clock.off { display: none; }
+  #msg {
+    position: fixed; left: 0; right: 0; top: 780px; text-align: center;
+    font-size: 30px; color: rgba(255,255,255,.8); display: none;
+  }
+  #hint { /* pill so it stays readable over scrolled tiles */
+    position: fixed; left: 50%; top: 40px; transform: translateX(-50%); z-index: 30;
+    font-size: 24px; color: #fff; display: none; white-space: nowrap;
+    background: rgba(0,0,0,.72); padding: 12px 28px; border-radius: 30px;
+  }
+
+  /* ---- Overlays (folder view, menus, text input) ---- */
+  .layer { position: fixed; inset: 0; z-index: 20; }
+  .folderView .title {
+    position: absolute; top: 210px; left: 0; right: 0; text-align: center;
+    font-size: 52px; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,.6);
+  }
+  .folderView .inner { position: absolute; inset: 0; transition: transform 400ms cubic-bezier(.2,.8,.2,1); }
+  .folderView .grid { top: 340px; }
+  .folderView .empty { position: absolute; top: 420px; left: 0; right: 0; text-align: center; font-size: 30px; color: rgba(255,255,255,.75); }
+
+  .panel {
+    position: absolute; top: 90px; bottom: 90px; right: 90px; width: 860px;
+    background: #1e1e22; border-radius: 30px; padding: 46px 40px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6); overflow: hidden;
+  }
+  .panel.sheet { top: 50%; bottom: auto; right: auto; left: 50%; width: 720px; transform: translate(-50%, -50%); }
+  .panel h1 { font-size: 46px; font-weight: 600; margin: 0 14px 30px; }
+  .panel .sub { font-size: 24px; color: rgba(255,255,255,.6); margin: -18px 14px 26px; }
+  .rows { position: relative; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
+  .row {
+    display: flex; align-items: center; height: 78px; padding: 0 26px; margin-bottom: 8px;
+    border-radius: 16px; font-size: 30px; transition: transform 150ms, background 150ms;
+  }
+  .row .val { margin-left: auto; color: rgba(255,255,255,.55); font-size: 26px; padding-left: 20px; white-space: nowrap; }
+  .row .chev { margin-left: 18px; color: rgba(255,255,255,.4); }
+  .row.info { color: rgba(255,255,255,.6); font-size: 24px; height: auto; padding: 10px 26px; line-height: 1.4; }
+  .row.focus { background: #fff; color: #111; transform: scale(1.02); }
+  .row.focus .val, .row.focus .chev { color: rgba(0,0,0,.55); }
+  .row.danger { color: #ff6b6b; }
+  .row.focus.danger { color: #c00; }
+  .row .thumb { width: 96px; height: 54px; border-radius: 8px; margin-right: 22px; background: #000 center / cover; flex: none; }
+
+  .inputBox input {
+    width: 100%; height: 86px; font-size: 36px; padding: 0 24px; border-radius: 16px;
+    border: 3px solid #fff; background: #111; color: #fff; outline: none; font-family: inherit;
+  }
+  .inputBox .sub { margin: 22px 4px 0; }
+</style>
+</head>
+<body>
+<div id="wall"></div>
+<div id="wallDim"></div>
+<div id="page"><div id="topbar"></div><div id="grid" class="grid"></div></div>
+<div id="clock"></div>
+<div id="msg"></div>
+<div id="hint"></div>
+<script src="app.js"></script>
+</body>
+</html>
