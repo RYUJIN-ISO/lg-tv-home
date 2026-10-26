@@ -55,9 +55,10 @@ to the keys in `setup.conf`:
 
 ### The Light (ask properly, it is the main optional feature)
 
-The top-left **Light** button toggles a Philips Hue scene: the first press
-saves the room's current lighting and starts a movie scene, the next press
-brings the saved lighting back exactly. Ask:
+The top-left **Light** button switches a Philips Hue room between a cinema
+scene and a "back to" target: by default the lighting from just before cinema
+(saved on the first press), or a scene they choose. TV Home's Settings also
+has a Hue section to switch rooms and single lights and set brightness. Ask:
 
 1. *Are there Philips Hue lights in the TV room, with a Hue bridge?*
    If not, `LIGHT=n` and the button simply doesn't appear. Other systems
@@ -66,9 +67,12 @@ brings the saved lighting back exactly. Ask:
 2. *Which room or zone are the TV lights in, and which scene should play when
    watching?* If no scene fits, they should create one in the Hue app first
    (for example dim warm light behind the TV).
-3. *Can you get to the bridge?* `tools/hue-setup.sh` asks them to press its
-   button within 60 seconds, lists rooms and scenes and creates the "TV Home
-   before" snapshot scene. The computer must be in the bridge's network.
+3. *Can you get to the bridge?* Pairing happens on the TV: TV Home,
+   Settings, Hue finds the bridge and waits for its button (60 seconds), then
+   the Light button card sets the room, cinema scene and "back to" target.
+   (`tools/hue-setup.sh` does the same from a computer in the bridge's network.)
+4. *Should the second press bring back the lighting from before cinema
+   (default), or always a particular scene?*
 
 ## 4. Install and check
 
