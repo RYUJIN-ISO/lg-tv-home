@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.10.0';
+var VERSION = '0.10.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -1185,6 +1185,16 @@ var REMOTE_BUTTONS = [
 ];
 var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_Back|Key_webOS_Exit|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|PowerOff))$/;
 var remoteState = { map: { buttons: {} }, active: false, installed: false };
+var learnTimer = null;
+
+// Learn mode ends with the Remote Buttons menu (Back, Home, closing it).
+function stopLearning(silent) {
+  if (!learnTimer) return;
+  clearInterval(learnTimer);
+  learnTimer = null;
+  mapper('learn off');
+  if (!silent) showHint('');
+}
 
 function buttonLabel(key) {
   for (var i = 0; i < REMOTE_BUTTONS.length; i++) {
@@ -1253,7 +1263,7 @@ function openRemote() {
       title: function () { return t('remoteButtons'); },
       sub: t('remoteSub'),
       onFocus: function (row) { paintRemote(row && row.key); },
-      onClose: function () { document.body.classList.remove('remote'); },
+      onClose: function () { stopLearning(); document.body.classList.remove('remote'); },
       rows: function () {
         if (!remoteState.installed) return [{ info: true, label: t('remoteMissing') }];
         var rows = [
@@ -1309,18 +1319,19 @@ function chooseButtonAction(key) {
 
 // Learn mode: the filter publishes presses; poll them for ~20 s.
 function learnButton() {
+  stopLearning(true);
   showHint(t('learnSub'));
   mapper('learn on', function () {
     var tries = 0;
-    var timer = setInterval(function () {
+    learnTimer = setInterval(function () {
+      if (!learnTimer) return;
       mapper('learned', function (out) {
+        if (!learnTimer) return;   // menu closed meanwhile
         var list = [];
         try { list = JSON.parse(out || '[]'); } catch (e) {}
         var hit = list.filter(function (e) { return e.code; })[0];
         if (!hit && ++tries < 25) return;
-        clearInterval(timer);
-        mapper('learn off');
-        showHint('');
+        stopLearning();
         if (!hit) { showHint(t('learnNone')); setTimeout(function () { showHint(''); }, 2500); return; }
         var key = hit.name || ('code:' + hit.code);
         if (BLOCKED_KEYS.test(key)) { showHint(t('learnBlocked')); setTimeout(function () { showHint(''); }, 3000); return; }
