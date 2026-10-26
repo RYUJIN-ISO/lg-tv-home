@@ -19,6 +19,13 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 
+**Tips.** Every screen that does something a normal TV doesn't (home screen,
+Organize Apps, Light button, Hue, Remote Buttons, Pictures, Crop, Picture
+Frame, App Store) explains its buttons once, the first time you open it. After
+that the explanation is behind the **How It Works** card at the end of the
+grid (a row in menus, an **i** pill on the crop and remote screens).
+Settings, **Show Tips Again** shows them all once more.
+
 ## Organize Apps
 
 Every tile gets a dashed outline and **OK opens its options directly**:
