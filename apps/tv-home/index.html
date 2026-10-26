@@ -138,15 +138,21 @@
 
 
   /* Remote drawing next to the Remote Buttons menus (Settings). */
-  #remoteArt { position: fixed; left: 180px; top: 150px; width: 400px; height: 800px; z-index: 21; display: none; }
+  #remoteArt { position: fixed; left: 210px; top: 80px; width: 296px; height: 920px; z-index: 21; display: none; }
   body.remote #remoteArt { display: block; }
-  #remoteArt .body { fill: #1b1b1f; stroke: rgba(255,255,255,.22); stroke-width: 3; }
-  #remoteArt .btn { fill: #2c2c33; stroke: rgba(255,255,255,.14); stroke-width: 2; }
-  #remoteArt .lbl { fill: rgba(255,255,255,.8); font-size: 18px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; font-weight: 600; }
-  #remoteArt .fixed { opacity: .4; }
-  #remoteArt .mapped { fill: #2f6f46; }
-  #remoteArt .sel { fill: #fff; stroke: #fff; }
-  #remoteArt .sel + .lbl { fill: #111; }
+  #remoteArt .body { fill: #18181b; stroke: rgba(255,255,255,.22); stroke-width: 3; }
+  #remoteArt .btn { fill: #2b2b31; stroke: rgba(255,255,255,.14); stroke-width: 2; }
+  #remoteArt .lbl { fill: rgba(255,255,255,.85); font-size: 20px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; font-weight: 600; }
+  #remoteArt .lbl.sm { font-size: 12px; letter-spacing: .5px; }
+  #remoteArt .lbl.nf { fill: #e50914; font-weight: 800; letter-spacing: .5px; }
+  #remoteArt .app + .lbl { font-size: 17px; }
+  #remoteArt .fixed { opacity: .45; }
+  #remoteArt .pwr { fill: #3a1214; stroke: #d0343a; }
+  #remoteArt .clr.red { fill: #d7263d; } #remoteArt .clr.green { fill: #1fa34a; }
+  #remoteArt .clr.yellow { fill: #e8c31d; } #remoteArt .clr.blue { fill: #2d7ff0; }
+  #remoteArt .mapped { stroke: #34c759; stroke-width: 5; }
+  #remoteArt .sel { fill: #fff; stroke: #fff; stroke-width: 3; }
+  #remoteArt .sel + .lbl, #remoteArt .sel + .lbl.nf { fill: #111; }
 
   /* ---- Overlays (folder view, menus, text input) ---- */
   .layer { position: fixed; inset: 0; z-index: 20; }
@@ -166,7 +172,11 @@
   .panel.sheet { top: 50%; bottom: auto; right: auto; left: 50%; width: 720px; transform: translate(-50%, -50%); }
   .panel h1 { font-size: 46px; font-weight: 600; margin: 0 14px 30px; }
   .panel .sub { font-size: 24px; color: rgba(255,255,255,.6); margin: -18px 14px 26px; }
-  .rows { position: relative; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
+  /* Rows scroll inside their own clipped area, never over the title. */
+  .panel { display: flex; flex-direction: column; }
+  .panel.sheet { display: block; }
+  .rowsclip { position: relative; flex: 1; min-height: 0; overflow: hidden; margin: 0 -12px; padding: 0 12px; }
+  .rows { position: relative; transition: transform 300ms cubic-bezier(.2,.8,.2,1); padding-top: 6px; }
   .row {
     display: flex; align-items: center; height: 78px; padding: 0 26px; margin-bottom: 8px;
     border-radius: 16px; font-size: 30px; transition: transform 150ms, background 150ms;
@@ -194,32 +204,48 @@
 <div id="clock"></div>
 <div id="msg"></div>
 <div id="hint"></div>
-<svg id="remoteArt" viewBox="0 0 420 840">
-  <rect class="body" x="40" y="10" width="340" height="820" rx="150"/>
-  <!-- row 1 -->
-  <circle class="btn fixed" cx="120" cy="110" r="30"/><text class="lbl" x="120" y="110">PWR</text>
-  <rect class="btn" data-key="Key_webOS_InputSource" x="260" y="84" width="72" height="52" rx="18"/><text class="lbl" x="296" y="110">IN</text>
-  <!-- row 2 -->
-  <circle class="btn" data-key="Key_webOS_Voice" cx="210" cy="190" r="40"/><text class="lbl" x="210" y="190">MIC</text>
-  <rect class="btn" data-key="Key_webOS_Settings" x="88" y="164" width="68" height="52" rx="18"/><text class="lbl" x="122" y="190">SET</text>
-  <!-- row 3 -->
-  <rect class="btn" data-key="Key_webOS_ScreenRemote" x="88" y="250" width="100" height="50" rx="18"/><text class="lbl" x="138" y="275">123</text>
-  <rect class="btn" data-key="Qt.Key_VolumeMute" x="232" y="250" width="100" height="50" rx="18"/><text class="lbl" x="282" y="275">MUTE</text>
-  <!-- rockers -->
-  <rect class="btn fixed" x="80" y="330" width="80" height="170" rx="40"/><text class="lbl" x="120" y="365">+</text><text class="lbl" x="120" y="415">VOL</text><text class="lbl" x="120" y="465">−</text>
-  <rect class="btn" data-key="Key_webOS_ChannelUp" x="260" y="330" width="80" height="84" rx="34"/><text class="lbl" x="300" y="372">CH+</text>
-  <rect class="btn" data-key="Key_webOS_ChannelDown" x="260" y="416" width="80" height="84" rx="34"/><text class="lbl" x="300" y="458">CH−</text>
+<svg id="remoteArt" viewBox="0 0 360 1120">
+  <!-- Magic Remote (MR2x), front view; data-key = name in remap.js -->
+  <path class="body" d="M30 170 Q30 20 180 20 Q330 20 330 170 L330 1050 Q330 1100 280 1100 L80 1100 Q30 1100 30 1050 Z"/>
+  <circle class="btn fixed pwr" cx="180" cy="62" r="22"/>
+  <g class="nums">
+    <circle class="btn" data-key="Qt.Key_1" cx="95" cy="130" r="25"/><text class="lbl" x="95" y="130">1</text>
+    <circle class="btn" data-key="Qt.Key_2" cx="180" cy="130" r="25"/><text class="lbl" x="180" y="130">2</text>
+    <circle class="btn" data-key="Qt.Key_3" cx="265" cy="130" r="25"/><text class="lbl" x="265" y="130">3</text>
+    <circle class="btn" data-key="Qt.Key_4" cx="95" cy="198" r="25"/><text class="lbl" x="95" y="198">4</text>
+    <circle class="btn" data-key="Qt.Key_5" cx="180" cy="198" r="25"/><text class="lbl" x="180" y="198">5</text>
+    <circle class="btn" data-key="Qt.Key_6" cx="265" cy="198" r="25"/><text class="lbl" x="265" y="198">6</text>
+    <circle class="btn" data-key="Qt.Key_7" cx="95" cy="266" r="25"/><text class="lbl" x="95" y="266">7</text>
+    <circle class="btn" data-key="Qt.Key_8" cx="180" cy="266" r="25"/><text class="lbl" x="180" y="266">8</text>
+    <circle class="btn" data-key="Qt.Key_9" cx="265" cy="266" r="25"/><text class="lbl" x="265" y="266">9</text>
+    <circle class="btn" data-key="Key_webOS_ProgramList" cx="95" cy="334" r="25"/><text class="lbl sm" x="95" y="334">LIST</text>
+    <circle class="btn" data-key="Qt.Key_0" cx="180" cy="334" r="25"/><text class="lbl" x="180" y="334">0</text>
+    <circle class="btn" data-key="Key_webOS_ScreenRemote" cx="265" cy="334" r="25"/><text class="lbl" x="265" y="334">···</text>
+  </g>
+  <!-- volume / channel rockers, mute, mic -->
+  <rect class="btn fixed" x="68" y="392" width="54" height="150" rx="27"/><text class="lbl" x="95" y="420">+</text><text class="lbl" x="95" y="514">−</text>
+  <rect class="btn" data-key="Key_webOS_ChannelUp" x="238" y="392" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="425">CH+</text>
+  <rect class="btn" data-key="Key_webOS_ChannelDown" x="238" y="467" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="508">CH−</text>
+  <circle class="btn" data-key="Qt.Key_VolumeMute" cx="180" cy="420" r="25"/><text class="lbl sm" x="180" y="420">MUTE</text>
+  <circle class="btn" data-key="Key_webOS_Voice" cx="180" cy="512" r="27"/><text class="lbl sm" x="180" y="512">MIC</text>
+  <circle class="btn fixed" cx="95" cy="590" r="25"/><text class="lbl sm" x="95" y="590">HOME</text>
+  <circle class="btn" data-key="Key_webOS_InputSource" cx="265" cy="590" r="25"/><text class="lbl sm" x="265" y="590">INPUT</text>
   <!-- wheel -->
-  <circle class="btn fixed" cx="210" cy="590" r="92"/><circle class="btn fixed" cx="210" cy="590" r="40"/><text class="lbl" x="210" y="590">OK</text>
-  <rect class="btn fixed" x="70" y="530" width="44" height="44" rx="14"/><text class="lbl" x="92" y="552">BK</text>
-  <rect class="btn fixed" x="306" y="530" width="44" height="44" rx="14"/><text class="lbl" x="328" y="552">HM</text>
-  <!-- app buttons -->
-  <rect class="btn" data-key="Key_webOS_Netflix" x="80" y="710" width="80" height="40" rx="12"/><text class="lbl" x="120" y="730">NFLX</text>
-  <rect class="btn" data-key="Key_webOS_Amazon" x="170" y="710" width="80" height="40" rx="12"/><text class="lbl" x="210" y="730">prime</text>
-  <rect class="btn" data-key="Key_webOS_Disneyplus" x="260" y="710" width="80" height="40" rx="12"/><text class="lbl" x="300" y="730">D+</text>
-  <rect class="btn" data-key="Key_webOS_RakutenTV" x="80" y="760" width="80" height="40" rx="12"/><text class="lbl" x="120" y="780">R</text>
-  <rect class="btn" data-key="Key_webOS_LGChannels" x="170" y="760" width="80" height="40" rx="12"/><text class="lbl" x="210" y="780">LG Ch</text>
-  <rect class="btn" data-key="Key_webOS_ALEXA" x="260" y="760" width="80" height="40" rx="12"/><text class="lbl" x="300" y="780">alexa</text>
+  <circle class="btn fixed" cx="180" cy="715" r="98"/><circle class="btn fixed" cx="180" cy="715" r="40"/><text class="lbl" x="180" y="715">OK</text>
+  <circle class="btn fixed" cx="85" cy="840" r="25"/><text class="lbl sm" x="85" y="840">BACK</text>
+  <circle class="btn" data-key="Key_webOS_Settings" cx="275" cy="840" r="25"/><text class="lbl sm" x="275" y="840">SET</text>
+  <!-- colour buttons -->
+  <rect class="btn clr red" data-key="Key_webOS_Red" x="60" y="890" width="50" height="22" rx="11"/>
+  <rect class="btn clr green" data-key="Key_webOS_Green" x="126" y="890" width="50" height="22" rx="11"/>
+  <rect class="btn clr yellow" data-key="Key_webOS_Yellow" x="192" y="890" width="50" height="22" rx="11"/>
+  <rect class="btn clr blue" data-key="Key_webOS_Blue" x="258" y="890" width="50" height="22" rx="11"/>
+  <!-- app buttons (this TV's remote: Netflix/Prime, Disney+/Rakuten, LG Channels/Alexa) -->
+  <rect class="btn app" data-key="Key_webOS_Netflix" x="48" y="932" width="128" height="48" rx="10"/><text class="lbl nf" x="112" y="956">NETFLIX</text>
+  <rect class="btn app" data-key="Key_webOS_Amazon" x="184" y="932" width="128" height="48" rx="10"/><text class="lbl" x="248" y="956">prime video</text>
+  <rect class="btn app" data-key="Key_webOS_Disneyplus" x="48" y="986" width="128" height="48" rx="10"/><text class="lbl" x="112" y="1010">Disney+</text>
+  <rect class="btn app" data-key="Key_webOS_RakutenTV" x="184" y="986" width="128" height="48" rx="10"/><text class="lbl" x="248" y="1010">Rakuten TV</text>
+  <rect class="btn app" data-key="Key_webOS_LGChannels" x="48" y="1040" width="128" height="48" rx="10"/><text class="lbl" x="112" y="1064">LG Channels</text>
+  <rect class="btn app" data-key="Key_webOS_ALEXA" x="184" y="1040" width="128" height="48" rx="10"/><text class="lbl" x="248" y="1064">alexa</text>
 </svg>
 <script src="app.js"></script>
 </body>
