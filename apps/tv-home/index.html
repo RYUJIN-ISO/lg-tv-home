@@ -200,6 +200,9 @@
     box-shadow: 0 4px 12px rgba(0,0,0,.5);
   }
   .picker .tile .badge svg { width: 30px; height: 30px; fill: #fff; }
+  /* Side picker (next to the remote drawing): right half, 3 columns. */
+  .picker.side .grid { left: 700px; width: 1160px; justify-content: start; grid-template-columns: repeat(3, var(--tile-w)); }
+  .picker.side .title { left: 700px; right: auto; width: 1048px; }
   body.editing .picker .tile .card { outline: none; }
   .picker .tile.picked .badge { display: flex; }
   .picker .tile.pickable:not(.picked) .card { opacity: .35; }
