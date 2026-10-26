@@ -15,7 +15,7 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 
 | Button | What it does |
 |---|---|
-| **Settings** (gear) | Language, wallpaper, remote buttons, Hue, App Store, clock |
+| **Settings** (gear) | Language, wallpaper, picture frame, remote buttons, Hue, App Store, clock |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 
@@ -64,6 +64,24 @@ Settings, **Wallpaper** shows your wallpapers as cards, plus **None** and
 Wallpapers can also be copied straight to `/var/lib/webosbrew/atvhome/wallpapers/`
 on the TV (3840x2160 looks best: the TV draws the home screen at 4K).
 
+## Picture Frame
+
+Settings, **Picture Frame** shows your wallpapers full screen and dimmed, so
+the TV looks like a framed picture.
+
+- **Start** begins it. **Any button** on the remote ends it.
+- **Pictures**: the wallpapers as cards; OK shows or skips one. With all of
+  them picked, new wallpapers join automatically.
+- **Change every** 1, 5, 15, 30 or 60 minutes (Left and Right), when more than
+  one picture is picked. The order is shuffled and pictures fade into each other.
+- **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
+  picture settings.
+
+LG's screensaver stays away while it runs. LG's own auto power off (if it is
+on in the TV settings) still switches the TV off after a few hours without
+input. To protect an OLED panel the picture drifts by a few pixels from time
+to time. A remote button can also start it (Remote Buttons, **Picture Frame**).
+
 ## Remote buttons
 
 Settings, **Remote Buttons** shows a drawing of the Magic Remote. Move over it
@@ -71,7 +89,7 @@ with the arrows or point at a button; the card next to it shows the button
 and what it does now. **OK** opens its choices:
 
 - **LG default** or **Do nothing**
-- **Home screen**, **Light**, **Live TV**, **HDMI 1** to **4**
+- **Home screen**, **Picture Frame**, **Light**, **Live TV**, **HDMI 1** to **4**
 - **App**: every installed app as a card on the right, next to the remote.
 
 Remapped buttons get a green ring. Power, volume, mute, home, back, settings,
