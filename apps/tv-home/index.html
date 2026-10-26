@@ -153,6 +153,21 @@
   #remoteArt .mapped { stroke: #34c759; stroke-width: 5; }
   #remoteArt .sel { fill: #fff; stroke: #fff; stroke-width: 3; }
   #remoteArt .sel + .lbl, #remoteArt .sel + .lbl.nf { fill: #111; }
+  #remoteArt .btn:not(.fixed) { cursor: pointer; }
+  #remoteArt .fixed { opacity: .3; }
+  /* Info card + controls next to the drawing */
+  #remoteInfo { position: fixed; left: 600px; top: 150px; width: 820px; z-index: 21; display: none; }
+  body.remote #remoteInfo { display: block; }
+  #remoteInfo .name { font-size: 50px; font-weight: 600; }
+  #remoteInfo .act { font-size: 32px; color: rgba(255,255,255,.7); margin-top: 12px; }
+  #remoteInfo .act.on { color: #34c759; }
+  #remoteInfo .tip { font-size: 22px; color: rgba(255,255,255,.45); margin-top: 26px; }
+  #remotePills { position: fixed; left: 600px; top: 840px; z-index: 21; display: none; gap: 20px; }
+  body.remote #remotePills { display: flex; }
+  .pill { padding: 18px 30px; border-radius: 40px; font-size: 26px; background: rgba(255,255,255,.12); transition: transform 150ms, background 150ms; cursor: pointer; }
+  .pill.sel { background: #fff; color: #111; transform: scale(1.06); }
+  body.remote-sub #remoteInfo, body.remote-sub #remotePills { display: none; }
+  .layer.remoteLayer { pointer-events: none; }
 
   /* ---- Overlays (folder view, menus, text input) ---- */
   .layer { position: fixed; inset: 0; z-index: 20; }
@@ -204,6 +219,8 @@
 <div id="clock"></div>
 <div id="msg"></div>
 <div id="hint"></div>
+<div id="remoteInfo"><div class="name"></div><div class="act"></div><div class="tip"></div></div>
+<div id="remotePills"><div class="pill" data-pill="power"></div><div class="pill" data-pill="other"></div></div>
 <svg id="remoteArt" viewBox="0 0 360 1120">
   <!-- Magic Remote (MR2x), front view; data-key = name in remap.js -->
   <path class="body" d="M30 170 Q30 20 180 20 Q330 20 330 170 L330 1050 Q330 1100 280 1100 L80 1100 Q30 1100 30 1050 Z"/>
@@ -226,14 +243,14 @@
   <rect class="btn fixed" x="68" y="392" width="54" height="150" rx="27"/><text class="lbl" x="95" y="420">+</text><text class="lbl" x="95" y="514">−</text>
   <rect class="btn" data-key="Key_webOS_ChannelUp" x="238" y="392" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="425">CH+</text>
   <rect class="btn" data-key="Key_webOS_ChannelDown" x="238" y="467" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="508">CH−</text>
-  <circle class="btn" data-key="Qt.Key_VolumeMute" cx="180" cy="420" r="25"/><text class="lbl sm" x="180" y="420">MUTE</text>
+  <circle class="btn fixed" cx="180" cy="420" r="25"/><text class="lbl sm" x="180" y="420">MUTE</text>
   <circle class="btn" data-key="Key_webOS_Voice" cx="180" cy="512" r="27"/><text class="lbl sm" x="180" y="512">MIC</text>
   <circle class="btn fixed" cx="95" cy="590" r="25"/><text class="lbl sm" x="95" y="590">HOME</text>
   <circle class="btn" data-key="Key_webOS_InputSource" cx="265" cy="590" r="25"/><text class="lbl sm" x="265" y="590">INPUT</text>
   <!-- wheel -->
   <circle class="btn fixed" cx="180" cy="715" r="98"/><circle class="btn fixed" cx="180" cy="715" r="40"/><text class="lbl" x="180" y="715">OK</text>
   <circle class="btn fixed" cx="85" cy="840" r="25"/><text class="lbl sm" x="85" y="840">BACK</text>
-  <circle class="btn" data-key="Key_webOS_Settings" cx="275" cy="840" r="25"/><text class="lbl sm" x="275" y="840">SET</text>
+  <circle class="btn fixed" cx="275" cy="840" r="25"/><text class="lbl sm" x="275" y="840">SET</text>
   <!-- colour buttons -->
   <rect class="btn clr red" data-key="Key_webOS_Red" x="60" y="890" width="50" height="22" rx="11"/>
   <rect class="btn clr green" data-key="Key_webOS_Green" x="126" y="890" width="50" height="22" rx="11"/>
