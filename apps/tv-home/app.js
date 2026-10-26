@@ -14,7 +14,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.9.0';
+var VERSION = '0.9.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -547,8 +547,14 @@ function pressable(el, onTap, onLong) {
 
 // ---------------------------------------------------------------- main view
 
+// Scroll so the focused row sits near the top, but never past the point where
+// the last row reaches the bottom edge (no empty space under the last row).
+var BOTTOM_PAD = 40;
 function scrollMain(row) {
-  var y = row === 0 ? 0 : -(GRID_TOP + row * ROW_H - 260);
+  var rows = Math.ceil(mainGrid.entries.length / COLS);
+  var maxScroll = Math.max(0, GRID_TOP + rows * ROW_H - 1080 + BOTTOM_PAD);
+  var want = row === 0 ? 0 : GRID_TOP + row * ROW_H - 260;
+  var y = -Math.min(want, maxScroll);
   document.getElementById('page').style.transform = 'translateY(' + y + 'px)';
   document.body.classList.toggle('scrolled', row > 0);
 }
