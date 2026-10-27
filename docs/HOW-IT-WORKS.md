@@ -245,8 +245,11 @@ person's own Continue Watching and watch state.
 **Rows.** `plex.py` reads `/hubs/continueWatching` (and the libraries'
 `recentlyAdded` when that row is on), saves the pictures scaled by the
 server into the app's `cache/plex/`, and writes `cache/plex/rows.json`. The
-page shows that file right away and asks `plex.py get`, which refreshes in
-the background when the rows are older than 15 minutes.
+page shows that file right away, then runs `plex.py refresh` and swaps in
+its answer: every time TV Home appears, at most once a minute. So what was
+just watched in Plex is at the front when you come back (the server reorders
+the hub as you watch). `plex.py get` (cached rows, background refresh after
+15 minutes) is still there for scripts.
 
 **Opening Plex at a title.** The store app (`cdp-30`) is a small encrypted
 loader for the Plex web app at `app.plex.tv/tv-v5-webos/`, and that web app
