@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.28.1';
+var VERSION = '0.29.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -184,7 +184,7 @@ var STRINGS = {
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_chup: 'Channel +', b_chdown: 'Channel −',
-    frameSaver: 'Instead of Screensaver'
+    frameSaver: 'Instead of Screensaver', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -243,7 +243,7 @@ var STRINGS = {
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_chup: 'Kanal +', b_chdown: 'Kanal −',
-    frameSaver: 'Statt Bildschirmschoner'
+    frameSaver: 'Statt Bildschirmschoner', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -1074,7 +1074,7 @@ var INFO = {
     { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
     { en: '{ok} save · {back} cancel', de: '{ok} speichern · {back} abbrechen' },
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
-    { en: 'The file is never cut', de: 'Die Datei wird nie beschnitten' }
+    { en: 'The file stays whole · ✂ cuts it for good (asks first)', de: 'Die Datei bleibt ganz · ✂ schneidet sie endgültig (fragt vorher)' }
   ] },
   frameSettings: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
     { en: 'Pan: glides to the crop · Still: crop, no motion', de: 'Schwenken: gleitet zum Ausschnitt · Still: Ausschnitt, ruhig' },
@@ -1677,7 +1677,42 @@ function editCrop(w) {
     saveConfig();
     applyLook();
     cropThumb(w, rect, img);
-  } });
+  }, onCut: w.bundled ? null : function (rect, img, done) { cutPicture(w, rect, img, done); } });
+}
+
+// ✂ in the crop screen: the picture file is cut to the crop for good (after
+// a confirmation), at full resolution, under the same name. Saves space when
+// only the crop is worth keeping. The crop entry goes (the whole picture is
+// now the crop) and the preview is made from the result.
+function cutPicture(w, rect, img, done) {
+  showHint(t('cutting'));
+  var W = img.naturalWidth, H = img.naturalHeight;
+  var sw = Math.round(rect.w * W), sh = Math.round(sw * 9 / 16);
+  var c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  c.getContext('2d').drawImage(img, rect.x * W, rect.y * H, sw, sh, 0, 0, sw, sh);
+  var b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1];
+  var thumb = document.createElement('canvas');
+  thumb.width = 640; thumb.height = 360;
+  thumb.getContext('2d').drawImage(c, 0, 0, 640, 360);
+  var id = 'cut' + Date.now(), name = "'" + w.name.replace(/'/g, "'\\''") + "'";
+  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB
+  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+  (function send(i) {
+    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
+    exec(USB_PY + ' replace ' + id + ' ' + name, function (res) {
+      if (res.returnValue === false || (res.stdoutString || '').trim() !== 'ok') {
+        showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return;
+      }
+      delete library().crops[w.name];
+      saveConfig();
+      exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
+        showHint('');
+        if (done) done();
+        load();
+      });
+    });
+  })(0);
 }
 
 // The picture's preview card shows its crop (or the centre without one).
@@ -1792,7 +1827,7 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
-    '<div class="pill i" data-a="info">i</div></div>' +
+    (pic.onCut ? '<div class="pill cut" data-a="cut">✂</div>' : '') + '<div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
   var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
@@ -1853,6 +1888,10 @@ function openCrop(pic, probe) {
       centre(); paint();
       saved = { w: f.w, x: f.x, y: f.y };
       if (pic.onSave) pic.onSave(null, img);
+    } else if (a === 'cut') {
+      confirmSheet(t('cutQ'), t('cutSub'), t('cutYes'), function () {
+        pic.onCut(rect(), img, function () { if (stack[stack.length - 1] === view) pop(); });
+      });
     } else if (a === 'info') toggleLegend('crop', true);
   }
 

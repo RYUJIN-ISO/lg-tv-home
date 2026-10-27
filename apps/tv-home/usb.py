@@ -87,6 +87,19 @@ elif cmd == "finish":
         o.write(base64.b64decode(f.read()))
     os.remove(tmp)
     print(name)
+elif cmd == "replace":
+    # replace <id> <wallpaper file name>: a picture cut to its crop for good
+    # (Crop, ✂): the chunks replace the file in one step, under the same name.
+    tmp = "/tmp/crop-%s.b64" % safe(sys.argv[2])
+    name = os.path.basename(sys.argv[3])
+    dst = os.path.join(WALLS, name)
+    if not os.path.isfile(dst):
+        sys.exit("no such picture: " + name)
+    with open(tmp) as f, open(dst + ".new", "wb") as o:
+        o.write(base64.b64decode(f.read()))
+    os.remove(tmp)
+    os.replace(dst + ".new", dst)
+    print("ok")
 elif cmd == "thumb":
     # thumb <name> <b64>: the 640x360 preview of an imported picture
     d = os.path.join(WALLS, "thumbs")
@@ -114,4 +127,4 @@ elif cmd == "keep":
     shutil.copyfile(src, os.path.join(dst_dir, safe(sys.argv[3]) + os.path.splitext(src)[1].lower()))
     print("kept")
 else:
-    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64>")
+    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64> | replace <id> <file>")

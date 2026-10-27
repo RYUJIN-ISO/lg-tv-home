@@ -66,7 +66,9 @@ library: the same folders, the same crops, the same screens.
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
   **Reset**. **Up** moves to the frame: the arrows move it (or drag it with
   the Magic Remote, the wheel resizes), **OK** saves and goes back to the bar,
-  **Back** goes back without saving. The crop is remembered, never cut into the file, and
+  **Back** goes back without saving. **✂** (pictures stored on the TV) cuts
+  the file to the frame for good, after a confirmation, to save space when
+  only the crop is worth keeping; it can't be undone. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
