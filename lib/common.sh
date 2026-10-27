@@ -4,6 +4,7 @@
 HOME_APP=com.iso.atvhome
 LIGHT_APP=com.iso.moviescene
 UPDATES_APP=com.iso.appupdates
+PLEX_LINK_APP=com.iso.plexlink    # apps/plex-link: opens Plex at a title for TV Home's Plex rows
 WB=/var/lib/webosbrew
 DATA=$WB/atvhome
 

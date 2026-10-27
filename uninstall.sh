@@ -36,11 +36,11 @@ tv "[ -f /tmp/app-trim.pid ] && kill \$(cat /tmp/app-trim.pid); rm -f $WB/init.d
     rm -f $WB/debloat.sh $WB/debloat.conf $WB/debloat-stub $WB/app-trim.sh $WB/lg-ad-block-hosts.txt $WB/store-mode.sh"
 
 say "uninstalling apps"
-for id in "$HOME_APP" "$LIGHT_APP" "$UPDATES_APP"; do
+for id in "$HOME_APP" "$PLEX_LINK_APP" "$LIGHT_APP" "$UPDATES_APP"; do
     luna luna://com.webos.appInstallService/dev/remove "{\"id\":\"$id\"}" > /dev/null 2>&1 && echo "    removed $id" || true
 done
 
-read -rp "Also delete the saved layout, wallpapers and Hue pairing on the TV? [y/N] " a
+read -rp "Also delete the saved layout, wallpapers, Hue pairing and Plex sign-in on the TV? [y/N] " a
 case "$a" in [Yy]*) tv "rm -rf $DATA $WB/hue-scene.conf $WB/hue-scene.mode $WB/remote-mapper" ;; esac
 read -rp "Turn the passwordless telnet back on? (not recommended) [y/N] " a
 case "$a" in [Yy]*) tv "rm -f /var/luna/preferences/webosbrew_telnet_disabled" ;; esac

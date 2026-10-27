@@ -120,6 +120,7 @@ tv "mkdir -p $WB/init.d $DATA/wallpapers $DATA/tiles"
 if [ "$LAUNCHER" = y ]; then
     say "TV Home"
     install_app apps/tv-home "$HOME_APP" "TV Home launcher"
+    install_app apps/plex-link "$PLEX_LINK_APP" "Opens Plex at a title for TV Home"
     put tv/init.d/87-frame-saver "$WB/init.d/87-frame-saver" 755
     tv "setsid python3 /media/developer/apps/usr/palm/applications/$HOME_APP/framesaver.py > /dev/null 2>&1 < /dev/null &"
     # First install: start in the chosen language.

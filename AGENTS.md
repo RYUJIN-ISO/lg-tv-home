@@ -75,6 +75,29 @@ has a Hue section to switch rooms and single lights and set brightness. Ask:
 4. *Should the second press bring back the lighting from before cinema
    (default), or always a particular scene?*
 
+### Plex (no setup question)
+
+The Plex rows are installed with TV Home and stay invisible until someone
+signs in. Ask: *Do you watch Plex on this TV?* If yes, after the install
+they open TV Home, Settings, Plex, **Account**, and enter the code shown on
+the TV at **plex.tv/link**. That works for their own server and for a
+server a friend shared with them; each person signs in with their own
+account and sees their own Continue Watching.
+
+- **Never ask for, copy or print a Plex token.** The sign-in on the TV
+  creates one for that TV only. The files `plex-token`, `plex-server.json`
+  and `plex-pin.json` in `/var/lib/webosbrew/atvhome/` hold secrets; don't
+  `cat` them.
+- Check it (nothing on screen changes): `ssh <tv> python3
+  /media/developer/apps/usr/palm/applications/com.iso.atvhome/plex.py account`
+  prints the account and server name, `... plex.py refresh` the rows.
+- OK on a card opens Plex through the hidden helper app `com.iso.plexlink`;
+  `/var/lib/webosbrew/atvhome/plex-play.log` says what the last OK did. How
+  it works: docs/HOW-IT-WORKS.md, "Plex".
+- "Keep Plex ready" (Settings, Plex, on by default) keeps that helper
+  started in the background, about 115 MB. On a TV that is short of memory,
+  switch it off.
+
 ## 4. Install and check
 
 ```bash

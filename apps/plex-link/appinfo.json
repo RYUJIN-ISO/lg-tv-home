@@ -1,0 +1,15 @@
+{
+  "id": "com.iso.plexlink",
+  "version": "1.0.0",
+  "vendor": "Iso",
+  "type": "web",
+  "main": "index.html",
+  "title": "Plex",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#000000",
+  "iconColor": "#000000",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "visible": false
+}
