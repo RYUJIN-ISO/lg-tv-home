@@ -222,12 +222,14 @@ and `apps/plex-link/`. `app.js` only calls `window.Plex` at a few places
 /api/v2/pins`), the TV shows its code, and `plex.py signin-check` polls
 `/api/v2/pins/<id>` every 3 seconds until the person entered the code at
 plex.tv/link; then the PIN carries a token for this TV. Each TV identifies
-itself with its own client id, a hash of the TV's network card address (kept
-in `/var/lib/webosbrew/atvhome/plex-client-id` with the address it belongs
-to), so every TV is its own device under the account, named "TV Home" plus
-the id's last 4 characters, and can be removed there. Two TVs never share an
-id, even on the same Plex server or with a data folder copied from another TV:
-a copied id is replaced and the sign-in that came with it is dropped. Plex
+itself with its own random client id (made once, in
+`/var/lib/webosbrew/atvhome/plex-client-id`), so every TV is its own device
+under the account, named "TV Home" plus the id's last 4 characters, and can be
+removed there. Next to the id the file keeps hashes of the TV's LAN and Wi-Fi
+addresses (never sent anywhere): when the data folder was copied from another
+TV, none matches, so the id is replaced and the copied sign-in dropped.
+Switching between LAN and Wi-Fi changes nothing. Signing out forgets the id
+too; the next sign-in is a new device. Plex
 keys from the server (items, libraries) must be numbers; anything else is
 skipped, as they end up in file names and in TV Home's root shell commands. The token is in
 `/var/lib/webosbrew/atvhome/plex-token` (root only, mode 600); it never

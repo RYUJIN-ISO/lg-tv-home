@@ -76,40 +76,45 @@ def secret_write(path, text):
     os.replace(path + '.tmp', path)
 
 
-def hardware_id():
-    """This TV's network card address (eth0, else wlan0): unique per TV, never sent as is."""
+def tv_marks():
+    """Hashes of this TV's network card addresses (LAN and Wi-Fi, both, whichever is
+    in use). Kept only in CLIENT_FILE to notice a data folder copied from another
+    TV; never sent anywhere."""
+    marks = []
     for nic in ('eth0', 'wlan0'):
         try:
-            mac = open('/sys/class/net/%s/address' % nic).read().strip()
+            mac = open('/sys/class/net/%s/address' % nic).read().strip().lower()
         except OSError:
             continue
         if mac and mac != '00:00:00:00:00:00':
-            return mac
-    return ''
+            marks.append(hashlib.sha256(b'tvhome-tv:' + mac.encode()).hexdigest()[:16])
+    return marks
 
 
 def client_id():
-    """This TV's id towards Plex. Made from the TV's network card, so two TVs never
-    share one, even when the data folder was copied from another TV (Plex treats
-    TVs with the same id as one device, and their sign-ins replace each other).
-    The file remembers which TV it belongs to; a copied one is replaced, and the
-    sign-in that came with it is dropped (it belongs to the other TV)."""
-    hw = hardware_id()
+    """This TV's id towards Plex: random, made once. Plex treats TVs with the same id
+    as one device (their sign-ins replace each other), so an id copied from another
+    TV (a copied data folder) is replaced, and the sign-in that came with it is
+    dropped. A copy is recognised by the TV marks stored next to the id: none of
+    them matches this TV. Files without marks (older versions) keep their id."""
+    marks = tv_marks()
     try:
-        cid, owner = (open(CLIENT_FILE).read().split() + [''])[:2]
-        if not hw or owner == hw:
+        parts = open(CLIENT_FILE).read().split()
+    except OSError:
+        parts = []
+    if parts:
+        cid, stored = parts[0], set(parts[1].split(',')) if len(parts) > 1 else set()
+        if not stored or not marks or stored & set(marks):
+            if marks and not set(marks) <= stored:
+                secret_write(CLIENT_FILE, cid + ' ' + ','.join(sorted(stored | set(marks))))
             return cid
-    except (OSError, ValueError):
-        pass
-    if os.path.exists(CLIENT_FILE):
         for f in (TOKEN_FILE, SERVER_FILE, PIN_FILE):
             try:
                 os.remove(f)
             except OSError:
                 pass
-    seed = hw.encode() if hw else os.urandom(16)
-    cid = 'tvhome-' + hashlib.sha256(b'tvhome-plex:' + seed).hexdigest()[:24]
-    secret_write(CLIENT_FILE, cid + (' ' + hw if hw else ''))
+    cid = 'tvhome-' + os.urandom(12).hex()
+    secret_write(CLIENT_FILE, cid + (' ' + ','.join(marks) if marks else ''))
     return cid
 
 
@@ -349,13 +354,17 @@ def signin_check():
     if not r.get('authToken'):
         return {'waiting': True, 'code': p['code']}
     secret_write(TOKEN_FILE, r['authToken'])
+    if os.path.exists(SERVER_FILE):
+        os.remove(SERVER_FILE)   # cached for the previous account (its server token)
     os.remove(PIN_FILE)
     forget_rows()
     return dict(account(), done=True)
 
 
 def signout():
-    for f in (TOKEN_FILE, PIN_FILE):
+    # The id goes too: the next sign-in is a new device (also how two TVs that
+    # ended up with the same id get apart).
+    for f in (TOKEN_FILE, PIN_FILE, SERVER_FILE, CLIENT_FILE):
         if os.path.exists(f):
             os.remove(f)
     forget_rows()
