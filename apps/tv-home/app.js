@@ -31,6 +31,7 @@ var DEFAULT_CONFIG = {
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
   added: [],      // keys of installed apps without a launch point, put on it
+  avrButton: false,  // top-left button: sound to an AV receiver on HDMI eARC (wakes it over CEC)
   // picture frame: pictures null = all wallpapers; focus = per picture 16:9
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
@@ -142,6 +143,8 @@ var STRINGS = {
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
     showClock: 'Show Clock', on: 'On', off: 'Off',
+    avr: 'AV Receiver', avrSetting: 'AV receiver button', avrOn: 'Sound to the AV receiver (HDMI eARC)',
+    avrFailed: 'The TV did not switch the sound output.',
     reset: 'Reset Layout', resetQ: 'Reset layout?',
     resetSub: 'Folders, order and the app selection are reset. The wallpaper stays.', resetYes: 'Reset',
     tip: 'Organize Apps (top left): arrange, group, uninstall',
@@ -201,6 +204,8 @@ var STRINGS = {
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
+    avr: 'AV-Receiver', avrSetting: 'Taste AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
+    avrFailed: 'Der TV hat den Tonausgang nicht umgeschaltet.',
     reset: 'Anordnung zurücksetzen', resetQ: 'Anordnung zurücksetzen?',
     resetSub: 'Ordner, Reihenfolge und App-Auswahl werden zurückgesetzt. Das Hintergrundbild bleibt.', resetYes: 'Zurücksetzen',
     tip: 'Apps organisieren (oben links): anordnen, gruppieren, deinstallieren',
@@ -666,7 +671,23 @@ function topButtons() {
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
   ];
   if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight, longAction: openHue });
+  if (cfg().avrButton) b.push({ icon: AVR_ICON, title: t('avr'), action: soundToAvr });
   return b;
+}
+
+// AV receiver button (Settings, "AV receiver button"): selects HDMI eARC as the
+// sound output, the same as LG's sound output menu. When the receiver switched
+// itself off, the TV falls back to its speakers; choosing eARC again makes the
+// TV ask the receiver over CEC to come on.
+var AVR_ICON = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
+var avrHintTimer = null;
+function soundToAvr() {
+  exec("luna-send -n 1 -w 8000 luna://com.webos.service.apiadapter/audio/changeSoundOutput '{\"output\":\"external_arc\"}'", function (res) {
+    var ok = /"returnValue":\s*true/.test(res.stdoutString || '');
+    showHint(ok ? t('avrOn') : t('avrFailed'));
+    clearTimeout(avrHintTimer);
+    avrHintTimer = setTimeout(function () { showHint(editMode ? t('editHint') : ''); }, 2500);
+  });
 }
 
 function renderTop() {
@@ -1456,6 +1477,9 @@ function openSettings() {
       ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
+        } },
+        { label: t('avrSetting'), value: c.avrButton ? t('on') : t('off'), action: function () {
+          c.avrButton = !c.avrButton; saveConfig(); renderTop(); refreshTop();
         } },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }

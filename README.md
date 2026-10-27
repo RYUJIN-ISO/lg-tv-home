@@ -22,6 +22,7 @@ skipped when they are missing. The TV must be rooted first, see
 | **Picture Frame** | Wallpapers full screen and dimmable, like a framed picture. Large pictures pan slowly; CH+/CH- change the picture, the arrows look around; pictures live in folders shared with the wallpaper menu, with one crop per picture set on the TV. Optionally it replaces LG's screensaver, and a key returns to the app you were in. |
 | **Remote buttons** | Netflix, Prime, Mic, Input, colour and number keys and more can be programmed to open any app or action. |
 | **Hue** *(optional)* | Rooms and lights in Settings, and a Light button that switches between scenes or the lightning from before (good for dimming lights). Paired on the TV, no computer needed. |
+| **AV receiver button** *(optional)* | One press sends the sound to the receiver or soundbar on HDMI eARC and wakes it, when the TV fell back to its own speakers. |
 | **Privacy** | Blocks LG's ad, tracking and ACR servers and stops the tracking services on the TV. An App Store switch in Settings opens the LG Store and lets it connect to the internet for 10 minutes when apps need updating. |
 | **Speed** | Only the current and previous app stay in memory instead of 5 or 6 preloaded ones. Unused voice and smart home services can go too. |
 | **Security** | Turns off the passwordless root telnet that rooting leaves open. |
