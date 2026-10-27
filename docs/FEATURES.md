@@ -20,10 +20,11 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 
 **Help.** Screens that do something a normal TV doesn't have a small **i**
-(top bar on the home screen, next to the title elsewhere; **Up** from the top
+(next to the title; **Up** from the top
 row reaches it). It shows a small legend in a corner: the remote keys drawn as
 key caps and a few words. It doesn't block anything; **i** again or leaving
-the screen closes it. The hints under titles use the same key caps.
+the screen closes it. The home screen's keys are in Settings' **i**. The
+hints under titles use the same key caps.
 
 ## Organize Apps
 
