@@ -8,7 +8,8 @@
 //
 // plex.py (root, through exec) keeps cache/plex/rows.json and the pictures in
 // this app's folder; the page reads the file directly for a fast first paint,
-// then asks plex.py, which refreshes in the background when the rows are old.
+// then has plex.py fetch fresh rows (each time TV Home appears, at most once a
+// minute) and swaps them in.
 // The store Plex app ignores launch params, so plex.py opens Plex as the
 // hidden developer app com.iso.plexlink (the same Plex web app) and hands it
 // the title over the TV's DevTools port. That copy is kept started but hidden
@@ -64,6 +65,9 @@
   var recFocus = -1;              // focused poster in "New in your libraries"
   var recLast = 0;
   var preloadTimer = null;
+  var FRESH_MS = 60000;           // ask the server again when TV Home appears after this long
+  var lastAsked = 0;
+  var refreshing = false;
 
   function plexCfg() {
     var p = cfg().plex || {};
@@ -140,18 +144,25 @@
     renderRecent();
   }
 
+  // TV Home appeared: the saved rows at once, then fresh ones from the server
+  // (they change while Plex plays: what you watched moves to the front). At
+  // most once a minute, so quick switches don't ask the server every time.
   function loadRows() {
     var x = new XMLHttpRequest();
     x.onload = function () { try { adopt(JSON.parse(x.responseText)); } catch (e) {} };
     x.open('GET', 'cache/plex/rows.json?' + Date.now());
     x.send();
     var p = plexCfg();
-    if (p.continue || p.recent) plexPy('get ' + plexArgs(), adopt);
+    if (!(p.continue || p.recent) || refreshing || Date.now() - lastAsked < FRESH_MS) return;
+    lastAsked = Date.now();
+    refreshRows();
   }
 
-  // Fetches now (after a settings change); done() when the answer is in.
+  // Fetches now; done() when the answer is in.
   function refreshRows(done) {
+    refreshing = true;
     plexPy('refresh ' + plexArgs(), function (r) {
+      refreshing = false;
       if (r) adopt(r); else status.error = 'no answer';
       if (done) done();
     });
