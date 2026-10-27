@@ -26,6 +26,7 @@
 # sections: comma separated library section ids ("1,6,5,2"); empty = all
 # movie and show libraries. Runs as root through Homebrew Channel's exec.
 # Standard library only (the TV has Python 3.10).
+import hashlib
 import json
 import os
 import subprocess
@@ -75,18 +76,52 @@ def secret_write(path, text):
     os.replace(path + '.tmp', path)
 
 
+def hardware_id():
+    """This TV's network card address (eth0, else wlan0): unique per TV, never sent as is."""
+    for nic in ('eth0', 'wlan0'):
+        try:
+            mac = open('/sys/class/net/%s/address' % nic).read().strip()
+        except OSError:
+            continue
+        if mac and mac != '00:00:00:00:00:00':
+            return mac
+    return ''
+
+
 def client_id():
+    """This TV's id towards Plex. Made from the TV's network card, so two TVs never
+    share one, even when the data folder was copied from another TV (Plex treats
+    TVs with the same id as one device, and their sign-ins replace each other).
+    The file remembers which TV it belongs to; a copied one is replaced, and the
+    sign-in that came with it is dropped (it belongs to the other TV)."""
+    hw = hardware_id()
     try:
-        return open(CLIENT_FILE).read().strip()
-    except OSError:
-        cid = 'tvhome-' + os.urandom(12).hex()
-        secret_write(CLIENT_FILE, cid)
-        return cid
+        cid, owner = (open(CLIENT_FILE).read().split() + [''])[:2]
+        if not hw or owner == hw:
+            return cid
+    except (OSError, ValueError):
+        pass
+    if os.path.exists(CLIENT_FILE):
+        for f in (TOKEN_FILE, SERVER_FILE, PIN_FILE):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+    seed = hw.encode() if hw else os.urandom(16)
+    cid = 'tvhome-' + hashlib.sha256(b'tvhome-plex:' + seed).hexdigest()[:24]
+    secret_write(CLIENT_FILE, cid + (' ' + hw if hw else ''))
+    return cid
+
+
+def key_ok(k):
+    """Plex ids (ratingKey, library key) are numbers. Anything else from a server is
+    refused: these go into file names and into TV Home's root shell commands."""
+    return isinstance(k, (int, str)) and str(k).isdigit()
 
 
 def headers(token=None):
     h = {'Accept': 'application/json', 'X-Plex-Product': 'TV Home', 'X-Plex-Version': '1',
-         'X-Plex-Client-Identifier': client_id(), 'X-Plex-Platform': 'webOS', 'X-Plex-Device-Name': 'TV Home'}
+         'X-Plex-Client-Identifier': client_id(), 'X-Plex-Platform': 'webOS', 'X-Plex-Device-Name': 'TV Home ' + client_id()[-4:]}
     if token:
         h['X-Plex-Token'] = token
     return h
@@ -189,7 +224,8 @@ def fetch(sections, recent):
     if not sections:
         secs = http(base + '/library/sections', st)['MediaContainer'].get('Directory', [])
         sections = [d['key'] for d in secs if d.get('type') in ('movie', 'show')]
-    sections = [str(s) for s in sections]
+    sections = [str(s) for s in sections if key_ok(s)]
+    items = [m for m in items if key_ok(m.get('ratingKey'))]
     os.makedirs(CACHE, exist_ok=True)
     rows = {'at': int(time.time()), 'continue': [], 'recent': []}
     for m in items:
@@ -199,7 +235,7 @@ def fetch(sections, recent):
         for s in sections:
             q = base + '/library/sections/%s/recentlyAdded?X-Plex-Container-Start=0&X-Plex-Container-Size=%d' % (s, RECENT_MAX)
             for m in http(q, st)['MediaContainer'].get('Metadata', []):
-                if m.get('type') in ('movie', 'show', 'season') and not m.get('viewCount'):
+                if key_ok(m.get('ratingKey')) and m.get('type') in ('movie', 'show', 'season') and not m.get('viewCount'):
                     rows['recent'].append((m.get('addedAt') or 0, m))
         rows['recent'].sort(key=lambda x: -x[0])
         rows['recent'] = [poster(base, st, m) for _, m in rows['recent'][:RECENT_MAX]]
@@ -358,7 +394,7 @@ def main():
         with open(PLAY_LOG, 'w') as f:
             f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), res))
         return
-    sections = [s for s in (sys.argv[2] if len(sys.argv) > 2 else '').split(',') if s]
+    sections = [s for s in (sys.argv[2] if len(sys.argv) > 2 else '').split(',') if key_ok(s)]
     recent = len(sys.argv) > 3 and sys.argv[3] == 'recent'
     if not os.path.exists(TOKEN_FILE):
         print(json.dumps({'error': 'no token'}))
@@ -373,7 +409,7 @@ def main():
         try:
             secs = server_get(open(TOKEN_FILE).read().strip(), '/library/sections')[0]['MediaContainer'].get('Directory', [])
             print(json.dumps({'libraries': [{'key': d['key'], 'title': d['title'], 'type': d['type']}
-                                            for d in secs if d.get('type') in ('movie', 'show')]}))
+                                            for d in secs if d.get('type') in ('movie', 'show') and key_ok(d.get('key'))]}))
         except Exception as e:
             print(json.dumps({'error': type(e).__name__}))
         return
