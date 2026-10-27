@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.30.0';
+var VERSION = '0.31.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -35,6 +35,7 @@ var DEFAULT_CONFIG = {
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
+  favourites: [],      // picture names; the built-in Favourites folder (id 'fav')
   frame: { every: 5, bri: 60, pan: true, show: 'all', saver: false }   // show: 'all' or a picture folder id
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
@@ -158,8 +159,8 @@ var STRINGS = {
     cropKeysBar: '{up} crop · {back} close', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
-    libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} crop, folders',
-    frameHere: '{ok} start here · {hold} crop, folders', usbHint: '{ok} crop and add',
+    libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} ★, crop, folders',
+    frameHere: '{ok} start here · {hold} ★, crop, folders', usbHint: '{ok} crop and add',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
@@ -184,7 +185,7 @@ var STRINGS = {
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_chup: 'Channel +', b_chdown: 'Channel −',
-    frameSaver: 'Instead of Screensaver', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
+    frameSaver: 'Instead of Screensaver', favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -217,8 +218,8 @@ var STRINGS = {
     cropKeysBar: '{up} zuschneiden · {back} schließen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
-    libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} Ausschnitt, Ordner',
-    frameHere: '{ok} hier starten · {hold} Ausschnitt, Ordner', usbHint: '{ok} zuschneiden und hinzufügen',
+    libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} ★, Ausschnitt, Ordner',
+    frameHere: '{ok} hier starten · {hold} ★, Ausschnitt, Ordner', usbHint: '{ok} zuschneiden und hinzufügen',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
@@ -243,7 +244,7 @@ var STRINGS = {
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_chup: 'Kanal +', b_chdown: 'Kanal −',
-    frameSaver: 'Statt Bildschirmschoner', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
+    frameSaver: 'Statt Bildschirmschoner', favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -1067,7 +1068,7 @@ var INFO = {
   pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
     { en: 'Shared by Wallpaper and Picture Frame', de: 'Gemeinsam für Hintergrund und Bilderrahmen' },
     { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
-    { en: '{hold} picture: crop, folders', de: '{hold} Bild: Ausschnitt, Ordner' },
+    { en: '{hold} picture: ★ favourite, crop, folders', de: '{hold} Bild: ★ Favorit, Ausschnitt, Ordner' },
     { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
   ] },
   crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
@@ -1496,7 +1497,23 @@ function library() {
 }
 
 function pictureFolders() { return library().pictureFolders; }
-function pictureFolder(id) { return pictureFolders().filter(function (x) { return x.id === id; })[0] || null; }
+function pictureFolder(id) {
+  if (id === 'fav') return favFolder();
+  return pictureFolders().filter(function (x) { return x.id === id; })[0] || null;
+}
+// Favourites: a built-in folder (can't be renamed or deleted); its items are
+// the config's favourites list itself, so Choose Pictures edits it directly.
+function favFolder() {
+  var c = library();
+  if (!c.favourites) c.favourites = [];
+  return { id: 'fav', name: t('favourites'), items: c.favourites, fav: true };
+}
+function isFav(name) { return favFolder().items.indexOf(name) >= 0; }
+function toggleFav(name) {
+  var f = favFolder().items, at = f.indexOf(name);
+  if (at >= 0) f.splice(at, 1); else f.push(name);
+  saveConfig();
+}
 function cropOf(name) { return library().crops[name] || null; }
 function picThumb(w) { return w ? w.thumb || w.url : ''; }
 function folderPics(fo) {
@@ -1527,7 +1544,8 @@ function pickerView(el, grid) {
 function openPictures(mode) {
   var el = pickerLayer(mode === 'frame' ? t('frame') : t('wallpaper'), t('libHint'));
   function entries() {
-    var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: folderPics(null) }];
+    var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: folderPics(null) },
+                { type: 'album', key: 'fav', title: t('favourites'), pics: folderPics(favFolder()) }];
     pictureFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: folderPics(fo) }); });
     list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
@@ -1571,8 +1589,10 @@ function newPictureFolder() {
 
 function folderOptions_(fo) {
   menu({ title: fo.name, rows: function () {
+    var pick = { label: t('choosePictures'), chevron: true, action: function () { pop(); choosePictures(fo); } };
+    if (fo.fav) return [pick];
     return [
-      { label: t('choosePictures'), chevron: true, action: function () { pop(); choosePictures(fo); } },
+      pick,
       { label: t('rename'), action: function () {
         askText(t('rename'), fo.name, function (name) { if (name.trim()) fo.name = name.trim(); saveConfig(); pop(); });
       } },
@@ -1596,6 +1616,7 @@ function openPictureFolder(fo, mode) {
   var grid = new Grid({
     container: el.querySelector('.grid'),
     decorate: function (tile, e) {
+      if (e.wp && isFav(e.key)) tile.insertAdjacentHTML('beforeend', '<div class="fav">★</div>');
       if (mode !== 'wallpaper') return;
       tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
       tile.classList.toggle('picked', e.key === cfg().wallpaper);
@@ -1632,7 +1653,8 @@ function openPictureFolder(fo, mode) {
 
 function pictureOptions(w) {
   menu({ title: w.name.replace(/\.[a-z]+$/i, ''), rows: function () {
-    var rows = [{ label: t('crop'), value: cropOf(w.name) ? t('cropSet') : '', chevron: true, action: function () { pop(); editCrop(w); } },
+    var rows = [{ label: t('favourite'), value: isFav(w.name) ? '★' : '☆', action: function () { toggleFav(w.name); refreshTop(); } },
+                { label: t('crop'), value: cropOf(w.name) ? t('cropSet') : '', chevron: true, action: function () { pop(); editCrop(w); } },
                 { info: true, label: t('inFolders') }];
     pictureFolders().forEach(function (fo) {
       rows.push({ label: fo.name, check: fo.items.indexOf(w.name) >= 0, action: function () {
@@ -1659,7 +1681,7 @@ function deletePicture(w) {
     }
     var c = library();
     delete c.crops[w.name];
-    c.pictureFolders.forEach(function (fo) {
+    c.pictureFolders.concat([favFolder()]).forEach(function (fo) {
       var at = fo.items.indexOf(w.name);
       if (at >= 0) fo.items.splice(at, 1);
     });
