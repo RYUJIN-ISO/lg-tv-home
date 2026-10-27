@@ -18,13 +18,14 @@ skipped when they are missing. The TV must be rooted first, see
 |---|---|
 | **TV Home** | Wallpaper, large app tiles, folders, a smooth 60 fps. It becomes the TV's real home screen (Home button, after power on) without the old one flashing up first. |
 | **Organize Apps** | Move apps, make folders, add or remove apps, uninstall, reset. App choices are always cards, never text lists. |
-| **Wallpapers** | Your own pictures, from the TV or a USB stick, cropped on the TV to 16:9 at up to 4K. Optional: 16 public-domain museum prints (Monet, Turner, Cross, Twachtman), see [prints/CREDITS.md](prints/CREDITS.md). |
-| **Picture Frame** | Wallpapers full screen and dimmed, like a framed picture. Large pictures pan slowly and smoothly; CH+/CH- change the picture, the arrows look around; pictures live in folders shared with the wallpaper menu, with one crop per picture set on the TV. |
+| **Wallpapers** | Your own pictures, from the TV or a USB stick, cropped on the TV to 16:9 at up to 4K; previews show the crop, and ✂ cuts a picture to its crop for good to save space. Optional: 16 public-domain museum prints (Monet, Turner, Cross, Twachtman), see [prints/CREDITS.md](prints/CREDITS.md). |
+| **Picture Frame** | Wallpapers full screen and dimmed, like a framed picture. Large pictures pan slowly and smoothly; CH+/CH- change the picture, the arrows look around; pictures live in folders shared with the wallpaper menu, with one crop per picture set on the TV. Optionally it replaces LG's screensaver, and a key returns to the app you were in. |
 | **Remote buttons** | Netflix, Prime, Mic, Input, colour and number keys and more can open any app or action. Set up on a drawing of the remote. |
 | **Hue** *(optional)* | Rooms and lights in Settings, and a Light button that switches between cinema and the lighting from before (or a chosen scene). Paired on the TV, no computer needed. |
 | **Privacy** | Blocks LG's ad, tracking and ACR servers and stops the tracking services on the TV. An App Store switch in Settings opens the LG Store for 10 minutes when apps need updating. |
 | **Speed** | Only the current and previous app stay in memory instead of 5 or 6 preloaded ones. Unused voice and smart home services can go too. |
 | **Security** | Turns off the passwordless root telnet that rooting leaves open. |
+| **Help on the screen** | Hints use the remote's keys as symbols; a small **i** on screens with special controls opens a short legend in a corner. |
 
 How to use everything: **[docs/FEATURES.md](docs/FEATURES.md)**.
 How it works inside: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
