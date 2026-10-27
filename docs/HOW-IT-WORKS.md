@@ -111,14 +111,23 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   in a corner without taking the keys; `push`/`pop` close it. Grid screens
   get their "i" from `infoButton()`, menus from `spec.info`.
 - **Screensaver guard**: `framesaver.py` (started by `init.d/87-frame-saver`
-  and by TV Home) registers with tvpowerd like `keepawake.py` and answers
-  "no" while the frame runs, or when Picture Frame, Instead of Screensaver
-  (`frame.saver`) is on, then launches the frame with `{"frame": true,
-  "back": <app on screen>}`; a key ends it back in that app. Answers are
-  fire-and-forget, because a reply that arrives late lets LG's screensaver
-  start anyway; for that case it also watches the foreground app and closes
-  `com.webos.app.screensaver` when the frame should be showing. Log:
-  `/tmp/atvhome-saver.log`.
+  and by TV Home). tvpowerd asks registered clients before its screensaver
+  (`registerScreenSaverRequest`) but starts it whatever they answer, about 3 s
+  later (tested with both answers). So the guard works from tvpowerd's power
+  state (`getPowerState`): with Instead of Screensaver on (`frame.saver`), on
+  "Screen Saver" it starts the frame behind LG's screensaver and closes LG's
+  after 10 s, so the frame is already there (no black, no home screen). A key
+  during those 10 s ends the hidden frame and returns to the app before.
+  While a frame runs, the guard switches LG's screensaver off
+  (`general.screenSaverEnabled`, which tvpowerd follows live) and back on
+  afterwards; a marker file makes it undo that after a crash or power cut,
+  and a screensaver the user switched off stays off. If LG's still comes up
+  over a running frame, it is closed at once. The frame ignores key codes
+  1536/1537 (the pointer showing or hiding, also sent when another window
+  takes the focus), and waits 5 s before ending when TV Home is hidden.
+  LG's timer (`option.screenSaverTimer`, 3 min) can't be changed on this
+  model. Log: `/tmp/atvhome-saver.log`; why a frame ended:
+  `/tmp/atvhome-events.log`.
 - **Languages**: `STRINGS` in `app.js`, English by default and German. The
   Light and App-Updates apps read the language from the launcher config.
 

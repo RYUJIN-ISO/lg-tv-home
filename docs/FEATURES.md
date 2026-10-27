@@ -104,9 +104,10 @@ the TV looks like a framed picture.
   painting is zoomed in to 16:9).
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
-- **Instead of Screensaver** (default off): when the TV would start LG's
-  screensaver (nothing playing, no key pressed for a while), the frame starts
-  instead. A key ends it and goes back to the app you were in. While a frame
+- **Instead of Screensaver** (default off): when the TV starts LG's
+  screensaver (nothing playing, no key pressed for 3 minutes), LG's shows for
+  about 10 seconds and then hands over to the frame. A key ends it and goes
+  back to the app you were in. While a frame
   runs, LG's screensaver never takes over, with this switch on or off.
 
 **Large pictures pan** (Motion: Pan). A picture that is bigger than the

@@ -28,6 +28,8 @@ tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-map
 
 say "removing boot hooks and background scripts"
 tv "[ -f /tmp/atvhome-saver.pid ] && kill \$(cat /tmp/atvhome-saver.pid); rm -f $WB/init.d/87-frame-saver" || true
+# The frame's guard may have switched LG's screensaver off: switch it back on.
+tv "[ -f /var/lib/webosbrew/atvhome/screensaver-off-by-frame ] && luna-send -n 1 luna://com.webos.settingsservice/setSystemSettings '{\"category\":\"general\",\"settings\":{\"screenSaverEnabled\":\"on\"}}' > /dev/null; rm -f /var/lib/webosbrew/atvhome/screensaver-off-by-frame" || true
 tv "[ -f /tmp/app-trim.pid ] && kill \$(cat /tmp/app-trim.pid); rm -f $WB/init.d/80-debloat $WB/init.d/85-app-trim $WB/init.d/60-lg-ad-block
     [ -f $WB/debloat.sh ] && sh $WB/debloat.sh lift > /dev/null 2>&1
     [ -f $WB/store-mode.sh ] && sh $WB/store-mode.sh off > /dev/null 2>&1

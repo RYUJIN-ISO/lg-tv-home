@@ -52,8 +52,15 @@ fg=$(foreground)
 is_user_app "$fg" && CUR=$fg
 trim
 
+# At boot LG may still preload apps until debloat.sh has stopped its preload
+# manager: trim once more as soon as debloat reports it is done.
+DEBLOATED=""
 while :; do
     sleep $INTERVAL
+    if [ -z "$DEBLOATED" ] && [ "$(cat /tmp/debloat.state 2>/dev/null)" = applied ]; then
+        DEBLOATED=1
+        trim
+    fi
     fg=$(foreground)
     if [ -n "$fg" ] && [ "$fg" != "$CUR" ] && is_user_app "$fg"; then
         PREV=$CUR; CUR=$fg
