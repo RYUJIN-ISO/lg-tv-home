@@ -185,7 +185,7 @@ Settings, **Plex**:
 | **Show Continue Watching** | Left/Right: **Always**; **When Plex is selected**: the row fades in only while the Plex tile has the focus, like the Apple TV's top shelf (Up from the tile goes into the row, Down back to the tile; the Plex tile has to be in the first row of apps); **On Up**: the row stays hidden until Up from the first row of apps moves into it, and a second Up reaches the buttons |
 | **Keep Plex ready** | Keeps Plex started in the background (on). Off frees the memory; Plex then starts normally when opened |
 | **Libraries** | Which libraries the rows show (all movie and show libraries by default) |
-| **Refresh now** | Fetches the rows now (otherwise they refresh by themselves when TV Home appears and they are older than 15 minutes) |
+| **Refresh now** | Fetches the rows now (otherwise they refresh by themselves every time TV Home appears, at most once a minute, so what you just watched is at the front) |
 
 ## Remote buttons
 
