@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.29.0';
+var VERSION = '0.30.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -184,7 +184,7 @@ var STRINGS = {
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_chup: 'Channel +', b_chdown: 'Channel −',
-    frameSaver: 'Instead of Screensaver', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …'
+    frameSaver: 'Instead of Screensaver', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -243,7 +243,7 @@ var STRINGS = {
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_chup: 'Kanal +', b_chdown: 'Kanal −',
-    frameSaver: 'Statt Bildschirmschoner', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …'
+    frameSaver: 'Statt Bildschirmschoner', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -1643,8 +1643,33 @@ function pictureOptions(w) {
       } });
     });
     if (!pictureFolders().length) rows.push({ info: true, label: t('noFolders') });
+    if (!w.bundled) rows.push({ label: t('deletePicture'), danger: true, action: function () {
+      confirmSheet(t('deletePictureQ'), t('deletePictureSub'), t('deleteYes'), function () { deletePicture(w); });
+    } });
     return rows;
   } });
+}
+
+// Delete Picture (picture options, asks first): the file, its preview, its
+// crop and its place in every folder go. Pictures bundled with the app stay.
+function deletePicture(w) {
+  exec(USB_PY + " delete '" + w.name.replace(/'/g, "'\\''") + "'", function (res) {
+    if (res.returnValue === false || (res.stdoutString || '').trim() !== 'ok') {
+      showHint(t('deleteFailed')); setTimeout(function () { showHint(''); }, 3000); return;
+    }
+    var c = library();
+    delete c.crops[w.name];
+    c.pictureFolders.forEach(function (fo) {
+      var at = fo.items.indexOf(w.name);
+      if (at >= 0) fo.items.splice(at, 1);
+    });
+    if (c.wallpaper === w.name) c.wallpaper = '';   // the first picture takes over
+    state.wallpapers = state.wallpapers.filter(function (x) { return x.name !== w.name; });
+    saveConfig();
+    applyLook();
+    pop();                                           // the picture's options
+    load();
+  });
 }
 
 // Pictures as cards with ✓ = in the folder; OK adds or removes one.
