@@ -1,0 +1,58 @@
+/* Plex rows (plex.js). Continue Watching: wide backdrop cards above the apps;
+   the focused one grows and its edge lights up. The row scrolls, it never
+   wraps. Pictures are 960x540 (the TV draws at 2x). Clipped just left of the
+   margin, so a card scrolled past doesn't peek in at the edge. */
+#cw { position: absolute; left: 0; top: 196px; width: 1920px; height: 400px; display: none; clip-path: inset(-60px 0 -60px 40px); }
+body.has-cw #cw { display: block; }
+/* Calmer wallpaper behind the row's text (scrolled/overlay below stay darker). */
+body.has-cw:not(.scrolled):not(.overlay) #wallDim { opacity: .38; }
+#cw .cwtitle { position: absolute; left: 72px; top: -10px; font-size: 30px; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+#cw .cwtrack { position: absolute; left: 72px; top: 48px; display: flex; gap: 32px;
+  transition: transform 380ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.cwcard { position: relative; width: 448px; flex: none; }
+.cwcard .img {
+  position: relative; width: 448px; height: 252px; border-radius: 20px; overflow: hidden;
+  background: #2a2a2e center / cover no-repeat; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  transition: transform 220ms cubic-bezier(.2,.9,.3,1.15), box-shadow 220ms; will-change: transform;
+}
+.cwcard .img::after { /* lit edge + gloss, pre-promoted; only opacity animates */
+  content: ""; position: absolute; inset: 0; border-radius: 20px; opacity: 0; transition: opacity 170ms; will-change: opacity;
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.9);
+  background: linear-gradient(150deg, rgba(255,255,255,.24), rgba(255,255,255,0) 55%);
+}
+.cwcard .bar { position: absolute; left: 22px; right: 22px; bottom: 18px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.32); }
+.cwcard .bar i { display: block; height: 100%; border-radius: 4px; background: #fff; }
+.cwcard .t1, .cwcard .t2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+.cwcard .t1 { margin-top: 22px; font-size: 27px; font-weight: 600; }
+.cwcard .t2 { margin-top: 4px; font-size: 22px; color: rgba(255,255,255,.68); }
+.cwcard.focus { z-index: 2; }
+.cwcard.focus .img { transform: translateY(-6px) scale(1.06); box-shadow: 0 26px 50px rgba(0,0,0,.6); }
+.cwcard.focus .img::after { opacity: 1; }
+
+/* New in your libraries (off by default): posters under the apps. plex.js
+   sets its top below the last app row. Same lit edge on focus. */
+#recent { position: absolute; left: 0; width: 1920px; height: 500px; display: none; clip-path: inset(-60px 0 -60px 40px); }
+body.has-recent #recent { display: block; }
+#recent .cwtitle { position: absolute; left: 72px; top: 0; font-size: 30px; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+#recent .rtrack { position: absolute; left: 72px; top: 72px; display: flex; gap: 28px;
+  transition: transform 380ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.rcard { position: relative; width: 220px; flex: none; }
+.rcard .img { position: relative; width: 220px; height: 330px; border-radius: 16px; overflow: hidden;
+  background: #2a2a2e center / cover no-repeat; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  transition: transform 220ms cubic-bezier(.2,.9,.3,1.15), box-shadow 220ms; will-change: transform; }
+.rcard .img::after { content: ""; position: absolute; inset: 0; border-radius: 16px; opacity: 0; transition: opacity 170ms; will-change: opacity;
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.9); background: linear-gradient(150deg, rgba(255,255,255,.24), rgba(255,255,255,0) 55%); }
+.rcard .t1 { margin-top: 18px; font-size: 22px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 2px 6px rgba(0,0,0,.7); opacity: .8; }
+.rcard.focus { z-index: 2; }
+.rcard.focus .img { transform: translateY(-6px) scale(1.06); box-shadow: 0 26px 50px rgba(0,0,0,.6); }
+.rcard.focus .img::after { opacity: 1; }
+.rcard.focus .t1 { opacity: 1; }
+
+/* Settings > Plex > Account: the sign-in code. */
+.plexSignIn { text-align: center; }
+.plexSignIn .code {
+  font-size: 104px; font-weight: 700; letter-spacing: 20px; margin: 6px 0 30px; padding-left: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.plexSignIn .sub { margin: 0 14px; line-height: 1.45; }
