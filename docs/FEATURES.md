@@ -15,19 +15,23 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 
 | Button | What it does |
 |---|---|
-| **Settings** (gear) | Language, wallpaper, picture frame, remote buttons, Hue, App Store, clock, app names, row spacing |
+| **Settings** (gear) | Language, **Look** (wallpaper, picture frame, spacing, selected app, clock, AV receiver button), remote buttons, Plex, Hue, App Store |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
-| **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Off by default: Settings, **AV receiver button**. |
+| **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Off by default: Settings, Look, **AV receiver button**. |
 
-**Look.** Settings, **App names**, **Row spacing** and **Focus bar**
-(Left/Right between the arrows change them):
+**Look.** Settings, **Look** has everything about how the home screen looks.
+Rows with arrows change with Left/Right:
 
 | Setting | What it does |
 |---|---|
-| **App names** | The app's name under the focused card, on the home screen and in folders. **Off** by default; pickers always show names |
-| **Row spacing** | Space between the rows of apps: **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide**. With app names on, rows get at least the room the name needs |
-| **Focus bar** | A slim bar floating under the selected app, fading out to both sides, while app names are off (not in Organize Apps, where the outline marks the app). **Show** on/off, **Colour** (white, blue, green, yellow, orange, red, pink, purple), **Brightness** 20 to 100 %. On, white, 80 % by default |
+| **Wallpaper** | The picture behind the home screen (see Pictures below) |
+| **Picture frame** | The picture frame's settings (see Picture Frame below) |
+| **Row spacing** | Space between the rows of apps: **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide**. With names, rows get at least the room the name needs |
+| **Selected app** | What marks the focused app on the home screen and in folders: **Bar** (default), a slim bar floating under it, fading out to both sides; **Name**; **Nothing**. Pickers always show names; Organize Apps shows no bar (the outline marks the app) |
+| **Bar colour** / **Bar brightness** | With Bar: white, blue, green, yellow, orange, red, pink or purple; 20 to 100 % (white, 80 % by default) |
+| **Clock** | The clock at the top right |
+| **AV receiver button** | The AV Receiver button at the top left |
 
 **Help.** Screens that do something a normal TV doesn't have a small **i**
 (next to the title; **Up** from the top
@@ -60,7 +64,7 @@ every change is already saved.
 
 ## Pictures (Wallpaper and Picture Frame)
 
-Settings, **Wallpaper** and Picture Frame, **Pictures** open the same picture
+Settings, Look, **Wallpaper** and Picture frame, **Pictures** open the same picture
 library: the same folders, the same crops, the same screens.
 
 - **Folders** as cards with a mosaic of their pictures: **All pictures**, your
@@ -102,10 +106,13 @@ on the TV (3840x2160 looks best: the TV draws the home screen at 4K).
 
 ## Picture Frame
 
-Settings, **Picture Frame** shows your wallpapers full screen and dimmed, so
-the TV looks like a framed picture.
+The **Picture Frame** app on the home screen shows your wallpapers full
+screen and dimmed, so the TV looks like a framed picture. It is an app card
+like the others: move it, put it in a folder or take it off the home screen
+(Organize Apps, Add Apps brings it back). Its settings are in Settings, Look,
+**Picture frame**; a remote button can start it too (Remote buttons).
 
-- **Start** begins it. While it runs:
+- **OK** on the app (or **Start** in its settings) begins it. While it runs:
   - **CH+ / CH-** show the next or the previous picture.
   - **Arrows** move the visible area through a large picture. The automatic
     pan stops for that picture and starts again with the next one.
