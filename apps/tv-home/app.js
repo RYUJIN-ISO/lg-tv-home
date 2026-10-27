@@ -22,7 +22,11 @@ var TILE_H = 192;               // = --tile-h in index.html
 var PICK_ROW_H = 300;
 var ROW_GAPS = { compact: 32, even: 44, roomy: 72, wide: 108 };   // even = the gap between columns
 var ROW_GAP_ORDER = ['compact', 'even', 'roomy', 'wide'];
-var NAME_GAP = 84;              // the name (26 + 8 + 31 px) and some air above the next row
+var NAME_GAP = 84;
+// Settings > Focus bar colours (Apple's system colours).
+var BAR_COLORS = { white: '#ffffff', blue: '#0a84ff', green: '#30d158', yellow: '#ffd60a', orange: '#ff9f0a',
+                   red: '#ff453a', pink: '#ff375f', purple: '#bf5af2' };
+var BAR_ORDER = ['white', 'blue', 'green', 'yellow', 'orange', 'red', 'pink', 'purple'];              // the name (26 + 8 + 31 px) and some air above the next row
 var ROW_H = TILE_H + ROW_GAPS.even;
 var GRID_TOP = 640;
 var LONG_PRESS_MS = 600;
@@ -43,6 +47,7 @@ var DEFAULT_CONFIG = {
   avrButton: false,  // top-left button: sound to an AV receiver on HDMI eARC (wakes it over CEC)
   names: false,      // app name under the focused card on the home screen and in folders
   rowGap: 'even',    // Settings > Row spacing: a key of ROW_GAPS
+  bar: { on: true, color: 'white', bri: 80 },   // Settings > Focus bar (under the focused card while names are off)
   // picture frame: pictures null = all wallpapers; focus = per picture 16:9
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
@@ -157,6 +162,10 @@ var STRINGS = {
     showClock: 'Show Clock', on: 'On', off: 'Off',
     appNames: 'App names', rowSpacing: 'Row spacing',
     gapCompact: 'Compact', gapEven: 'Even', gapRoomy: 'Roomy', gapWide: 'Wide',
+    focusBar: 'Focus bar', barShow: 'Show', barColor: 'Colour', barBri: 'Brightness',
+    barHint: 'A slim bar under the selected app. It shows while App names is off.',
+    col_white: 'White', col_blue: 'Blue', col_green: 'Green', col_yellow: 'Yellow', col_orange: 'Orange',
+    col_red: 'Red', col_pink: 'Pink', col_purple: 'Purple',
     avr: 'AV Receiver', avrSetting: 'AV receiver button', avrOn: 'Sound to the AV receiver (HDMI eARC)',
     avrFailed: 'The TV did not switch the sound output.',
     reset: 'Reset Layout', resetQ: 'Reset layout?',
@@ -220,6 +229,10 @@ var STRINGS = {
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
     appNames: 'App-Namen', rowSpacing: 'Reihenabstand',
     gapCompact: 'Eng', gapEven: 'Gleichmäßig', gapRoomy: 'Luftig', gapWide: 'Weit',
+    focusBar: 'Fokusbalken', barShow: 'Anzeigen', barColor: 'Farbe', barBri: 'Helligkeit',
+    barHint: 'Ein schmaler Balken unter der ausgewählten App. Er erscheint, solange App-Namen aus ist.',
+    col_white: 'Weiß', col_blue: 'Blau', col_green: 'Grün', col_yellow: 'Gelb', col_orange: 'Orange',
+    col_red: 'Rot', col_pink: 'Pink', col_purple: 'Lila',
     avr: 'AV-Receiver', avrSetting: 'Taste AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
     avrFailed: 'Der TV hat den Tonausgang nicht umgeschaltet.',
     reset: 'Anordnung zurücksetzen', resetQ: 'Anordnung zurücksetzen?',
@@ -776,6 +789,44 @@ function applyGrid() {
   ROW_H = TILE_H + Math.max(ROW_GAPS[c.rowGap] || ROW_GAPS.even, c.names ? NAME_GAP : 0);
   document.getElementById('grid').style.setProperty('--row-h', ROW_H + 'px');
   document.body.classList.toggle('names', !!c.names);
+  var bar = barCfg();
+  document.body.classList.toggle('bar', bar.on);
+  document.body.style.setProperty('--bar', BAR_COLORS[bar.color]);
+  document.body.style.setProperty('--bar-o', (bar.bri / 100).toFixed(2));
+}
+
+function barCfg() {
+  var b = cfg().bar || {};
+  return { on: b.on !== false, color: BAR_COLORS[b.color] ? b.color : 'white',
+           bri: Math.max(20, Math.min(100, +b.bri || 80)) };
+}
+
+// Settings > Focus bar: show, colour, brightness (Left/Right).
+function openFocusBar() {
+  function set(key, value) {
+    var c = cfg();
+    c.bar = barCfg();
+    c.bar[key] = value;
+    saveConfig(); applyGrid(); refreshTop();
+  }
+  menu({
+    title: function () { return t('focusBar'); },
+    rows: function () {
+      var b = barCfg();
+      return [
+        stepRow(t('barShow'), b.on ? t('on') : t('off'), function () { set('on', !b.on); }),
+        stepRow(t('barColor'), t('col_' + b.color), function (d) {
+          var i = BAR_ORDER.indexOf(b.color) + d;
+          if (i >= 0 && i < BAR_ORDER.length) set('color', BAR_ORDER[i]);
+        }),
+        stepRow(t('barBri'), b.bri + '%', function (d) {
+          var v = Math.max(20, Math.min(100, b.bri + d * 10));
+          if (v !== b.bri) set('bri', v);
+        }),
+        { info: true, label: t('barHint') }
+      ];
+    }
+  });
 }
 
 // Settings rows changed with Left/Right between small arrows.
@@ -1524,6 +1575,7 @@ function openSettings() {
           if (i < 0 || i >= ROW_GAP_ORDER.length) return;
           c.rowGap = ROW_GAP_ORDER[i]; saveConfig(); refreshMain(); refreshTop();
         }),
+        { label: t('focusBar'), value: barCfg().on ? t('col_' + barCfg().color) : t('off'), chevron: true, action: openFocusBar },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
       ]);
