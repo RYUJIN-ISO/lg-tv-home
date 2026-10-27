@@ -2,10 +2,12 @@
    the focused one grows and its edge lights up. The row scrolls, it never
    wraps. Pictures are 960x540 (the TV draws at 2x). Clipped just left of the
    margin, so a card scrolled past doesn't peek in at the edge. */
+/* Hidden only by opacity, on its own layer: the row stays drawn, so fading it in
+   ("When Plex is selected", "On Up") doesn't have to paint 10 cards with large
+   pictures in the middle of a move (that stuttered on the TV, tools/bench.sh). */
 #cw { position: absolute; left: 0; top: 196px; width: 1920px; height: 400px; clip-path: inset(-60px 0 -60px 40px);
-  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 220ms, visibility 0s 220ms; }
-/* Shown: fades in (and out again with "When Plex is selected", see plex.js). */
-body.has-cw #cw { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 220ms; }
+  opacity: 0; pointer-events: none; transition: opacity 220ms; will-change: opacity; }
+body.has-cw #cw { opacity: 1; pointer-events: auto; }
 /* Calmer wallpaper behind the row's text (scrolled/overlay below stay darker). */
 body.has-cw:not(.scrolled):not(.overlay) #wallDim { opacity: .38; }
 #cw .cwtitle { position: absolute; left: 72px; top: -10px; font-size: 30px; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
