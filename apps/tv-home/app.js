@@ -33,6 +33,11 @@ var LONG_PRESS_MS = 600;
 var CACHE_KEY = 'atvhome.state';
 var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461 };
 var NEVER_SHOW = [APP_ID, 'com.webos.app.home'];
+// The Picture Frame as an app on the home screen: moves, goes into folders and
+// off the home screen like any app. Its launch is TV Home's own frame launch
+// (the same as the remote button action), started here directly.
+var FRAME_KEY = '__frame';
+var FRAME_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="136" height="136" viewBox="0 0 24 24" fill="#fff"><path d="M21 3H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H3V5h18v14zM5 17l3.5-4.5 2.5 3 3.5-4.5L19 17H5z"/></svg>');
 
 var DEFAULT_CONFIG = {
   version: 1,
@@ -90,6 +95,7 @@ function exec(command, cb) {
 }
 
 function launch(app) {
+  if (app.key === FRAME_KEY) { closeAll(); frameBack = ''; startFrame(); return; }
   if (window.Plex && Plex.launch(app)) return;
   luna('luna://com.webos.applicationManager/launch', { id: app.id, params: app.params }, function (res) {
     if (res.returnValue === false) {
@@ -160,10 +166,10 @@ var STRINGS = {
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
     showClock: 'Show Clock', on: 'On', off: 'Off',
-    appNames: 'App names', rowSpacing: 'Row spacing',
+    rowSpacing: 'Row spacing',
     gapCompact: 'Compact', gapEven: 'Even', gapRoomy: 'Roomy', gapWide: 'Wide',
-    focusBar: 'Focus bar', barShow: 'Show', barColor: 'Colour', barBri: 'Brightness',
-    barHint: 'A slim bar under the selected app. It shows while App names is off.',
+    look: 'Look', selectedApp: 'Selected app', selBar: 'Bar', selName: 'Name', selNone: 'Nothing',
+    barColor: 'Bar colour', barBri: 'Bar brightness',
     col_white: 'White', col_blue: 'Blue', col_green: 'Green', col_yellow: 'Yellow', col_orange: 'Orange',
     col_red: 'Red', col_pink: 'Pink', col_purple: 'Purple',
     avr: 'AV Receiver', avrSetting: 'AV receiver button', avrOn: 'Sound to the AV receiver (HDMI eARC)',
@@ -227,10 +233,10 @@ var STRINGS = {
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
-    appNames: 'App-Namen', rowSpacing: 'Reihenabstand',
+    rowSpacing: 'Reihenabstand',
     gapCompact: 'Eng', gapEven: 'Gleichmäßig', gapRoomy: 'Luftig', gapWide: 'Weit',
-    focusBar: 'Fokusbalken', barShow: 'Anzeigen', barColor: 'Farbe', barBri: 'Helligkeit',
-    barHint: 'Ein schmaler Balken unter der ausgewählten App. Er erscheint, solange App-Namen aus ist.',
+    look: 'Aussehen', selectedApp: 'Ausgewählte App', selBar: 'Balken', selName: 'Name', selNone: 'Nichts',
+    barColor: 'Balkenfarbe', barBri: 'Balkenhelligkeit',
     col_white: 'Weiß', col_blue: 'Blau', col_green: 'Grün', col_yellow: 'Gelb', col_orange: 'Orange',
     col_red: 'Rot', col_pink: 'Pink', col_purple: 'Lila',
     avr: 'AV-Receiver', avrSetting: 'Taste AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
@@ -361,6 +367,9 @@ function buildApps() {
       });
       appOrder.push(key);
     });
+  apps[FRAME_KEY] = { type: 'app', key: FRAME_KEY, id: APP_ID, params: { frame: true }, lp: true, removable: false,
+                      title: t('frame'), icon: FRAME_ICON, tile: '', color: '#3a3a3c' };
+  appOrder.push(FRAME_KEY);
 }
 
 function folderOf(key) {
@@ -801,30 +810,50 @@ function barCfg() {
            bri: Math.max(20, Math.min(100, +b.bri || 80)) };
 }
 
-// Settings > Focus bar: show, colour, brightness (Left/Right).
-function openFocusBar() {
-  function set(key, value) {
-    var c = cfg();
-    c.bar = barCfg();
-    c.bar[key] = value;
-    saveConfig(); applyGrid(); refreshTop();
-  }
+// Settings > Look: how the home screen looks, including the picture frame.
+// "Selected app" is one setting for the name and the focus bar (only one of
+// them shows at a time); the bar's colour and brightness appear with Bar.
+function openLook() {
+  var SEL = ['bar', 'name', 'none'];
   menu({
-    title: function () { return t('focusBar'); },
+    title: function () { return t('look'); },
     rows: function () {
-      var b = barCfg();
-      return [
-        stepRow(t('barShow'), b.on ? t('on') : t('off'), function () { set('on', !b.on); }),
+      var c = cfg(), b = barCfg();
+      var sel = c.names ? 'name' : b.on ? 'bar' : 'none';
+      function setBar(key, value) { c.bar = barCfg(); c.bar[key] = value; saveConfig(); applyGrid(); refreshTop(); }
+      var rows = [
+        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures('wallpaper'); } },
+        { label: t('frame'), chevron: true, action: openFrameSettings },
+        stepRow(t('rowSpacing'), t('gap' + c.rowGap.charAt(0).toUpperCase() + c.rowGap.slice(1)), function (d) {
+          var i = ROW_GAP_ORDER.indexOf(c.rowGap) + d;
+          if (i < 0 || i >= ROW_GAP_ORDER.length) return;
+          c.rowGap = ROW_GAP_ORDER[i]; saveConfig(); refreshMain(); refreshTop();
+        }),
+        stepRow(t('selectedApp'), t({ bar: 'selBar', name: 'selName', none: 'selNone' }[sel]), function (d) {
+          var i = SEL.indexOf(sel) + d;
+          if (i < 0 || i >= SEL.length) return;
+          c.names = SEL[i] === 'name';
+          c.bar = barCfg(); c.bar.on = SEL[i] === 'bar';
+          saveConfig(); refreshMain(); refreshTop();
+        })
+      ];
+      if (sel === 'bar') rows.push(
         stepRow(t('barColor'), t('col_' + b.color), function (d) {
           var i = BAR_ORDER.indexOf(b.color) + d;
-          if (i >= 0 && i < BAR_ORDER.length) set('color', BAR_ORDER[i]);
+          if (i >= 0 && i < BAR_ORDER.length) setBar('color', BAR_ORDER[i]);
         }),
         stepRow(t('barBri'), b.bri + '%', function (d) {
           var v = Math.max(20, Math.min(100, b.bri + d * 10));
-          if (v !== b.bri) set('bri', v);
+          if (v !== b.bri) setBar('bri', v);
+        }));
+      rows.push(
+        stepRow(t('showClock'), c.clock ? t('on') : t('off'), function () {
+          c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
         }),
-        { info: true, label: t('barHint') }
-      ];
+        stepRow(t('avrSetting'), c.avrButton ? t('on') : t('off'), function () {
+          c.avrButton = !c.avrButton; saveConfig(); renderTop(); refreshTop();
+        }));
+      return rows;
     }
   });
 }
@@ -1557,25 +1586,9 @@ function openSettings() {
       var c = cfg();
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
-        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures('wallpaper'); } },
-        { label: t('frame'), chevron: true, action: openFrameSettings },
+        { label: t('look'), chevron: true, action: openLook },
         { label: t('remoteButtons'), chevron: true, action: openRemote }
       ].concat(window.Plex ? [Plex.settingsRow()] : []).concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
-        { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
-          c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
-        } },
-        { label: t('avrSetting'), value: c.avrButton ? t('on') : t('off'), action: function () {
-          c.avrButton = !c.avrButton; saveConfig(); renderTop(); refreshTop();
-        } },
-        stepRow(t('appNames'), c.names ? t('on') : t('off'), function () {
-          c.names = !c.names; saveConfig(); refreshMain(); refreshTop();
-        }),
-        stepRow(t('rowSpacing'), t('gap' + c.rowGap.charAt(0).toUpperCase() + c.rowGap.slice(1)), function (d) {
-          var i = ROW_GAP_ORDER.indexOf(c.rowGap) + d;
-          if (i < 0 || i >= ROW_GAP_ORDER.length) return;
-          c.rowGap = ROW_GAP_ORDER[i]; saveConfig(); refreshMain(); refreshTop();
-        }),
-        { label: t('focusBar'), value: barCfg().on ? t('col_' + barCfg().color) : t('off'), chevron: true, action: openFocusBar },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
       ]);
@@ -3117,9 +3130,9 @@ function chooseButtonAction(key) {
       rows.push({ label: t('appPick'), value: cur && cur.app && !isSpecial ? actionLabel(cur) : '', chevron: true,
         action: function () {
           appPicker({
-            title: buttonLabel(key), single: true, side: true, keys: appOrder,
+            title: buttonLabel(key), single: true, side: true, keys: appOrder.filter(function (k) { return k !== FRAME_KEY; }),
             isPicked: function (k) { return !!(cur && apps[k].id === cur.app); },
-            focusKey: appOrder.filter(function (k) { return cur && apps[k].id === cur.app; })[0],
+            focusKey: appOrder.filter(function (k) { return k !== FRAME_KEY && cur && apps[k].id === cur.app; })[0],
             onDone: function (sel) {
               var a = apps[sel[0]];
               set(Object.keys(a.params || {}).length ? { app: a.id, params: a.params } : { app: a.id });
