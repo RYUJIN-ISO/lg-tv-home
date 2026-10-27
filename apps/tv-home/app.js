@@ -15,7 +15,15 @@ var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
 var VERSION = '0.31.0';
 var COLS = 5;
-var ROW_H = 300;                // keep in sync with --row-h in index.html
+// Home rows: the card plus the gap from Settings > Row spacing (and room for
+// the app name under the focused card when App names is on); set by applyGrid().
+// Pickers always show names and keep PICK_ROW_H (= --row-h in index.html).
+var TILE_H = 192;               // = --tile-h in index.html
+var PICK_ROW_H = 300;
+var ROW_GAPS = { compact: 32, even: 44, roomy: 72, wide: 108 };   // even = the gap between columns
+var ROW_GAP_ORDER = ['compact', 'even', 'roomy', 'wide'];
+var NAME_GAP = 84;              // the name (26 + 8 + 31 px) and some air above the next row
+var ROW_H = TILE_H + ROW_GAPS.even;
 var GRID_TOP = 640;
 var LONG_PRESS_MS = 600;
 var CACHE_KEY = 'atvhome.state';
@@ -33,6 +41,8 @@ var DEFAULT_CONFIG = {
   hidden: [],     // keys of LG launch points taken off the home screen
   added: [],      // keys of installed apps without a launch point, put on it
   avrButton: false,  // top-left button: sound to an AV receiver on HDMI eARC (wakes it over CEC)
+  names: false,      // app name under the focused card on the home screen and in folders
+  rowGap: 'even',    // Settings > Row spacing: a key of ROW_GAPS
   // picture frame: pictures null = all wallpapers; focus = per picture 16:9
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
@@ -145,6 +155,8 @@ var STRINGS = {
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
     showClock: 'Show Clock', on: 'On', off: 'Off',
+    appNames: 'App names', rowSpacing: 'Row spacing',
+    gapCompact: 'Compact', gapEven: 'Even', gapRoomy: 'Roomy', gapWide: 'Wide',
     avr: 'AV Receiver', avrSetting: 'AV receiver button', avrOn: 'Sound to the AV receiver (HDMI eARC)',
     avrFailed: 'The TV did not switch the sound output.',
     reset: 'Reset Layout', resetQ: 'Reset layout?',
@@ -206,6 +218,8 @@ var STRINGS = {
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
+    appNames: 'App-Namen', rowSpacing: 'Reihenabstand',
+    gapCompact: 'Eng', gapEven: 'Gleichmäßig', gapRoomy: 'Luftig', gapWide: 'Weit',
     avr: 'AV-Receiver', avrSetting: 'Taste AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
     avrFailed: 'Der TV hat den Tonausgang nicht umgeschaltet.',
     reset: 'Anordnung zurücksetzen', resetQ: 'Anordnung zurücksetzen?',
@@ -659,6 +673,7 @@ function scrollMain(row) {
 }
 
 function refreshMain(keepKey) {
+  applyGrid();                      // row height first: scrolling and the Plex rows use it
   buildApps();
   var plexKept = window.Plex && Plex.keep();
   mainGrid.set(mainEntries(), keepKey);
@@ -755,8 +770,22 @@ function leaveTop() {
   mainGrid.setFocus(mainGrid.focus, true);
 }
 
+// Row spacing and app names (Settings) on the home grid and in folders.
+function applyGrid() {
+  var c = cfg();
+  ROW_H = TILE_H + Math.max(ROW_GAPS[c.rowGap] || ROW_GAPS.even, c.names ? NAME_GAP : 0);
+  document.getElementById('grid').style.setProperty('--row-h', ROW_H + 'px');
+  document.body.classList.toggle('names', !!c.names);
+}
+
+// Settings rows changed with Left/Right between small arrows.
+function stepRow(label, value, adjust) {
+  return { label: label, value: '‹ ' + value + ' ›', adjust: adjust };
+}
+
 function applyLook() {
   var c = cfg();
+  applyGrid();
   var wall = document.getElementById('wall');
   var wp = null;
   state.wallpapers.forEach(function (w) { if (w.name === c.wallpaper) wp = w; });
@@ -858,6 +887,7 @@ function closeAll() { while (stack.length) pop(); }
 // Folder overlay: its own grid of the folder's apps.
 function openFolder(id) {
   var el = layer('folderView');
+  el.style.setProperty('--row-h', ROW_H + 'px');
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div><div class="empty"></div></div>';
   var inner = el.querySelector('.inner');
   var view = { el: el };
@@ -1362,7 +1392,7 @@ function appPicker(o) {
       grid.tiles()[i].classList.toggle('picked', picked[e.key]);
       if (o.onToggle) o.onToggle(e.key, picked[e.key]);
     },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * PICK_ROW_H : 0) + 'px)'; }
   });
   function finish() {
     pop();
@@ -1486,6 +1516,14 @@ function openSettings() {
         { label: t('avrSetting'), value: c.avrButton ? t('on') : t('off'), action: function () {
           c.avrButton = !c.avrButton; saveConfig(); renderTop(); refreshTop();
         } },
+        stepRow(t('appNames'), c.names ? t('on') : t('off'), function () {
+          c.names = !c.names; saveConfig(); refreshMain(); refreshTop();
+        }),
+        stepRow(t('rowSpacing'), t('gap' + c.rowGap.charAt(0).toUpperCase() + c.rowGap.slice(1)), function (d) {
+          var i = ROW_GAP_ORDER.indexOf(c.rowGap) + d;
+          if (i < 0 || i >= ROW_GAP_ORDER.length) return;
+          c.rowGap = ROW_GAP_ORDER[i]; saveConfig(); refreshMain(); refreshTop();
+        }),
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
       ]);
@@ -1559,7 +1597,7 @@ function pickerLayer(title, hint) {
 
 function pickerView(el, grid) {
   var inner = el.querySelector('.inner');
-  grid.o.onRow = function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; };
+  grid.o.onRow = function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * PICK_ROW_H : 0) + 'px)'; };
   var view = { el: el, grid: grid };
   view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
   view.ok = function () { grid.activate(grid.focus); };
@@ -2652,7 +2690,7 @@ function openHueRooms() {
       hue('room ' + e.room.id + (e.room.on ? ' on' : ' off'), function () { loadHue(view.refresh); });
     },
     onLongPress: function (e) { if (e.room) roomMenu(e.room.id); },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * ROW_H : 0) + 'px)'; }
+    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * PICK_ROW_H : 0) + 'px)'; }
   });
   view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
   view.ok = function () { grid.activate(grid.focus); };
