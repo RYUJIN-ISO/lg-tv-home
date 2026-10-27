@@ -15,10 +15,18 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 
 | Button | What it does |
 |---|---|
-| **Settings** (gear) | Language, wallpaper, picture frame, remote buttons, Hue, App Store, clock |
+| **Settings** (gear) | Language, wallpaper, picture frame, remote buttons, Hue, App Store, clock, app names, row spacing |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 | **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Off by default: Settings, **AV receiver button**. |
+
+**Look.** Settings, **App names** and **Row spacing** (Left/Right between
+the arrows change them):
+
+| Setting | What it does |
+|---|---|
+| **App names** | The app's name under the focused card, on the home screen and in folders. **Off** by default; pickers always show names |
+| **Row spacing** | Space between the rows of apps: **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide**. With app names on, rows get at least the room the name needs |
 
 **Help.** Screens that do something a normal TV doesn't have a small **i**
 (next to the title; **Up** from the top
@@ -166,7 +174,7 @@ Settings, **Plex**:
 |---|---|
 | **Account** | Sign in, or see who is signed in and sign out |
 | **Continue Watching** / **New in your libraries** | Show or hide each row |
-| **Show Continue Watching** | **Always**, or **When Plex is selected**: the row fades in only while the Plex tile has the focus, like the Apple TV's top shelf. Up from the tile goes into the row, Down from the row back to the tile. The Plex tile has to be in the first row of apps |
+| **Show Continue Watching** | Left/Right: **Always**; **When Plex is selected**: the row fades in only while the Plex tile has the focus, like the Apple TV's top shelf (Up from the tile goes into the row, Down back to the tile; the Plex tile has to be in the first row of apps); **On Up**: the row stays hidden until Up from the first row of apps moves into it, and a second Up reaches the buttons |
 | **Keep Plex ready** | Keeps Plex started in the background (on). Off frees the memory; Plex then starts normally when opened |
 | **Libraries** | Which libraries the rows show (all movie and show libraries by default) |
 | **Refresh now** | Fetches the rows now (otherwise they refresh by themselves when TV Home appears and they are older than 15 minutes) |

@@ -20,7 +20,8 @@
   var PLEX_LINK = 'com.iso.plexlink';
   var PRELOAD_DELAY = 4000;       // let TV Home finish loading first
   var CW_STEP = 448 + 32;         // card width + gap
-  var RECENT_H = 500;             // heading + posters + labels (#recent in plex.css)
+  var RECENT_H = 500;
+  var CW_SHOW = ['always', 'plex', 'up'];   // Settings > Plex > Show Continue Watching             // heading + posters + labels (#recent in plex.css)
 
   var STRINGS_PLEX = {
     en: {
@@ -29,7 +30,8 @@
       plexUpdated: 'Updated {0}', plexNoToken: 'Not signed in. Sign in under Account above.',
       plexFailed: 'Plex did not answer ({0}). The last rows stay until it does.', plexLoading: 'Loading …',
       plexLibsHint: 'Rows show titles from the ticked libraries.', plexPreload: 'Keep Plex ready',
-      plexCwShow: 'Show Continue Watching', plexAlways: 'Always', plexOnPlex: 'When Plex is selected',
+      plexCwShow: 'Show Continue Watching', plexAlways: 'Always', plexOnPlex: 'When Plex is selected', plexOnUp: 'On Up',
+      plexOnUpHint: 'The row stays hidden; Up from the first row of apps shows it.',
       plexOnPlexHint: 'Put the Plex app in the first row of apps: the row appears while it is selected.',
       plexAccount: 'Account', plexSignedOut: 'Not signed in', plexSignedInAs: 'Signed in as {0}', plexServer: 'Server: {0}',
       plexSignIn: 'Sign in to Plex', plexSignInHint: 'On your phone or computer, open plex.tv/link and enter this code.',
@@ -43,7 +45,8 @@
       plexUpdated: 'Aktualisiert {0}', plexNoToken: 'Nicht angemeldet. Melde dich oben unter Konto an.',
       plexFailed: 'Plex hat nicht geantwortet ({0}). Die letzten Reihen bleiben, bis es wieder klappt.', plexLoading: 'Wird geladen …',
       plexLibsHint: 'Die Reihen zeigen Titel aus den angehakten Mediatheken.', plexPreload: 'Plex bereithalten',
-      plexCwShow: 'Weiterschauen zeigen', plexAlways: 'Immer', plexOnPlex: 'Wenn Plex ausgewählt ist',
+      plexCwShow: 'Weiterschauen zeigen', plexAlways: 'Immer', plexOnPlex: 'Wenn Plex ausgewählt ist', plexOnUp: 'Mit Hoch',
+      plexOnUpHint: 'Die Reihe bleibt versteckt; Hoch aus der ersten App-Reihe zeigt sie.',
       plexOnPlexHint: 'Leg die Plex-App in die erste App-Reihe: Die Reihe erscheint, solange sie ausgewählt ist.',
       plexAccount: 'Konto', plexSignedOut: 'Nicht angemeldet', plexSignedInAs: 'Angemeldet als {0}', plexServer: 'Server: {0}',
       plexSignIn: 'Bei Plex anmelden', plexSignInHint: 'Öffne auf dem Handy oder Computer plex.tv/link und gib diesen Code ein.',
@@ -64,7 +67,10 @@
 
   function plexCfg() {
     var p = cfg().plex || {};
-    return { continue: p.continue !== false, cwOnPlex: !!p.cwOnPlex, recent: !!p.recent, sections: p.sections || [],
+    // cwShow: 'always' | 'plex' (while the Plex tile is selected) | 'up' (hidden until Up from the first row).
+    // Older configs had cwOnPlex: true for 'plex'.
+    var show = CW_SHOW.indexOf(p.cwShow) >= 0 ? p.cwShow : p.cwOnPlex ? 'plex' : 'always';
+    return { continue: p.continue !== false, cwShow: show, recent: !!p.recent, sections: p.sections || [],
              preload: p.preload !== false };
   }
   function setPlex(key, value) {
@@ -78,10 +84,11 @@
   function cwItems() { return plexCfg().continue ? rows.continue : []; }
   function recItems() { return plexCfg().recent ? rows.recent : []; }
 
-  // "When Plex is selected" (Settings > Plex): Continue Watching only shows while
-  // the Plex tile in the first app row has the focus, or the row itself has it,
-  // like the Apple TV's top shelf. The row has its own space above the apps, so
-  // nothing moves when it fades in or out.
+  // Settings > Plex > Show Continue Watching. "When Plex is selected": the row
+  // only shows while the Plex tile in the first app row has the focus, or the
+  // row itself has it, like the Apple TV's top shelf. "On Up": hidden until Up
+  // from the first app row moves into it (a second Up reaches the buttons).
+  // The row has its own space above the apps, so nothing moves when it fades.
   function plexTile() {
     for (var i = 0; i < Math.min(COLS, mainGrid.entries.length); i++) {
       var e = mainGrid.entries[i];
@@ -90,9 +97,15 @@
     return -1;
   }
   function cwShown() {
+    var show = plexCfg().cwShow;
     if (!cwItems().length) return false;
-    if (!plexCfg().cwOnPlex || cwFocus >= 0) return true;
-    return !editMode && topFocus < 0 && recFocus < 0 && mainGrid.focus === plexTile();
+    if (show === 'always' || cwFocus >= 0) return true;
+    return show === 'plex' && !editMode && topFocus < 0 && recFocus < 0 && mainGrid.focus === plexTile();
+  }
+  // Up from this app tile (first row) moves into the row.
+  function cwFromTile(i) {
+    var show = plexCfg().cwShow;
+    return cwItems().length > 0 && i < COLS && (show !== 'plex' || i === plexTile());
   }
   function showCW() { document.body.classList.toggle('has-cw', cwShown()); }
   function plexArgs() {
@@ -300,10 +313,13 @@
           { label: t('plexContinue'), value: p.continue ? t('on') : t('off'), action: function () {
             setPlex('continue', !p.continue); view.refresh();
           } },
-          { label: t('plexCwShow'), value: p.cwOnPlex ? t('plexOnPlex') : t('plexAlways'), action: function () {
-            setPlex('cwOnPlex', !p.cwOnPlex); view.refresh();
-          } },
-        ].concat(p.cwOnPlex && plexTile() < 0 ? [{ info: true, label: t('plexOnPlexHint') }] : []).concat([
+          stepRow(t('plexCwShow'), t({ always: 'plexAlways', plex: 'plexOnPlex', up: 'plexOnUp' }[p.cwShow]), function (d) {
+            var i = CW_SHOW.indexOf(p.cwShow) + d;
+            if (i < 0 || i >= CW_SHOW.length) return;
+            setPlex('cwShow', CW_SHOW[i]); view.refresh();
+          })
+        ].concat(p.cwShow === 'plex' && plexTile() < 0 ? [{ info: true, label: t('plexOnPlexHint') }] :
+                 p.cwShow === 'up' ? [{ info: true, label: t('plexOnUpHint') }] : []).concat([
           { label: t('plexRecent'), value: p.recent ? t('on') : t('off'), action: function () {
             setPlex('recent', !p.recent); view.refresh();
             if (!p.recent) refreshRows(function () { view.refresh(); });   // posters are fetched when switched on
@@ -468,7 +484,7 @@
         else if (k === KEY.RIGHT) focusCW(cwFocus + 1);
         else if (k === KEY.UP) focusTop(0);
         else if (k === KEY.DOWN) {
-          var back = plexCfg().cwOnPlex ? plexTile() : -1;   // back to the Plex tile it came from
+          var back = plexCfg().cwShow === 'plex' ? plexTile() : -1;   // back to the Plex tile it came from
           leaveCW();
           mainGrid.setFocus(back >= 0 ? back : Math.min(mainGrid.focus, COLS - 1), true);
         }
@@ -495,7 +511,7 @@
         return true;
       }
       // Up from the first app row goes to Continue Watching.
-      if (k === KEY.UP && cwShown() && mainGrid.focus < COLS) { focusCW(cwLast); return true; }
+      if (k === KEY.UP && cwFromTile(mainGrid.focus)) { focusCW(cwLast); return true; }
       return false;
     },
     // OK on a card; true when Plex handled it.

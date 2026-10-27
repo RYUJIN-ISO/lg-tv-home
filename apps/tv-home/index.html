@@ -5,7 +5,7 @@
 <title>TV Home</title>
 <style>
   :root {
-    --tile-w: 320px; --tile-h: 192px; --gap-x: 44px; --row-h: 300px; /* room for the focused tile's label above the next row; = ROW_H in app.js */
+    --tile-w: 320px; --tile-h: 192px; --gap-x: 44px; --row-h: 300px; /* pickers (with names); = PICK_ROW_H. Home grid and folders: set by applyGrid() in app.js */
     --cols: 5; --grid-top: 640px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -74,6 +74,8 @@
   .tile.focus .card { transform: scale(1.12) translateY(-4px); }
   .tile.focus .gloss { opacity: 1; }
   .tile.focus .label { opacity: 1; transform: translateY(8px); }
+  /* Settings > App names off: no names on the home screen and in folders (pickers keep them). */
+  body:not(.names) #grid .label, body:not(.names) .folderView:not(.picker) .label { display: none; }
 
   /* Move mode: the picked-up tile floats and wobbles slightly. */
   .tile.moving .card { transform: scale(1.18) translateY(-10px); outline: 4px solid rgba(255,255,255,.9); outline-offset: 4px; }
