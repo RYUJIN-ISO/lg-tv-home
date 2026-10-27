@@ -77,6 +77,9 @@
     return p.sections.join(',') + (p.recent ? ' recent' : '');
   }
   function plexPy(args, cb) {
+    // Runs as root through a shell, and keys come from the Plex server: only
+    // commands, numbers and commas may pass (plex.py checks them again).
+    if (!/^[a-z-]+( [0-9,]*)?( recent)?$/.test(args)) { if (cb) cb(null); return; }
     exec('python3 ' + APP_DIR + 'plex.py ' + args, function (res) {
       var r = null;
       try { r = JSON.parse(res.stdoutString || ''); } catch (e) {}
