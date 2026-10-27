@@ -27,6 +27,7 @@ var DEFAULT_CONFIG = {
   language: 'en',
   wallpaper: 'default.jpg',
   clock: true,
+  plex: {},       // Plex rows (plex.js); its settings, empty = defaults
   order: [],      // top-level keys: app keys and folder ids, in display order
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
@@ -73,6 +74,7 @@ function exec(command, cb) {
 }
 
 function launch(app) {
+  if (window.Plex && Plex.launch(app)) return;
   luna('luna://com.webos.applicationManager/launch', { id: app.id, params: app.params }, function (res) {
     if (res.returnValue === false) {
       exec("luna-send -n 1 luna://com.webos.applicationManager/launch '" +
@@ -653,7 +655,9 @@ function scrollMain(row) {
 
 function refreshMain(keepKey) {
   buildApps();
+  var plexKept = window.Plex && Plex.keep();
   mainGrid.set(mainEntries(), keepKey);
+  if (window.Plex) Plex.refresh(plexKept);
   renderTop();
   applyLook();
 }
@@ -714,6 +718,7 @@ function setLightFlash(state) {
 }
 
 function focusTop(i) {
+  if (window.Plex) Plex.leave();
   var tiles = mainGrid.tiles();
   if (tiles[mainGrid.focus]) tiles[mainGrid.focus].classList.remove('focus');
   topFocus = i;
@@ -1453,7 +1458,7 @@ function openSettings() {
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures('wallpaper'); } },
         { label: t('frame'), chevron: true, action: openFrameSettings },
         { label: t('remoteButtons'), chevron: true, action: openRemote }
-      ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
+      ].concat(window.Plex ? [Plex.settingsRow()] : []).concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
         } },
@@ -3059,6 +3064,7 @@ function current() {
 var mainView = {
   key: function (e) {
     var k = e.keyCode;
+    if (window.Plex && Plex.key(e)) return;
     if (topFocus >= 0) {
       var n = topButtons().length;
       if (k === KEY.LEFT) focusTop(Math.max(0, topFocus - 1));
@@ -3077,10 +3083,12 @@ var mainView = {
   },
   ok: function () {
     if (topFocus >= 0) { var b = topButtons()[topFocus]; if (b && once()) b.action(); return; }
+    if (window.Plex && Plex.ok()) return;
     if (!mainGrid.entries.length) { load(); return; }
     mainGrid.activate(mainGrid.focus);
   },
   longOk: function () {
+    if (window.Plex && Plex.longOk()) return;
     if (topFocus < 0) { mainGrid.longPress(mainGrid.focus); return; }
     var b = topButtons()[topFocus];
     if (b && b.longAction && once()) b.longAction();
@@ -3144,6 +3152,7 @@ document.addEventListener('webOSRelaunch', function () {
   if (mainGrid.moving >= 0) mainGrid.endMove();
   if (editMode) setEditMode(false);
   topFocus = -1;
+  if (window.Plex) Plex.reset();
   renderTop();
   mainGrid.setFocus(0, true);
   load();
@@ -3188,6 +3197,7 @@ function adopt(data, fromDisk) {
 }
 
 function load() {
+  if (window.Plex) Plex.load();
   exec('sh ' + APP_DIR + 'launchpoints.sh', function (res) {
     var data = null;
     try { data = JSON.parse(res.stdoutString || ''); } catch (e) {}
@@ -3265,6 +3275,7 @@ mainGrid = new Grid({
   onActivate: onMainActivate,
   onLongPress: onMainLongPress,
   onRow: function (row) {
+    if (window.Plex) Plex.leave();
     if (topFocus >= 0) {
       topFocus = -1;
       var els = document.getElementById('topbar').children;
