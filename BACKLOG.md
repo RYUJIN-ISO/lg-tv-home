@@ -18,13 +18,30 @@ EXIF orientation 3 (upside down); it went back as an upright copy, because the
 matcher (and possibly the WebGL frame) reads raw pixels. Watch for EXIF
 rotation in USB imports too.
 
-**UX to design properly:**
-- **Discoverable controls:** Reset is a pill at the end of the crop bar,
-  reached only via OK; people don't find it. The crop screen needs its
-  controls on screen (the crop screen's info card explains them since 0.24).
-- **Clear states:** a picture card should show whether it has a crop, and
-  the crop screen should make "this never changes your picture" obvious.
-- **Original vs. crop:** an obvious way to see the whole picture again and
-  to go back to it (Reset / "Show whole picture"), perhaps with undo.
+**Crop UX, status (0.29, 2026-10-27):**
+- Done: the crop screen opens in its bar with the keys shown (key caps) and
+  an **i** legend; Up edits the frame, OK saves, Back cancels; previews show
+  the crop; Reset shows the whole picture again; ✂ cuts a file for good
+  (asks first).
+- Open: a picture card could show whether it has a crop (a small mark).
 - **Leftovers:** remove `wallpapers/originals/` and the old `orig` handling
-  in `cache.js` once nothing needs them.
+  in `cache.js` once nothing needs them (only simsim's old original, 6 MB,
+  is left on TV #1).
+
+## Pictures copied in directly
+
+USB imports are scaled to about 18 megapixels; pictures copied straight into
+`wallpapers/` are not (nor turned upright, nor given a preview). TV Home
+could check the folder and do that itself.
+
+## Free space guard for imports
+
+Imports go to `/var` (about 966 MB, shared with webOS's own settings and
+logs) and don't check free space. Refuse an import when less than about
+150 MB would be left, with a short message.
+
+## Instead of Screensaver: settings
+
+The 10 seconds LG's screensaver shows before the frame takes over are fixed
+(`LG_FIRST` in `framesaver.py`); could be a setting. LG's own 3 minute timer
+can't be changed on the tested model.
