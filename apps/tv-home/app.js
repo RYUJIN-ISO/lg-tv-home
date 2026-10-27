@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.28.0';
+var VERSION = '0.28.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -1556,6 +1556,7 @@ function openPictures(mode) {
   infoButton(view, el.querySelector('.inner'), 'pictures', grid);
   push(view);
   grid.set(entries());
+  catchUpThumbs();
 }
 
 function newPictureFolder() {
@@ -1671,11 +1672,51 @@ function choosePictures(fo) {
 }
 
 function editCrop(w) {
-  cropPicture({ url: w.url, rect: cropOf(w.name), onSave: function (rect) {
+  cropPicture({ url: w.url, rect: cropOf(w.name), onSave: function (rect, img) {
     if (rect) library().crops[w.name] = rect; else delete library().crops[w.name];
     saveConfig();
     applyLook();
+    cropThumb(w, rect, img);
   } });
+}
+
+// The picture's preview card shows its crop (or the centre without one).
+// Made from the full picture the crop screen has loaded; saved a moment
+// after the last change, so − / + presses don't each write a file.
+var thumbTimers = {};
+function cropThumb(w, rect, img, done) {
+  clearTimeout(thumbTimers[w.name]);
+  thumbTimers[w.name] = setTimeout(function () {
+    var W = img.naturalWidth, H = img.naturalHeight, fw = Math.min(W, H * 16 / 9);
+    var r = rect || { x: (W - fw) / 2 / W, y: (H - fw * 9 / 16) / 2 / H, w: fw / W };
+    var c = document.createElement('canvas');
+    c.width = 640; c.height = 360;
+    c.getContext('2d').drawImage(img, r.x * W, r.y * H, r.w * W, r.w * W * 9 / 16, 0, 0, 640, 360);
+    var b64 = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+    exec(USB_PY + " thumbfor '" + w.name.replace(/'/g, "'\\''") + "' " + b64, function (res) {
+      // t: the preview shows this crop (see catchUpThumbs)
+      var cur = cropOf(w.name);
+      if (cur && res.returnValue !== false) { cur.t = 1; saveConfig(); }
+      if (done) done(); else load();
+    });
+  }, done ? 0 : 800);
+}
+
+// Crops made before previews followed them: remake those previews once, one
+// picture at a time, when the picture library opens.
+var catchingUp = false;
+function catchUpThumbs() {
+  if (catchingUp) return;
+  var todo = state.wallpapers.filter(function (w) { var r = cropOf(w.name); return r && !r.t; });
+  if (!todo.length) return;
+  catchingUp = true;
+  (function next(i) {
+    if (i >= todo.length) { catchingUp = false; load(); return; }
+    var img = new Image();
+    img.onload = function () { cropThumb(todo[i], cropOf(todo[i].name), img, function () { img.src = ''; next(i + 1); }); };
+    img.onerror = function () { next(i + 1); };
+    img.src = todo[i].url;
+  })(0);
 }
 
 // ---------------------------------------------------------------- usb pictures
@@ -1736,7 +1777,7 @@ function importPicture(pic, img, rect) {
 // Crop screen: a 16:9 frame over the whole picture. It starts in the bar
 // (Smaller, Larger, sharpness, Reset, i); Up moves to the frame, where the
 // arrows move it, OK saves and Back cancels (both back to the bar). The label says how sharp the crop is on the 4K screen.
-// pic: {url, rect?, onSave(rect or null)} for a picture in the library, or
+// pic: {url, rect?, onSave(rect or null, img)} for a picture in the library, or
 // {url, name, mode} from USB (OK in the frame imports it).
 function cropPicture(pic) {
   var probe = new Image();
@@ -1801,23 +1842,23 @@ function openCrop(pic, probe) {
   function save() {
     if (!pic.onSave) { importPicture(pic, img, rect()); return; }
     saved = { w: f.w, x: f.x, y: f.y };
-    pic.onSave(rect());
+    pic.onSave(rect(), img);
     toBar();
   }
   function act(a) {
     if (a === 'minus' || a === 'plus') {
       resize(a === 'minus' ? 0.9 : 1 / 0.9);
-      if (pic.onSave) { saved = { w: f.w, x: f.x, y: f.y }; pic.onSave(rect()); }
+      if (pic.onSave) { saved = { w: f.w, x: f.x, y: f.y }; pic.onSave(rect(), img); }
     } else if (a === 'reset') {
       centre(); paint();
       saved = { w: f.w, x: f.x, y: f.y };
-      if (pic.onSave) pic.onSave(null);
+      if (pic.onSave) pic.onSave(null, img);
     } else if (a === 'info') toggleLegend('crop', true);
   }
 
   var view = { el: el };
   view.key = function (e) {
-    var c = e.keyCode, step = W * 0.03;
+    var c = e.keyCode, step = W * 0.015;
     if (focus < 0) {
       if (c === KEY.LEFT) f.x -= step; else if (c === KEY.RIGHT) f.x += step;
       else if (c === KEY.UP) f.y -= step; else if (c === KEY.DOWN) f.y += step;
