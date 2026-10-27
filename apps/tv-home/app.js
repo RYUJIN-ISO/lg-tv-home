@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.24.0';
+var VERSION = '0.26.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -35,8 +35,7 @@ var DEFAULT_CONFIG = {
   // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
-  frame: { every: 5, bri: 60, pan: true, show: 'all' },  // show: 'all' or a picture folder id
-  seenInfo: []         // info cards already shown once (see INFO)
+  frame: { every: 5, bri: 60, pan: true, show: 'all', saver: false }   // show: 'all' or a picture folder id
 };
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
@@ -134,7 +133,7 @@ var STRINGS = {
     none: 'None',
     newFolder: 'New Folder',
     editHome: 'Organize Apps', light: 'Light', addApps: 'Add Apps', homeAppsTitle: 'Apps on the home screen', appPick: 'App …',
-    editHint: 'Editing: OK on an app or folder for options · Back to finish (changes are saved)',
+    editHint: '{ok} options · {back} done',
     removeFromHome: 'Remove from Home Screen',
     uninstall: 'Uninstall', uninstallApps: 'Uninstall Apps', uninstallSub: 'Apps that can be removed from the TV.',
     uninstallQ: 'Uninstall {0}?', uninstallNQ: 'Uninstall {0} apps?', uninstallYes: 'Uninstall',
@@ -144,38 +143,38 @@ var STRINGS = {
     showClock: 'Show Clock', on: 'On', off: 'Off',
     reset: 'Reset Layout', resetQ: 'Reset layout?',
     resetSub: 'Folders, order and the app selection are reset. The wallpaper stays.', resetYes: 'Reset',
-    tip: 'Apps and folders: use Organize Apps (top left) to arrange, add, group, uninstall or reset. Holding OK on an app works anywhere.',
+    tip: 'Organize Apps (top left): arrange, group, uninstall',
     move: 'Move', rename: 'Rename', open: 'Open', cancel: 'Cancel',
     toFolder: 'Add to Folder', toOtherFolder: 'Move to Another Folder', removeFromFolder: 'Remove from Folder',
-    chooseApps: 'Choose Apps', checkHint: 'OK checks or unchecks an app.',
+    chooseApps: 'Choose Apps', checkHint: '{ok} check / uncheck',
     dissolve: 'Remove Folder', dissolveQ: 'Remove folder?', dissolveSub: 'Its apps go back to the home screen.', dissolveYes: 'Remove',
     renameFolder: 'Rename Folder', nApps: '{0} apps', emptySuffix: '(empty)',
     folderEmpty: 'This folder is empty. Hold OK on an app and choose "Add to Folder".',
     inputHint: 'Enter a name, then OK / Enter. Back cancels.',
-    moveHint: 'Use the arrow keys to move, OK to drop',
+    moveHint: '{arrows} move · {ok} drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
     fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
-    cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: 'Arrows: move · OK: options',
-    cropKeysBar: 'Up: back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
+    cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: '{arrows} move · {ok} bar',
+    cropKeysBar: '{up} back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
-    libHint: 'OK: open · hold OK on a folder: options', wpUseHint: 'OK: use as wallpaper · hold OK: crop, folders',
-    frameHere: 'OK: start the frame here · hold OK: crop, folders', usbHint: 'OK: crop and add',
+    libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} crop, folders',
+    frameHere: '{ok} start here · {hold} crop, folders', usbHint: '{ok} crop and add',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
-    frameEvery: 'Change every', frameHow: 'While it runs: CH+ / CH- change the picture, the arrows look around, OK ends it.', framePickHint: 'OK: in this folder or not · hold OK: crop',
+    frameEvery: 'Change every', frameHow: 'Running: {ch} picture · {arrows} look around · {ok} end', framePickHint: '{ok} in / out · {hold} crop',
     frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
-    hue: 'Hue', hueHint: 'OK: on / off · hold OK: room', hueConnecting: 'Connecting to Hue …',
+    hue: 'Hue', hueHint: '{ok} on / off · {hold} room', hueConnecting: 'Connecting to Hue …',
     hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
     huePress: 'Press the button on the Hue bridge', huePressSub: 'Waiting up to 60 seconds.',
     huePaired: 'Hue connected.', lightButton: 'Light button', power: 'Power', brightness: 'Brightness',
     scenes: 'Scenes', lights: 'Lights', room: 'Room', cinemaScene: 'Cinema scene', backTo: 'Back to',
     backPrevious: 'Lighting before cinema', lightHow: 'One press: cinema. Next press: {0}.',
     notSet: 'Not set', unreachable: 'unreachable',
-    remoteButtons: 'Remote Buttons', remoteTip: 'Arrows or pointer: pick a button · OK: change it · Back: close', otherButton: 'Other button …',
+    remoteButtons: 'Remote Buttons', remoteTip: '{arrows} {pointer} pick · {ok} change · {back} close', otherButton: 'Other button …',
     remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
     learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
     learnBlocked: 'This button can\'t be changed (needed to control the TV).',
@@ -185,7 +184,7 @@ var STRINGS = {
     b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
     b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
     b_chup: 'Channel +', b_chdown: 'Channel −',
-    howItWorks: 'How It Works', tipsAgain: 'Show Tips Again', gotIt: 'Got It'
+    frameSaver: 'Instead of Screensaver'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -193,7 +192,7 @@ var STRINGS = {
     none: 'Keines',
     newFolder: 'Neuer Ordner',
     editHome: 'Apps organisieren', light: 'Licht', addApps: 'Apps hinzufügen', homeAppsTitle: 'Apps auf dem Startbildschirm', appPick: 'App …',
-    editHint: 'Bearbeiten: OK auf einer App oder einem Ordner für Optionen · Zurück zum Beenden (wird gespeichert)',
+    editHint: '{ok} Optionen · {back} fertig',
     removeFromHome: 'Vom Startbildschirm entfernen',
     uninstall: 'Deinstallieren', uninstallApps: 'Apps deinstallieren', uninstallSub: 'Apps, die vom Fernseher entfernt werden können.',
     uninstallQ: '{0} deinstallieren?', uninstallNQ: '{0} Apps deinstallieren?', uninstallYes: 'Deinstallieren',
@@ -203,38 +202,38 @@ var STRINGS = {
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
     reset: 'Anordnung zurücksetzen', resetQ: 'Anordnung zurücksetzen?',
     resetSub: 'Ordner, Reihenfolge und App-Auswahl werden zurückgesetzt. Das Hintergrundbild bleibt.', resetYes: 'Zurücksetzen',
-    tip: 'Apps und Ordner: Mit „Apps organisieren“ (oben links) anordnen, hinzufügen, gruppieren, deinstallieren oder zurücksetzen. Lange OK auf einer App geht überall.',
+    tip: 'Apps organisieren (oben links): anordnen, gruppieren, deinstallieren',
     move: 'Verschieben', rename: 'Umbenennen', open: 'Öffnen', cancel: 'Abbrechen',
     toFolder: 'In Ordner legen', toOtherFolder: 'In anderen Ordner legen', removeFromFolder: 'Aus Ordner nehmen',
-    chooseApps: 'Apps auswählen', checkHint: 'OK hakt eine App an oder ab.',
+    chooseApps: 'Apps auswählen', checkHint: '{ok} an / ab',
     dissolve: 'Ordner auflösen', dissolveQ: 'Ordner auflösen?', dissolveSub: 'Die Apps kommen zurück auf den Startbildschirm.', dissolveYes: 'Auflösen',
     renameFolder: 'Ordner umbenennen', nApps: '{0} Apps', emptySuffix: '(leer)',
     folderEmpty: 'Dieser Ordner ist leer. Lange OK auf einer App drücken → „In Ordner legen“.',
     inputHint: 'Namen eingeben, dann OK / Enter. Zurück bricht ab.',
-    moveHint: 'Mit den Pfeiltasten verschieben, OK zum Ablegen',
+    moveHint: '{arrows} verschieben · {ok} ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
     fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
-    cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: 'Pfeile: verschieben · OK: Optionen',
-    cropKeysBar: 'Hoch: zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
+    cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: '{arrows} verschieben · {ok} Leiste',
+    cropKeysBar: '{up} zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
-    libHint: 'OK: öffnen · OK halten auf einem Ordner: Optionen', wpUseHint: 'OK: als Hintergrund · OK halten: Ausschnitt, Ordner',
-    frameHere: 'OK: Bilderrahmen hier starten · OK halten: Ausschnitt, Ordner', usbHint: 'OK: zuschneiden und hinzufügen',
+    libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} Ausschnitt, Ordner',
+    frameHere: '{ok} hier starten · {hold} Ausschnitt, Ordner', usbHint: '{ok} zuschneiden und hinzufügen',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
-    frameEvery: 'Wechsel alle', frameHow: 'Während er läuft: CH+ / CH- wechseln das Bild, die Pfeile schauen sich um, OK beendet ihn.', framePickHint: 'OK: im Ordner oder nicht · OK halten: Ausschnitt',
+    frameEvery: 'Wechsel alle', frameHow: 'Läuft: {ch} Bild · {arrows} umschauen · {ok} Ende', framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
     frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
-    hue: 'Hue', hueHint: 'OK: an / aus · OK halten: Raum', hueConnecting: 'Verbinde mit Hue …',
+    hue: 'Hue', hueHint: '{ok} an / aus · {hold} Raum', hueConnecting: 'Verbinde mit Hue …',
     hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
     huePress: 'Den Knopf auf der Hue Bridge drücken', huePressSub: 'Wartet bis zu 60 Sekunden.',
     huePaired: 'Hue verbunden.', lightButton: 'Licht-Taste', power: 'Ein / Aus', brightness: 'Helligkeit',
     scenes: 'Szenen', lights: 'Lampen', room: 'Raum', cinemaScene: 'Kino-Szene', backTo: 'Zurück zu',
     backPrevious: 'Licht vor dem Kino', lightHow: 'Einmal drücken: Kino. Nochmal: {0}.',
     notSet: 'Nicht gesetzt', unreachable: 'nicht erreichbar',
-    remoteButtons: 'Fernbedienungstasten', remoteTip: 'Pfeile oder Zeiger: Taste wählen · OK: ändern · Zurück: schließen', otherButton: 'Andere Taste …',
+    remoteButtons: 'Fernbedienungstasten', remoteTip: '{arrows} {pointer} wählen · {ok} ändern · {back} schließen', otherButton: 'Andere Taste …',
     remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
     learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
     learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
@@ -244,7 +243,7 @@ var STRINGS = {
     b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
     b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
     b_chup: 'Kanal +', b_chdown: 'Kanal −',
-    howItWorks: 'So geht\'s', tipsAgain: 'Tipps wieder zeigen', gotIt: 'Verstanden'
+    frameSaver: 'Statt Bildschirmschoner'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -390,7 +389,6 @@ function mainEntries() {
     out.push({ type: 'special', key: '__newfolder', icon: 'folder', title: t('newFolder') });
     out.push({ type: 'special', key: '__uninstall', icon: 'trash', title: t('uninstallApps') });
     out.push({ type: 'special', key: '__reset', icon: 'reset', title: t('reset') });
-    out.push(infoCard());
   }
   return out;
 }
@@ -667,6 +665,7 @@ function topButtons() {
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
   ];
   if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight, longAction: openHue });
+  b.push({ small: true, icon: '<span class="i">i</span>', title: '', action: function () { toggleLegend(editMode ? 'organize' : 'home'); } });
   return b;
 }
 
@@ -676,7 +675,7 @@ function renderTop() {
   bar.innerHTML = '';
   buttons.forEach(function (btn, i) {
     var el = document.createElement('div');
-    el.className = 'tbtn' + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
+    el.className = 'tbtn' + (btn.small ? ' small' : '') + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
       (btn.light && lightFlash ? ' flash-' + lightFlash : '') + (btn.light && lightCinema ? ' cinema' : '');
     el.innerHTML = btn.icon + '<div class="tlabel"></div>';
     el.querySelector('.tlabel').textContent = btn.title;
@@ -763,7 +762,6 @@ function onMainActivate(entry, i) {
     else if (entry.key === '__newfolder') newFolderFlow();
     else if (entry.key === '__uninstall') chooseUninstall();
     else if (entry.key === '__reset') resetLayout();
-    else if (entry.key === '__info') showInfo('organize');
   } else if (editMode) {
     onMainLongPress(entry, i);
   } else if (entry.type === 'app') launch(entry);
@@ -772,10 +770,10 @@ function onMainActivate(entry, i) {
 
 function setEditMode(on) {
   editMode = on;
+  hideLegend();
   document.body.classList.toggle('editing', on);
   showHint(on ? t('editHint') : '');
   refreshMain();
-  if (on) firstVisit('organize');
 }
 
 function newFolderFlow() {
@@ -802,6 +800,7 @@ function layer(cls) {
 
 // Only the top layer is visible; the ones below are hidden until it closes.
 function push(view) {
+  hideLegend();
   var below = stack[stack.length - 1];
   if (below && below.el && !view.float) below.el.style.visibility = 'hidden';
   stack.push(view);
@@ -815,6 +814,7 @@ function remoteSubState() {
 }
 
 function pop() {
+  hideLegend();
   var v = stack.pop();
   if (v) {
     v.el.parentNode.removeChild(v.el);
@@ -867,7 +867,7 @@ function openFolder(id) {
 }
 
 // Generic list menu (settings panel or centered sheet).
-// spec: { title, sub, sheet, onFocus, onClose,
+// spec: { title, sub, sheet, info (INFO id for the small "i"), onFocus, onClose,
 //         rows: function () -> [{label, value, chevron, check, danger, info, action}] }
 function menu(spec) {
   var el = layer();
@@ -881,12 +881,21 @@ function menu(spec) {
     panel.innerHTML = '<h1></h1>' + (spec.sub ? '<div class="sub"></div>' : '') + '<div class="rowsclip"><div class="rows"></div></div>';
     panel.querySelector('h1').textContent = typeof spec.title === 'function' ? spec.title() : spec.title;
     if (spec.sub) panel.querySelector('.sub').textContent = spec.sub;
+    if (spec.info) {
+      view.ibtn = document.createElement('div');
+      view.ibtn.className = 'ibtn';
+      view.ibtn.textContent = 'i';
+      view.ibtn.addEventListener('mouseenter', function () { infoFocus(true); });
+      view.ibtn.addEventListener('click', function () { if (once()) toggleLegend(spec.info); });
+      panel.appendChild(view.ibtn);
+    }
     var list = panel.querySelector('.rows');
     view.rows.forEach(function (r, i) {
       var row = document.createElement('div');
       row.className = 'row' + (r.info ? ' info' : '') + (r.danger ? ' danger' : '');
       var lab = document.createElement('span');
-      lab.textContent = (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
+      if (r.info) lab.innerHTML = hintHTML(r.label);
+      else lab.textContent = (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
       row.appendChild(lab);
       if (r.value !== undefined || r.chevron) {
         var v = document.createElement('span');
@@ -907,6 +916,14 @@ function menu(spec) {
     view.setFocus(f);
   };
 
+  // The small "i" in the header: Up from the first row reaches it.
+  function infoFocus(on) {
+    view.infoFocus = on;
+    if (view.ibtn) view.ibtn.classList.toggle('focus', on);
+    var row = panel.querySelectorAll('.row')[view.focus];
+    if (row) row.classList.toggle('focus', !on);
+  }
+
   function selectable(from, dir) {
     for (var i = from; i >= 0 && i < view.rows.length; i += dir) if (!view.rows[i].info) return i;
     return -1;
@@ -918,6 +935,7 @@ function menu(spec) {
 
   view.setFocus = function (i) {
     if (i < 0) return;
+    if (view.infoFocus) infoFocus(false);
     var rows = panel.querySelectorAll('.row');
     if (rows[view.focus]) rows[view.focus].classList.remove('focus');
     view.focus = i;
@@ -934,6 +952,7 @@ function menu(spec) {
   };
 
   view.select = function () {
+    if (view.infoFocus) { if (once()) toggleLegend(spec.info); return; }
     var r = view.rows[view.focus];
     if (r && r.action && once()) r.action();
   };
@@ -941,6 +960,12 @@ function menu(spec) {
   // Right goes one level deeper (only on rows that open a submenu, so a
   // sideways press can't flip a setting); Left goes back like Back.
   view.key = function (e) {
+    if (view.infoFocus) {
+      if (e.keyCode === KEY.DOWN) infoFocus(false);
+      else if (e.keyCode === KEY.LEFT || e.keyCode === KEY.BACK) pop();
+      return;
+    }
+    if (spec.info && e.keyCode === KEY.UP && selectable(view.focus - 1, -1) < 0) { infoFocus(true); return; }
     var r = view.rows[view.focus];
     // Rows with adjust(): Left/Right change the value instead of navigating.
     if (r && r.adjust && (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT)) {
@@ -1000,107 +1025,126 @@ function confirmSheet(title, sub, yesLabel, onYes) {
   });
 }
 
-// ---------------------------------------------------------------- info cards
+// ---------------------------------------------------------------- hints and legends
 
-// Short explanations wherever TV Home does something a normal TV doesn't.
-// Each screen opens its sheet once by itself (remembered in seenInfo), then
-// via its "i" card, row or pill. A line: keys drawn as remote buttons + text.
-var INFO_KEYS = {
+// Remote keys drawn as small key caps. Hint strings name them in braces:
+// '{ok} open · {hold} options'. Symbols first, as few words as possible.
+var KEY_LABELS = {
   ok: 'OK', back: { en: 'Back', de: 'Zurück' }, hold: { en: 'hold OK', de: 'OK halten' },
-  arrows: '◀ ▲ ▼ ▶', lr: '◀ ▶', up: '▲', chup: 'CH+', chdown: 'CH−',
+  arrows: '◀▲▼▶', lr: '◀ ▶', up: '▲', down: '▼', ch: 'CH+ / CH−',
   wheel: { en: 'wheel', de: 'Rad' }, pointer: { en: 'pointer', de: 'Zeiger' }
-};
-var INFO = {
-  home: { title: { en: 'Home Screen', de: 'Startbildschirm' }, lines: [
-    { keys: ['hold'], en: 'On an app or folder: its options (move, folders, remove).', de: 'Auf einer App oder einem Ordner: Optionen (verschieben, Ordner, entfernen).' },
-    { keys: ['up'], en: 'From the first row: Settings, Organize Apps and Light (top left).', de: 'Aus der ersten Reihe: Einstellungen, Apps organisieren und Licht (oben links).' },
-    { keys: ['back'], en: 'Jumps back to the first row.', de: 'Springt zurück zur ersten Reihe.' }
-  ] },
-  organize: { title: { en: 'Organize Apps', de: 'Apps organisieren' }, lines: [
-    { keys: [], en: 'Dashed outlines mean you are editing.', de: 'Gestrichelte Rahmen: Du bearbeitest gerade.' },
-    { keys: ['ok'], en: 'On an app or folder: its options. Move, then arrows and OK to drop.', de: 'Auf einer App oder einem Ordner: Optionen. Verschieben, dann Pfeile und OK zum Ablegen.' },
-    { keys: ['back'], en: 'Finishes. Every change is already saved.', de: 'Beendet. Alles ist schon gespeichert.' }
-  ] },
-  light: { title: { en: 'Light Button', de: 'Licht-Taste' }, lines: [
-    { keys: ['ok'], en: 'On Light (home screen, top left): cinema scene. Next press: back again.', de: 'Auf Licht (Startbildschirm, oben links): Kino-Szene. Nochmal: wieder zurück.' },
-    { keys: [], en: 'The button glows warm while cinema is on.', de: 'Die Taste leuchtet warm, solange Kino an ist.' },
-    { keys: ['hold'], en: 'On Light: the Hue menu with rooms and lights.', de: 'Auf Licht: das Hue-Menü mit Räumen und Lampen.' }
-  ] },
-  hue: { title: { en: 'Hue', de: 'Hue' }, lines: [
-    { keys: ['ok'], en: 'On a room: switches it on or off.', de: 'Auf einem Raum: an oder aus.' },
-    { keys: ['hold'], en: 'On a room: brightness, scenes and single lights.', de: 'Auf einem Raum: Helligkeit, Szenen und einzelne Lampen.' },
-    { keys: ['lr'], en: 'On a Brightness row: darker or brighter.', de: 'Auf einer Helligkeits-Zeile: dunkler oder heller.' }
-  ] },
-  remote: { title: { en: 'Remote Buttons', de: 'Fernbedienungstasten' }, lines: [
-    { keys: ['arrows', 'pointer'], en: 'Pick a button on the drawing.', de: 'Eine Taste auf der Zeichnung wählen.' },
-    { keys: ['ok'], en: 'Choose what it does: an app, an input, nothing or LG default.', de: 'Festlegen, was sie tut: eine App, ein Eingang, nichts oder LG-Standard.' },
-    { keys: [], en: 'Greyed buttons can\'t change (needed to control the TV). Other button learns one that isn\'t drawn; Reset puts all back to LG default.', de: 'Graue Tasten sind nicht änderbar (zur Bedienung nötig). Andere Taste lernt eine, die nicht gezeichnet ist; Zurücksetzen stellt alle auf LG-Standard.' }
-  ] },
-  pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
-    { keys: [], en: 'Wallpaper and Picture Frame share these folders and crops.', de: 'Hintergrundbild und Bilderrahmen teilen sich diese Ordner und Ausschnitte.' },
-    { keys: ['ok'], en: 'Opens a folder. On a picture: use it as wallpaper, or start the frame there.', de: 'Öffnet einen Ordner. Auf einem Bild: als Hintergrund, oder den Rahmen dort starten.' },
-    { keys: ['hold'], en: 'On a folder: choose pictures, rename, delete. On a picture: its crop and folders.', de: 'Auf einem Ordner: Bilder wählen, umbenennen, löschen. Auf einem Bild: Ausschnitt und Ordner.' },
-    { keys: [], en: 'Each picture has one crop, used everywhere.', de: 'Jedes Bild hat einen Ausschnitt, der überall gilt.' }
-  ] },
-  crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
-    { keys: ['arrows', 'wheel'], en: 'Arrows move the frame, the Magic Remote\'s wheel resizes it.', de: 'Pfeile verschieben den Rahmen, das Rad der Magic Remote ändert die Größe.' },
-    { keys: ['ok'], en: 'Reaches the bar: smaller, larger, Reset, Save. Up goes back to the frame.', de: 'Zur Leiste: kleiner, größer, Zurücksetzen, Speichern. Hoch geht zurück zum Rahmen.' },
-    { keys: [], en: '4K: sharp on this TV. Upscaled: the crop has fewer pixels than the screen and looks softer.', de: '4K: scharf auf diesem Fernseher. Hochskaliert: weniger Pixel als der Bildschirm, wirkt weicher.' },
-    { keys: [], en: 'The picture file is never cut. Reset removes the crop.', de: 'Die Bilddatei wird nie beschnitten. Zurücksetzen entfernt den Ausschnitt.' }
-  ] },
-  frameSettings: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
-    { keys: [], en: 'Pan: large pictures glide slowly towards their crop and rest there.', de: 'Schwenken: große Bilder gleiten langsam zu ihrem Ausschnitt und bleiben dort.' },
-    { keys: [], en: 'Still: the crop fills the screen, without motion.', de: 'Still: der Ausschnitt füllt den Bildschirm, ohne Bewegung.' },
-    { keys: [], en: 'LG\'s screensaver stays away while the frame runs. The TV\'s own auto power off still applies.', de: 'LGs Bildschirmschoner bleibt weg, solange der Rahmen läuft. Die automatische Abschaltung des Fernsehers gilt weiter.' }
-  ] },
-  frameRunning: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
-    { keys: ['chup', 'chdown'], en: 'Next or previous picture.', de: 'Nächstes oder vorheriges Bild.' },
-    { keys: ['arrows'], en: 'Look around in the picture (the automatic pan pauses).', de: 'Im Bild umschauen (das automatische Schwenken pausiert).' },
-    { keys: ['ok'], en: 'Ends the frame, like any other button.', de: 'Beendet den Rahmen, wie jede andere Taste.' }
-  ] },
-  store: { title: { en: 'App Store', de: 'App Store' }, lines: [
-    { keys: [], en: 'The block on LG\'s ad and tracking servers also locks the LG Store.', de: 'Die Sperre für LGs Werbe- und Tracking-Server sperrt auch den LG Store.' },
-    { keys: ['ok'], en: 'Opens it for 10 minutes to install or update apps. Then it locks again by itself.', de: 'Öffnet ihn für 10 Minuten zum Installieren oder Aktualisieren. Danach sperrt er sich von selbst.' }
-  ] }
 };
 
 function local(v) { return typeof v === 'string' ? v : v[lang()] || v.en; }
 
-function seen(id) { return (cfg().seenInfo || []).indexOf(id) >= 0; }
-
-// The "i" card at the end of a grid.
-function infoCard() { return { type: 'special', key: '__info', icon: 'info', title: t('howItWorks') }; }
-
-// Shows the sheet the first time a screen opens; after runs once it closes
-// (right away when it was seen before).
-function firstVisit(id, after) {
-  if (seen(id)) { if (after) after(); return; }
-  if (!cfg().seenInfo) cfg().seenInfo = [];
-  cfg().seenInfo.push(id);
-  saveConfig();
-  showInfo(id, after);
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
 
-function showInfo(id, after) {
-  var info = INFO[id];
-  var el = layer('infoLayer');
-  var html = '<div class="panel sheet infoSheet"><h1></h1><div class="lines">';
-  info.lines.forEach(function (l) {
-    html += '<div class="line"><div class="keys">' + l.keys.map(function (k) {
-      return '<span class="key">' + local(INFO_KEYS[k]) + '</span>';
-    }).join('') + '</div><div class="text"></div></div>';
+function hintHTML(s) {
+  return esc(s).replace(/\{([a-z]+)\}/g, function (m, k) {
+    return KEY_LABELS[k] ? '<span class="kc">' + esc(local(KEY_LABELS[k])) + '</span>' : m;
   });
-  el.innerHTML = html + '</div><div class="row focus"><span></span></div></div>';
-  el.querySelector('h1').textContent = local(info.title);
-  var texts = el.querySelectorAll('.line .text');
-  info.lines.forEach(function (l, i) { texts[i].textContent = l[lang()] || l.en; });
-  el.querySelector('.row span').textContent = t('gotIt');
-  var view = { el: el, float: true };
-  function close() { if (stack[stack.length - 1] !== view) return; pop(); if (after) after(); }
-  view.key = function (e) { if (e.keyCode === KEY.BACK) close(); };
-  view.ok = close;
-  el.querySelector('.row').addEventListener('click', function () { if (once()) close(); });
-  push(view);
+}
+
+// What a screen's small "i" shows: a legend in a corner. It doesn't take
+// the keys; "i" again or leaving the screen closes it.
+var INFO = {
+  home: { title: { en: 'Home Screen', de: 'Startbildschirm' }, lines: [
+    { en: '{hold} on an app: options', de: '{hold} auf einer App: Optionen' },
+    { en: '{up} Settings, Organize Apps, Light', de: '{up} Einstellungen, Apps organisieren, Licht' },
+    { en: '{back} first row', de: '{back} erste Reihe' }
+  ] },
+  organize: { title: { en: 'Organize Apps', de: 'Apps organisieren' }, lines: [
+    { en: '{ok} options: move, folder, remove', de: '{ok} Optionen: verschieben, Ordner, entfernen' },
+    { en: '{arrows} move · {ok} drop', de: '{arrows} verschieben · {ok} ablegen' },
+    { en: '{back} done, all saved', de: '{back} fertig, alles gespeichert' }
+  ] },
+  light: { title: { en: 'Light', de: 'Licht' }, lines: [
+    { en: '{ok} cinema ↔ back', de: '{ok} Kino ↔ zurück' },
+    { en: '{hold} Hue rooms and lights', de: '{hold} Hue-Räume und Lampen' },
+    { en: 'Glows while cinema is on', de: 'Leuchtet, solange Kino an ist' }
+  ] },
+  hue: { title: { en: 'Hue', de: 'Hue' }, lines: [
+    { en: '{ok} room on / off', de: '{ok} Raum an / aus' },
+    { en: '{hold} brightness, scenes, lights', de: '{hold} Helligkeit, Szenen, Lampen' },
+    { en: '{lr} brightness', de: '{lr} Helligkeit' }
+  ] },
+  remote: { title: { en: 'Remote Buttons', de: 'Fernbedienungstasten' }, lines: [
+    { en: '{arrows} {pointer} pick a button', de: '{arrows} {pointer} Taste wählen' },
+    { en: '{ok} app, input, nothing or LG default', de: '{ok} App, Eingang, nichts oder LG-Standard' },
+    { en: 'Grey: fixed, needed by the TV', de: 'Grau: fest, braucht der Fernseher' }
+  ] },
+  pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
+    { en: 'Shared by Wallpaper and Picture Frame', de: 'Gemeinsam für Hintergrund und Bilderrahmen' },
+    { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
+    { en: '{hold} picture: crop, folders', de: '{hold} Bild: Ausschnitt, Ordner' },
+    { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
+  ] },
+  crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
+    { en: '{arrows} move · {wheel} size', de: '{arrows} verschieben · {wheel} Größe' },
+    { en: '{ok} bar: − + Reset Save · {up} back', de: '{ok} Leiste: − + Zurücksetzen Speichern · {up} zurück' },
+    { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
+    { en: 'The file is never cut', de: 'Die Datei wird nie beschnitten' }
+  ] },
+  frameSettings: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
+    { en: 'Pan: glides to the crop · Still: crop, no motion', de: 'Schwenken: gleitet zum Ausschnitt · Still: Ausschnitt, ruhig' },
+    { en: '{ch} picture · {arrows} look around · {ok} end', de: '{ch} Bild · {arrows} umschauen · {ok} Ende' },
+    { en: 'Instead of Screensaver: a key returns to your app', de: 'Statt Bildschirmschoner: eine Taste kehrt zur App zurück' }
+  ] },
+  settings: { title: { en: 'Settings', de: 'Einstellungen' }, lines: [
+    { en: 'App Store: open 10 min, then locked again', de: 'App Store: 10 Min. offen, dann wieder gesperrt' },
+    { en: '{hold} on any app: its options', de: '{hold} auf jeder App: Optionen' }
+  ] }
+};
+
+var legendEl = null, legendId = '';
+
+function hideLegend() {
+  if (legendEl) legendEl.parentNode.removeChild(legendEl);
+  legendEl = null; legendId = '';
+}
+
+function toggleLegend(id, top) {
+  if (legendId === id) { hideLegend(); return; }
+  hideLegend();
+  var info = INFO[id];
+  legendEl = document.createElement('div');
+  legendEl.className = 'legend' + (top ? ' top' : '');
+  legendEl.innerHTML = '<div class="lt">' + esc(local(info.title)) + '</div>' + info.lines.map(function (l) {
+    return '<div class="ll">' + hintHTML(l[lang()] || l.en) + '</div>';
+  }).join('');
+  document.body.appendChild(legendEl);
+  legendId = id;
+}
+
+// A small "i" for a grid screen: Up from the top row reaches it, Down goes
+// back to the cards.
+function infoButton(view, host, id, grid) {
+  var b = document.createElement('div');
+  b.className = 'ibtn';
+  b.textContent = 'i';
+  host.appendChild(b);
+  function focus(on) {
+    view.infoFocus = on;
+    b.classList.toggle('focus', on);
+    var tile = grid.tiles()[grid.focus];
+    if (tile) tile.classList.toggle('focus', !on);
+  }
+  b.addEventListener('mouseenter', function () { focus(true); });
+  b.addEventListener('click', function () { if (once()) toggleLegend(id); });
+  var key = view.key, ok = view.ok, longOk = view.longOk;
+  view.key = function (e) {
+    if (view.infoFocus) {
+      focus(false);
+      if (e.keyCode === KEY.BACK) key(e);
+      return;
+    }
+    if (e.keyCode === KEY.UP && grid.moving < 0 && grid.focus < grid.cols()) { focus(true); return; }
+    key(e);
+  };
+  view.ok = function () { if (view.infoFocus) { if (once()) toggleLegend(id); } else ok(); };
+  if (longOk) view.longOk = function () { if (!view.infoFocus) longOk(); };
 }
 
 // ---------------------------------------------------------------- actions
@@ -1397,7 +1441,6 @@ function storeLabel() {
 
 function toggleStore() {
   var opening = !storeState.open;
-  if (opening && !seen('store')) { firstVisit('store', toggleStore); return; }
   exec('sh ' + STORE_MODE + ' ' + (opening ? 'on' : 'off'), function () {
     loadStore(function () {
       refreshTop();
@@ -1410,6 +1453,7 @@ function openSettings() {
   loadStore(refreshTop);
   menu({
     title: function () { return t('settingsTitle'); },
+    info: 'settings',
     rows: function () {
       var c = cfg();
       return [
@@ -1420,9 +1464,6 @@ function openSettings() {
       ].concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
         { label: t('showClock'), value: c.clock ? t('on') : t('off'), action: function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
-        } },
-        { label: t('tipsAgain'), action: function () {
-          cfg().seenInfo = []; saveConfig(); closeAll(); firstVisit('home');
         } },
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
@@ -1475,7 +1516,7 @@ function pickerLayer(title, hint) {
   var el = layer('folderView picker');
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
   el.querySelector('.title').textContent = title;
-  el.querySelector('.pickhint').textContent = hint;
+  el.querySelector('.pickhint').innerHTML = hintHTML(hint);
   return el;
 }
 
@@ -1500,7 +1541,6 @@ function openPictures(mode) {
     list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
     if (mode === 'wallpaper') list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
-    list.push(infoCard());
     return list;
   }
   var grid = new Grid({
@@ -1514,7 +1554,6 @@ function openPictures(mode) {
     },
     onActivate: function (e) {
       if (e.type === 'album') { openPictureFolder(pictureFolder(e.key), mode); return; }
-      if (e.key === '__info') { showInfo('pictures'); return; }
       if (e.key === '__new') { newPictureFolder(); return; }
       if (e.key === '__usb') { chooseUsbPicture(mode); return; }
       if (e.key === 'none') { cfg().wallpaper = 'none'; saveConfig(); applyLook(); view.refresh(); }
@@ -1523,9 +1562,9 @@ function openPictures(mode) {
   });
   var view = pickerView(el, grid);
   view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
+  infoButton(view, el.querySelector('.inner'), 'pictures', grid);
   push(view);
   grid.set(entries());
-  firstVisit('pictures');
 }
 
 function newPictureFolder() {
@@ -1570,7 +1609,6 @@ function openPictureFolder(fo, mode) {
       tile.classList.toggle('picked', e.key === cfg().wallpaper);
     },
     onActivate: function (e) {
-      if (e.key === '__info') { showInfo('pictures'); return; }
       if (mode === 'frame') {
         frameCfg().show = fo ? fo.id : 'all';
         saveConfig();
@@ -1588,10 +1626,11 @@ function openPictureFolder(fo, mode) {
   });
   var view = pickerView(el, grid);
   view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
+  infoButton(view, el.querySelector('.inner'), 'pictures', grid);
   function entries() {
     return folderPics(fo).map(function (w) {
       return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
-    }).concat([infoCard()]);
+    });
   }
   push(view);
   var list = entries();
@@ -1754,8 +1793,8 @@ function openCrop(pic, probe) {
     pills[2].textContent = px >= 3840 * 0.99 ? '4K' : t('upscaled', Math.round((3840 / px - 1) * 100));
     pills[3].textContent = t('wholePicture');
     pills[SAVE].textContent = t('save');
-    el.querySelector('.crophint').textContent = t('cropHint', W + '×' + H) + '  ·  ' +
-      (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar'));
+    el.querySelector('.crophint').innerHTML = hintHTML(t('cropHint', W + '×' + H) + '  ·  ' +
+      (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar')));
   }
   function resize(factor) {
     var cx = f.x + f.w / 2, cy = f.y + f.w * 9 / 32;
@@ -1772,7 +1811,7 @@ function openCrop(pic, probe) {
       if (pic.onSave) { pic.onSave(null); pop(); } else { centre(); paint(); }
     } else if (a === 'save') {
       if (pic.onSave) { pic.onSave(rect()); pop(); } else importPicture(pic, img, rect());
-    } else if (a === 'info') showInfo('crop');
+    } else if (a === 'info') toggleLegend('crop', true);
   }
 
   var view = { el: el };
@@ -1808,7 +1847,6 @@ function openCrop(pic, probe) {
   });
   push(view);
   paint();
-  firstVisit('crop');
 }
 
 // ---------------------------------------------------------------- picture frame
@@ -1821,8 +1859,12 @@ var FRAME_EVERY = [1, 5, 15, 30, 60];   // minutes
 // heartbeat file is fresh; the idle timer restart covers surface-manager.
 var AWAKE_BEAT = "touch /tmp/atvhome-awake.beat; luna-send -n 1 luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer '{}' > /dev/null";
 var AWAKE_START = AWAKE_BEAT + "; setsid python3 " + APP_DIR + "keepawake.py > /dev/null 2>&1 < /dev/null &";
+var SAVER_START = 'setsid python3 ' + APP_DIR + 'framesaver.py > /dev/null 2>&1 < /dev/null &';
 var AWAKE_STOP = "rm -f /tmp/atvhome-awake.beat; [ -f /tmp/atvhome-awake.pid ] && kill $(cat /tmp/atvhome-awake.pid) 2>/dev/null; true";
 var frameView = null;
+// App to return to when the frame replaced LG's screensaver over it (set by
+// framesaver.py in the launch params); only a key press goes back there.
+var frameBack = '';
 
 function frameCfg() {
   var c = cfg();
@@ -1841,6 +1883,7 @@ function openFrameSettings() {
   function step(list, v, d) { var i = list.indexOf(v); return list[(i + d + list.length) % list.length]; }
   menu({
     title: function () { return t('frame'); },
+    info: 'frameSettings',
     rows: function () {
       var f = frameCfg(), n = framePictures().length;
       var rows = [
@@ -1857,12 +1900,13 @@ function openFrameSettings() {
       rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
         adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
         action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
-      rows.push({ label: t('howItWorks'), chevron: true, action: function () { showInfo('frameSettings'); } });
+      rows.push({ label: t('frameSaver'), value: f.saver ? t('on') : t('off'), action: function () {
+        f.saver = !f.saver; saveConfig(); exec(SAVER_START); refreshTop();
+      } });
       rows.push({ info: true, label: t('frameHow') });
       return rows;
     }
   });
-  firstVisit('frameSettings');
 }
 
 // start: name of the picture to begin with (optional).
@@ -1870,7 +1914,6 @@ function startFrame(start) {
   var pics = framePictures();
   if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
   if (frameView) return;
-  if (!seen('frameRunning')) { firstVisit('frameRunning', function () { startFrame(start); }); return; }
   // Shuffled order; what was shown is kept so CH- can go back.
   var order = [], shown = 0, history = [], at = -1;
   function shuffled() {
@@ -1899,8 +1942,9 @@ function startFrame(start) {
   }
   var el = layer('frame');
   var view = { el: el, timers: [], stop: null };
-  view.key = function () { pop(); };
-  view.ok = function () { pop(); };
+  view.end = function () { view.byUser = true; pop(); };
+  view.key = view.end;
+  view.ok = view.end;
   // CH+/CH- change the picture, arrows move through it; other keys end it.
   var lastSkip = 0;
   view.control = function (code) {
@@ -1920,8 +1964,11 @@ function startFrame(start) {
     if (view.stop) view.stop();
     frameView = null;
     document.body.classList.remove('framing');
+    var back = frameBack;
+    frameBack = '';
+    if (view.byUser && back) launch({ id: back, params: {} });
   };
-  el.addEventListener('click', function () { if (frameView === view) pop(); });
+  el.addEventListener('click', function () { if (frameView === view) view.end(); });
   frameView = view;
   document.body.classList.add('framing');
   push(view);
@@ -1935,6 +1982,13 @@ function startFrame(start) {
 // across their whole area and turn round gently; 16:9 pictures only drift a
 // few pixels (OLED care). Uploads go in strips, a few per frame, so a new
 // picture never stalls the motion.
+// Shared with frameworker.js (keep the two in step).
+function texScale(nw, nh, W, H, cw, maxTex) {
+  var need = Math.max(W / nw, H / nh);
+  if (cw) need = Math.max(need, W / (cw * nw));
+  return Math.min(1, maxTex / Math.max(nw, nh), need);
+}
+
 var PAN_SPEED = 7;          // screen pixels per second, on average
 var FADE_MS = 700;
 
@@ -1962,7 +2016,10 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
     'attribute vec2 p; varying vec2 uv; uniform vec2 off; uniform vec2 span;' +
     'void main() { uv = off + (p * vec2(0.5, -0.5) + 0.5) * span; gl_Position = vec4(p, 0.0, 1.0); }'));
   gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
-    'precision mediump float; varying vec2 uv; uniform sampler2D tex; uniform float alpha; uniform float bri;' +
+    // highp: texture coordinates near 1.0 (the lower part of the picture)
+    // have too few steps in mediump, so that part moved in visible jumps.
+    '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n' +
+    'varying vec2 uv; uniform sampler2D tex; uniform float alpha; uniform float bri;' +
     'void main() { float m = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);' +
     ' gl_FragColor = vec4(texture2D(tex, uv).rgb * bri * m, alpha); }'));
   gl.linkProgram(prog);
@@ -1982,6 +2039,11 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);   // RGB strips from the worker are tightly packed
   var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+  // Texture size: no more pixels than the screen can show of the picture
+  // (filling the screen, or its crop if that zooms in further). Bigger
+  // textures look the same but fill the TV's memory, and swapping makes
+  // the pan stutter. cw = crop width as a fraction of the picture.
+  function cropW(pic) { var r = cropOf(pic.name); return r ? r.w : 0; }
 
   var cur = null, prev = null, fadeStart = 0, raf = 0, stopped = false, loading = false, queued = null, timer = 0;
   var ready = null, busyPic = null, showWhenDone = false;   // ready = preloaded next picture
@@ -2073,7 +2135,7 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
       } else if (m.type === 'strip') queue.push(m);
       else if (m.type === 'done') finished = true;
     };
-    worker.postMessage({ id: id, blob: blob, maxTex: maxTex, rows: SH });
+    worker.postMessage({ id: id, blob: blob, maxTex: maxTex, rows: SH, W: W, H: H, cw: cropW(pic) });
     function upload() {
       if (stopped) { delete jobs[id]; return; }
       var begin = performance.now();
@@ -2102,6 +2164,7 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
     stats.alloc = Math.max(stats.alloc, performance.now() - ta);
     stats.loads++;
+    stats.size = w + 'x' + h;
     return tex;
   }
 
@@ -2134,7 +2197,7 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
 
   function build(pic, full, img, t0) {
     var nw = full ? full.width : img.naturalWidth, nh = full ? full.height : img.naturalHeight;
-    var s = Math.min(1, maxTex / Math.max(nw, nh));
+    var s = texScale(nw, nh, W, H, cropW(pic), maxTex);
     var w = Math.floor(nw * s), h = Math.floor(nh * s);
     stats.mode = full ? 'blob' : 'canvas';
     var tex = newTexture(w, h);
@@ -2301,7 +2364,7 @@ function glFrame(view, nextPic, prevPic, peekNext, count) {
         'ms over25ms=' + slow + ' whileLoading=' + stats.slowLoading + ' loads=' + stats.loads +
         ' alloc=' + stats.alloc.toFixed(0) + 'ms strip=' + stats.upload.toFixed(1) + 'ms load=' + stats.loadMs.toFixed(0) +
         'ms via=' + stats.mode +
-        ' pan=' + (frameCfg().pan !== false) + ' tex=' + maxTex + '" >> /tmp/atvhome-frame.txt');
+        ' pan=' + (frameCfg().pan !== false) + ' tex=' + maxTex + ' last=' + stats.size + ' highp=' + ((gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT) || {}).precision || 0) + '" >> /tmp/atvhome-frame.txt');
     }
     [cur, prev, ready].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
     if (worker) worker.terminate();
@@ -2398,20 +2461,18 @@ function openHueRooms() {
   var el = layer('folderView picker');
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
   el.querySelector('.title').textContent = 'Hue';
-  el.querySelector('.pickhint').textContent = t('hueHint');
+  el.querySelector('.pickhint').innerHTML = hintHTML(t('hueHint'));
   var inner = el.querySelector('.inner');
   var view = { el: el };
   function entries() {
     var list = (hueData.rooms || []).map(function (r) { return { type: 'room', key: 'room' + r.id, title: r.name, room: r }; });
     list.push({ type: 'special', key: '__button', icon: 'light', title: t('lightButton') });
-    list.push(infoCard());
     return list;
   }
   var grid = new Grid({
     container: el.querySelector('.grid'),
     onActivate: function (e) {
       if (e.key === '__button') { lightButtonMenu(); return; }
-      if (e.key === '__info') { showInfo('hue'); return; }
       e.room.on = !e.room.on;
       grid.set(entries(), e.key);
       hue('room ' + e.room.id + (e.room.on ? ' on' : ' off'), function () { loadHue(view.refresh); });
@@ -2424,9 +2485,9 @@ function openHueRooms() {
   view.longOk = function () { grid.longPress(grid.focus); };
   view.refresh = function () { if (hueData && hueData.rooms) grid.set(entries()); };
   view.grid = grid;
+  infoButton(view, inner, 'hue', grid);
   push(view);
   grid.set(entries());
-  firstVisit('hue');
 }
 
 // Brightness: change locally right away, send after a short pause.
@@ -2484,6 +2545,7 @@ function lightButtonMenu() {
   }
   menu({
     title: t('lightButton'),
+    info: 'light',
     rows: function () {
       var b = hueData.button, r = hueRoom(b.group);
       var backLabel = b.back === 'scene' ? (sceneName(r, b.backScene) || t('notSet')) : t('backPrevious');
@@ -2510,12 +2572,10 @@ function lightButtonMenu() {
             save('back=' + sid);
           });
         } },
-        { label: t('howItWorks'), chevron: true, action: function () { showInfo('light'); } },
         { info: true, label: t('lightHow', backLabel) }
       ];
     }
   });
-  firstVisit('light');
 }
 
 // Pairing on the TV: find the bridge (or type its IP), press its button.
@@ -2681,7 +2741,7 @@ function paintRemoteInfo() {
   info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
   info.querySelector('.act').textContent = key ? actionLabel(a) : '';
   info.querySelector('.act').classList.toggle('on', !!a);
-  info.querySelector('.tip').textContent = remoteState.installed ? t('remoteTip') : t('remoteMissing');
+  info.querySelector('.tip').innerHTML = hintHTML(remoteState.installed ? t('remoteTip') : t('remoteMissing'));
 }
 
 function focusRemote(el) {
@@ -2716,7 +2776,7 @@ function remoteActivate() {
   } else if (pill === 'other') {
     learnButton();
   } else if (pill === 'info') {
-    showInfo('remote');
+    toggleLegend('remote', true);
   } else if (pill === 'reset') {
     confirmSheet(t('resetButtonsQ'), '', t('resetYes'), function () {
       remoteState.map.buttons = {};
@@ -2764,7 +2824,6 @@ function openRemote() {
   if (!remoteFocus || remoteFocus.classList.contains('fixed')) remoteFocus = document.querySelector('#remoteArt [data-key="Key_webOS_Netflix"]');
   loadRemote(paintRemoteInfo);
   paintRemoteInfo();
-  firstVisit('remote');
 }
 
 function chooseButtonAction(key) {
@@ -2838,7 +2897,7 @@ function learnButton() {
 
 function showHint(text) {
   var h = document.getElementById('hint');
-  h.textContent = text;
+  h.innerHTML = hintHTML(text);
   h.style.display = text ? 'block' : 'none';
 }
 
@@ -2889,7 +2948,7 @@ document.addEventListener('keydown', function (e) {
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
   var v = current();
   // Picture frame: any key ends it (OK too, without reaching the tile behind).
-  if (frameView && v === frameView) { e.preventDefault(); if (!frameView.control(e.keyCode)) pop(); return; }
+  if (frameView && v === frameView) { e.preventDefault(); if (!frameView.control(e.keyCode)) frameView.end(); return; }
   if (e.keyCode === KEY.OK) {
     e.preventDefault();
     if (okDown) return; // auto-repeat while held
@@ -2925,7 +2984,7 @@ document.addEventListener('wheel', function (e) {
 
 document.addEventListener('webOSRelaunch', function () {
   if (launchParams().bench) { setTimeout(bench, 500); return; }
-  if (launchParams().frame) { closeAll(); startFrame(); return; }
+  if (launchParams().frame) { if (!frameView) { closeAll(); frameBack = launchParams().back || ''; startFrame(); } return; }
   // Home pressed again: back to a clean home screen.
   closeAll();
   if (mainGrid.moving >= 0) mainGrid.endMove();
@@ -2978,7 +3037,6 @@ function load() {
     });
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
-    if (!stack.length && !launchParams().frame && !launchParams().bench) firstVisit('home');
     persistLocal();
   });
 }
@@ -3067,4 +3125,5 @@ try {
 if (!state.config) state.config = normalizeConfig(null);
 applyLook();
 load();
-if (launchParams().frame) setTimeout(startFrame, 300);
+exec(SAVER_START);
+if (launchParams().frame) setTimeout(function () { frameBack = launchParams().back || ''; startFrame(); }, 300);

@@ -27,6 +27,7 @@ say "removing the remote button mapper"
 tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-mapper.sh remove; rm -f $WB/init.d/86-remote-mapper" || true
 
 say "removing boot hooks and background scripts"
+tv "[ -f /tmp/atvhome-saver.pid ] && kill \$(cat /tmp/atvhome-saver.pid); rm -f $WB/init.d/87-frame-saver" || true
 tv "[ -f /tmp/app-trim.pid ] && kill \$(cat /tmp/app-trim.pid); rm -f $WB/init.d/80-debloat $WB/init.d/85-app-trim $WB/init.d/60-lg-ad-block
     [ -f $WB/debloat.sh ] && sh $WB/debloat.sh lift > /dev/null 2>&1
     [ -f $WB/store-mode.sh ] && sh $WB/store-mode.sh off > /dev/null 2>&1

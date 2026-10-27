@@ -105,11 +105,20 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   launcher also restarts surface-manager's idle timer
   (`com.webos.surfacemanager.screenSaver/restartUserActivityTimer`). Remote
   buttons start the frame by launching TV Home with `{"frame": true}`.
-- **Info cards**: `INFO` in `app.js` holds each screen's sheet (title, lines
-  of remote keys plus text, English and German). `firstVisit(id)` shows it
-  the first time a screen opens and adds the id to the config's `seenInfo`;
-  `showInfo(id)` opens it from the screen's "i" card, row or pill. The sheet
-  is a floating view: the screen below stays visible.
+- **Help legends**: `INFO` in `app.js` holds each screen's legend (title,
+  short lines, English and German); `{ok}`, `{hold}`, `{arrows}` and so on in
+  any hint string become key caps (`hintHTML`). `toggleLegend(id)` shows it
+  in a corner without taking the keys; `push`/`pop` close it. Grid screens
+  get their "i" from `infoButton()`, menus from `spec.info`.
+- **Screensaver guard**: `framesaver.py` (started by `init.d/87-frame-saver`
+  and by TV Home) registers with tvpowerd like `keepawake.py` and answers
+  "no" while the frame runs, or when Picture Frame, Instead of Screensaver
+  (`frame.saver`) is on, then launches the frame with `{"frame": true,
+  "back": <app on screen>}`; a key ends it back in that app. Answers are
+  fire-and-forget, because a reply that arrives late lets LG's screensaver
+  start anyway; for that case it also watches the foreground app and closes
+  `com.webos.app.screensaver` when the frame should be showing. Log:
+  `/tmp/atvhome-saver.log`.
 - **Languages**: `STRINGS` in `app.js`, English by default and German. The
   Light and App-Updates apps read the language from the launcher config.
 

@@ -161,7 +161,7 @@
   #remoteInfo .name { font-size: 50px; font-weight: 600; }
   #remoteInfo .act { font-size: 32px; color: rgba(255,255,255,.7); margin-top: 12px; }
   #remoteInfo .act.on { color: #34c759; }
-  #remoteInfo .tip { font-size: 22px; color: rgba(255,255,255,.45); margin-top: 26px; }
+  #remoteInfo .tip { font-size: 24px; color: rgba(255,255,255,.88); margin-top: 26px; }
   #remotePills { position: fixed; left: 600px; top: 840px; z-index: 21; display: none; gap: 20px; }
   body.remote #remotePills { display: flex; }
   .pill { padding: 18px 30px; border-radius: 40px; font-size: 26px; background: rgba(255,255,255,.12); transition: transform 150ms, background 150ms; cursor: pointer; }
@@ -223,7 +223,7 @@
   .cropbar .pill { min-width: 90px; text-align: center; }
   .cropbar .pill.save { background: rgba(52,199,89,.45); }
   .cropbar .pill.save.sel { background: #34c759; color: #fff; }
-  .crophint { position: absolute; left: 0; right: 0; top: 16px; text-align: center; font-size: 22px; color: rgba(255,255,255,.6); }
+  .crophint { position: absolute; left: 0; right: 0; top: 16px; text-align: center; font-size: 24px; color: rgba(255,255,255,.9); }
 
   /* Card picker (Add Apps, folder apps, uninstall, remote app choice) */
   .picker .tile .badge {
@@ -232,7 +232,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,.5);
   }
   .picker .tile .badge svg { width: 30px; height: 30px; fill: #fff; }
-  .picker .pickhint { position: absolute; top: 278px; left: 0; right: 0; text-align: center; font-size: 22px; color: rgba(255,255,255,.55); }
+  .picker .pickhint { position: absolute; top: 278px; left: 0; right: 0; text-align: center; font-size: 24px; color: rgba(255,255,255,.9); }
   /* Side picker (next to the remote drawing): right half, 3 columns. */
   .picker.side .grid { left: 700px; width: 1160px; justify-content: start; grid-template-columns: repeat(3, var(--tile-w)); }
   .picker.side .title { left: 700px; right: auto; width: 1048px; }
@@ -262,26 +262,31 @@
   }
   .row .val { margin-left: auto; color: rgba(255,255,255,.55); font-size: 26px; padding-left: 20px; white-space: nowrap; }
   .row .chev { margin-left: 18px; color: rgba(255,255,255,.4); }
-  .row.info { color: rgba(255,255,255,.6); font-size: 24px; height: auto; padding: 10px 26px; line-height: 1.4; }
+  .row.info { color: rgba(255,255,255,.85); font-size: 24px; height: auto; padding: 10px 26px; line-height: 1.4; }
   .row.focus { background: #fff; color: #111; transform: scale(1.02); }
   .row.focus .val, .row.focus .chev { color: rgba(0,0,0,.55); }
   .row.danger { color: #ff6b6b; }
   .row.focus.danger { color: #c00; }
 
-  /* Info cards: a sheet over the screen it explains (which stays visible). */
-  .layer.infoLayer { z-index: 35; background: rgba(0,0,0,.55); }
-  .panel.infoSheet { width: 1040px; padding: 50px 50px 40px; }
-  .infoSheet h1 { margin: 0 0 34px; }
-  .infoSheet .line { display: flex; align-items: flex-start; gap: 28px; margin-bottom: 26px; }
-  .infoSheet .keys { flex: 0 0 250px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-  .infoSheet .key {
-    min-width: 58px; padding: 6px 16px; border-radius: 14px; text-align: center; white-space: nowrap;
-    background: #2f2f36; border: 2px solid rgba(255,255,255,.25); font-size: 22px; font-weight: 600;
-  }
-  .infoSheet .text { flex: 1; font-size: 28px; line-height: 1.4; color: rgba(255,255,255,.88); padding-top: 3px; }
-  .infoSheet .row { justify-content: center; margin: 18px 0 0; cursor: pointer; }
-  .cropbar .pill.i { min-width: 64px; font-style: italic; font-family: Georgia, serif; font-weight: 700; }
-  #remotePills .pill[data-pill="info"] { font-style: italic; font-family: Georgia, serif; font-weight: 700; }
+  /* Hints: remote keys as small key caps, bright enough to read at a glance. */
+  .kc { display: inline-block; padding: 1px 10px; margin: 0 3px; border-radius: 9px; border: 2px solid rgba(255,255,255,.75);
+    font-size: .82em; font-weight: 700; line-height: 1.35; vertical-align: 1px; white-space: nowrap; }
+  .row.focus .kc { border-color: rgba(0,0,0,.6); }
+  /* The small "i" and its legend (in a corner, doesn't take the keys). */
+  .ibtn { position: absolute; width: 50px; height: 50px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7);
+    display: flex; align-items: center; justify-content: center; font: italic 700 28px Georgia, serif;
+    color: rgba(255,255,255,.85); cursor: pointer; transition: transform 150ms, background 150ms; }
+  .ibtn.focus { background: #fff; color: #111; border-color: #fff; transform: scale(1.12); }
+  .folderView .ibtn { top: 222px; right: 96px; }
+  .panel .ibtn { top: 52px; right: 44px; }
+  .tbtn.small { width: 56px; height: 56px; margin-top: 20px; border-radius: 50%; }
+  .tbtn.small .i { font: italic 700 30px Georgia, serif; color: #fff; }
+  .tbtn.small.focus .i { color: #111; }
+  .legend { position: fixed; right: 64px; bottom: 56px; z-index: 36; max-width: 640px; padding: 22px 28px 14px;
+    background: rgba(18,18,22,.93); border-radius: 22px; box-shadow: 0 16px 40px rgba(0,0,0,.5); pointer-events: none; }
+  .legend.top { top: 64px; bottom: auto; }
+  .legend .lt { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+  .legend .ll { font-size: 23px; line-height: 1.5; margin-bottom: 8px; color: rgba(255,255,255,.92); }
 
   .inputBox input {
     width: 100%; height: 86px; font-size: 36px; padding: 0 24px; border-radius: 16px;

@@ -19,12 +19,11 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
 
-**Tips.** Every screen that does something a normal TV doesn't (home screen,
-Organize Apps, Light button, Hue, Remote Buttons, Pictures, Crop, Picture
-Frame, App Store) explains its buttons once, the first time you open it. After
-that the explanation is behind the **How It Works** card at the end of the
-grid (a row in menus, an **i** pill on the crop and remote screens).
-Settings, **Show Tips Again** shows them all once more.
+**Help.** Screens that do something a normal TV doesn't have a small **i**
+(top bar on the home screen, next to the title elsewhere; **Up** from the top
+row reaches it). It shows a small legend in a corner: the remote keys drawn as
+key caps and a few words. It doesn't block anything; **i** again or leaving
+the screen closes it. The hints under titles use the same key caps.
 
 ## Organize Apps
 
@@ -103,6 +102,10 @@ the TV looks like a framed picture.
   painting is zoomed in to 16:9).
 - **Brightness** 20 to 100% (default 60%). It dims the picture, not the TV's
   picture settings.
+- **Instead of Screensaver** (default off): when the TV would start LG's
+  screensaver (nothing playing, no key pressed for a while), the frame starts
+  instead. A key ends it and goes back to the app you were in. While a frame
+  runs, LG's screensaver never takes over, with this switch on or off.
 
 **Large pictures pan** (Motion: Pan). A picture that is bigger than the
 screen or not 16:9 (a tall photo, a square painting, a 15000 pixel camera
