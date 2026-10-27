@@ -24,14 +24,16 @@ BLOCK_MISC=0
 
 UNITS=""
 BINARIES=""
+# LG preloading apps at boot (replaced by app-trim.sh). First in the list:
+# every systemctl call takes 10-20 s, and LG starts preloading about 80 s
+# after boot, so stopping it last let the preloads in.
+[ "$BLOCK_PRELOAD" = 1 ] && UNITS="$UNITS preload-manager"
 # Usage profiling, ads, log/usage uploads, promos, recommendations.
 if [ "$BLOCK_TRACKING" = 1 ]; then
     UNITS="$UNITS contentminer user-context-manager nudge com.webos.service.pushclient
            rdxd remotelogger service-logger rec-info-adapter rec-listmgr"
     BINARIES="$BINARIES /usr/sbin/uploadd /usr/sbin/admanager"
 fi
-# LG preloading apps at boot (replaced by app-trim.sh).
-[ "$BLOCK_PRELOAD" = 1 ] && UNITS="$UNITS preload-manager"
 # Voice search / mic button. The voice app ignores closeByAppId -> stub it.
 if [ "$BLOCK_VOICE" = 1 ]; then
     UNITS="$UNITS voiceinput voiceconductor"

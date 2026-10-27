@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.27.0';
+var VERSION = '0.28.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -1956,7 +1956,11 @@ function startFrame(start) {
   }
   var el = layer('frame');
   var view = { el: el, timers: [], stop: null };
-  view.end = function () { view.byUser = true; pop(); };
+  view.end = function (why) {
+    exec('echo "$(date +%T) frame ended: ' + (why || 'ok') + '" >> /tmp/atvhome-events.log');
+    view.byUser = true;
+    pop();
+  };
   view.key = view.end;
   view.ok = view.end;
   // CH+/CH- change the picture, arrows move through it; other keys end it.
@@ -1982,7 +1986,7 @@ function startFrame(start) {
     frameBack = '';
     if (view.byUser && back) launch({ id: back, params: {} });
   };
-  el.addEventListener('click', function () { if (frameView === view) view.end(); });
+  el.addEventListener('click', function () { if (frameView === view) view.end('click'); });
   frameView = view;
   document.body.classList.add('framing');
   push(view);
@@ -2962,7 +2966,14 @@ document.addEventListener('keydown', function (e) {
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
   var v = current();
   // Picture frame: any key ends it (OK too, without reaching the tile behind).
-  if (frameView && v === frameView) { e.preventDefault(); if (!frameView.control(e.keyCode)) frameView.end(); return; }
+  // (1536/1537: the Magic Remote's pointer appearing or hiding, which webOS
+  // also sends when another window takes and gives back the focus: not a key.)
+  if (frameView && v === frameView) {
+    e.preventDefault();
+    if (e.keyCode === 1536 || e.keyCode === 1537 || !e.keyCode) return;
+    if (!frameView.control(e.keyCode)) frameView.end('key ' + e.keyCode);
+    return;
+  }
   if (e.keyCode === KEY.OK) {
     e.preventDefault();
     if (okDown) return; // auto-repeat while held
@@ -2998,7 +3009,9 @@ document.addEventListener('wheel', function (e) {
 
 document.addEventListener('webOSRelaunch', function () {
   if (launchParams().bench) { setTimeout(bench, 500); return; }
-  if (launchParams().frame) { if (!frameView) { closeAll(); frameBack = launchParams().back || ''; startFrame(); } return; }
+  // A frame launch while the frame runs (framesaver.py after closing LG's
+  // screensaver over it): keep it, don't let the hidden timer end it.
+  if (launchParams().frame) { clearTimeout(hiddenTimer); if (!frameView) { closeAll(); frameBack = launchParams().back || ''; startFrame(); } return; }
   // Home pressed again: back to a clean home screen.
   closeAll();
   if (mainGrid.moving >= 0) mainGrid.endMove();
@@ -3009,8 +3022,20 @@ document.addEventListener('webOSRelaunch', function () {
   load();
 });
 
+// Hidden: another app took over, so the frame ends. But LG's screensaver can
+// cover the frame for a moment until framesaver.py closes it again, so wait
+// a few seconds before ending it.
+var hiddenTimer = null;
 document.addEventListener('visibilitychange', function () {
-  if (document.hidden) { if (frameView) closeAll(); return; }
+  clearTimeout(hiddenTimer);
+  if (document.hidden) {
+    if (frameView) hiddenTimer = setTimeout(function () {
+      if (!document.hidden || !frameView) return;
+      exec('echo "$(date +%T) frame ended: still hidden after 5 s" >> /tmp/atvhome-events.log');
+      closeAll();
+    }, 5000);
+    return;
+  }
   load();
 });
 
