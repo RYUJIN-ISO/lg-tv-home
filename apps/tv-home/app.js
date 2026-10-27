@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.26.0';
+var VERSION = '0.26.1';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -665,7 +665,6 @@ function topButtons() {
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
   ];
   if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight, longAction: openHue });
-  b.push({ small: true, icon: '<span class="i">i</span>', title: '', action: function () { toggleLegend(editMode ? 'organize' : 'home'); } });
   return b;
 }
 
@@ -675,7 +674,7 @@ function renderTop() {
   bar.innerHTML = '';
   buttons.forEach(function (btn, i) {
     var el = document.createElement('div');
-    el.className = 'tbtn' + (btn.small ? ' small' : '') + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
+    el.className = 'tbtn' + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
       (btn.light && lightFlash ? ' flash-' + lightFlash : '') + (btn.light && lightCinema ? ' cinema' : '');
     el.innerHTML = btn.icon + '<div class="tlabel"></div>';
     el.querySelector('.tlabel').textContent = btn.title;
@@ -1050,16 +1049,6 @@ function hintHTML(s) {
 // What a screen's small "i" shows: a legend in a corner. It doesn't take
 // the keys; "i" again or leaving the screen closes it.
 var INFO = {
-  home: { title: { en: 'Home Screen', de: 'Startbildschirm' }, lines: [
-    { en: '{hold} on an app: options', de: '{hold} auf einer App: Optionen' },
-    { en: '{up} Settings, Organize Apps, Light', de: '{up} Einstellungen, Apps organisieren, Licht' },
-    { en: '{back} first row', de: '{back} erste Reihe' }
-  ] },
-  organize: { title: { en: 'Organize Apps', de: 'Apps organisieren' }, lines: [
-    { en: '{ok} options: move, folder, remove', de: '{ok} Optionen: verschieben, Ordner, entfernen' },
-    { en: '{arrows} move · {ok} drop', de: '{arrows} verschieben · {ok} ablegen' },
-    { en: '{back} done, all saved', de: '{back} fertig, alles gespeichert' }
-  ] },
   light: { title: { en: 'Light', de: 'Licht' }, lines: [
     { en: '{ok} cinema ↔ back', de: '{ok} Kino ↔ zurück' },
     { en: '{hold} Hue rooms and lights', de: '{hold} Hue-Räume und Lampen' },
@@ -1092,9 +1081,11 @@ var INFO = {
     { en: '{ch} picture · {arrows} look around · {ok} end', de: '{ch} Bild · {arrows} umschauen · {ok} Ende' },
     { en: 'Instead of Screensaver: a key returns to your app', de: 'Statt Bildschirmschoner: eine Taste kehrt zur App zurück' }
   ] },
-  settings: { title: { en: 'Settings', de: 'Einstellungen' }, lines: [
-    { en: 'App Store: open 10 min, then locked again', de: 'App Store: 10 Min. offen, dann wieder gesperrt' },
-    { en: '{hold} on any app: its options', de: '{hold} auf jeder App: Optionen' }
+  settings: { title: { en: 'TV Home', de: 'TV Home' }, lines: [
+    { en: '{hold} on an app: options', de: '{hold} auf einer App: Optionen' },
+    { en: '{up} from the first row: Settings, Organize Apps, Light', de: '{up} aus der ersten Reihe: Einstellungen, Apps organisieren, Licht' },
+    { en: '{back} first row', de: '{back} erste Reihe' },
+    { en: 'App Store: open 10 min, then locked again', de: 'App Store: 10 Min. offen, dann wieder gesperrt' }
   ] }
 };
 
