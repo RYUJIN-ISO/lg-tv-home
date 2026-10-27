@@ -29,6 +29,8 @@
       plexUpdated: 'Updated {0}', plexNoToken: 'Not signed in. Sign in under Account above.',
       plexFailed: 'Plex did not answer ({0}). The last rows stay until it does.', plexLoading: 'Loading …',
       plexLibsHint: 'Rows show titles from the ticked libraries.', plexPreload: 'Keep Plex ready',
+      plexCwShow: 'Show Continue Watching', plexAlways: 'Always', plexOnPlex: 'When Plex is selected',
+      plexOnPlexHint: 'Put the Plex app in the first row of apps: the row appears while it is selected.',
       plexAccount: 'Account', plexSignedOut: 'Not signed in', plexSignedInAs: 'Signed in as {0}', plexServer: 'Server: {0}',
       plexSignIn: 'Sign in to Plex', plexSignInHint: 'On your phone or computer, open plex.tv/link and enter this code.',
       plexSignInFailed: 'Plex could not be reached. Go back and try again.',
@@ -41,6 +43,8 @@
       plexUpdated: 'Aktualisiert {0}', plexNoToken: 'Nicht angemeldet. Melde dich oben unter Konto an.',
       plexFailed: 'Plex hat nicht geantwortet ({0}). Die letzten Reihen bleiben, bis es wieder klappt.', plexLoading: 'Wird geladen …',
       plexLibsHint: 'Die Reihen zeigen Titel aus den angehakten Mediatheken.', plexPreload: 'Plex bereithalten',
+      plexCwShow: 'Weiterschauen zeigen', plexAlways: 'Immer', plexOnPlex: 'Wenn Plex ausgewählt ist',
+      plexOnPlexHint: 'Leg die Plex-App in die erste App-Reihe: Die Reihe erscheint, solange sie ausgewählt ist.',
       plexAccount: 'Konto', plexSignedOut: 'Nicht angemeldet', plexSignedInAs: 'Angemeldet als {0}', plexServer: 'Server: {0}',
       plexSignIn: 'Bei Plex anmelden', plexSignInHint: 'Öffne auf dem Handy oder Computer plex.tv/link und gib diesen Code ein.',
       plexSignInFailed: 'Plex ist nicht erreichbar. Geh zurück und versuch es noch einmal.',
@@ -60,7 +64,8 @@
 
   function plexCfg() {
     var p = cfg().plex || {};
-    return { continue: p.continue !== false, recent: !!p.recent, sections: p.sections || [], preload: p.preload !== false };
+    return { continue: p.continue !== false, cwOnPlex: !!p.cwOnPlex, recent: !!p.recent, sections: p.sections || [],
+             preload: p.preload !== false };
   }
   function setPlex(key, value) {
     var c = cfg();
@@ -72,6 +77,24 @@
   }
   function cwItems() { return plexCfg().continue ? rows.continue : []; }
   function recItems() { return plexCfg().recent ? rows.recent : []; }
+
+  // "When Plex is selected" (Settings > Plex): Continue Watching only shows while
+  // the Plex tile in the first app row has the focus, or the row itself has it,
+  // like the Apple TV's top shelf. The row has its own space above the apps, so
+  // nothing moves when it fades in or out.
+  function plexTile() {
+    for (var i = 0; i < Math.min(COLS, mainGrid.entries.length); i++) {
+      var e = mainGrid.entries[i];
+      if (e.type === 'app' && e.id === PLEX_APP) return i;
+    }
+    return -1;
+  }
+  function cwShown() {
+    if (!cwItems().length) return false;
+    if (!plexCfg().cwOnPlex || cwFocus >= 0) return true;
+    return !editMode && topFocus < 0 && recFocus < 0 && mainGrid.focus === plexTile();
+  }
+  function showCW() { document.body.classList.toggle('has-cw', cwShown()); }
   function plexArgs() {
     var p = plexCfg();
     return p.sections.join(',') + (p.recent ? ' recent' : '');
@@ -130,7 +153,6 @@
 
   function renderCW() {
     var items = cwItems();
-    document.body.classList.toggle('has-cw', items.length > 0);
     document.querySelector('#cw .cwtitle').textContent = t('plexContinue');
     var track = document.querySelector('#cw .cwtrack');
     track.innerHTML = '';
@@ -150,6 +172,7 @@
     if (cwFocus >= 0 && !items.length) { cwFocus = -1; mainGrid.setFocus(mainGrid.focus, true); }   // row switched off
     if (cwFocus >= items.length) cwFocus = items.length - 1;
     if (cwFocus >= 0) focusCW(cwFocus);
+    showCW();
   }
 
   // Scrolls so the focused card is the second one, but never past the last.
@@ -175,6 +198,7 @@
     for (var k = 0; k < cards.length; k++) cards[k].classList.toggle('focus', k === i);
     positionCW();
     scrollMain(0);
+    showCW();
   }
 
   function leaveCW() {
@@ -276,6 +300,10 @@
           { label: t('plexContinue'), value: p.continue ? t('on') : t('off'), action: function () {
             setPlex('continue', !p.continue); view.refresh();
           } },
+          { label: t('plexCwShow'), value: p.cwOnPlex ? t('plexOnPlex') : t('plexAlways'), action: function () {
+            setPlex('cwOnPlex', !p.cwOnPlex); view.refresh();
+          } },
+        ].concat(p.cwOnPlex && plexTile() < 0 ? [{ info: true, label: t('plexOnPlexHint') }] : []).concat([
           { label: t('plexRecent'), value: p.recent ? t('on') : t('off'), action: function () {
             setPlex('recent', !p.recent); view.refresh();
             if (!p.recent) refreshRows(function () { view.refresh(); });   // posters are fetched when switched on
@@ -292,7 +320,7 @@
             refreshRows(function () { view.refresh(); });
           } },
           { info: true, label: statusLine() }
-        ];
+        ]);
       }
     });
     loadAccount(function () { if (stack[stack.length - 1] === view) view.refresh(); });
@@ -418,7 +446,7 @@
       renderRecent();
     },
     // The focus went to the top buttons or the app grid.
-    leave: function () { leaveCW(); leaveRecent(); },
+    leave: function () { leaveCW(); leaveRecent(); setTimeout(showCW, 0); },
     // Home pressed again: back to a clean start.
     reset: function () {
       leaveCW();
@@ -429,9 +457,9 @@
     },
     // Remote keys on the home screen; true when Plex handled the key.
     key: function (e) {
-      var k = e.keyCode, hasCW = cwItems().length > 0;
+      var k = e.keyCode;
       if (topFocus >= 0) {
-        if (k === KEY.DOWN && hasCW) { focusCW(cwLast); return true; }
+        if (k === KEY.DOWN && cwShown()) { focusCW(cwLast); return true; }
         return false;
       }
       // Continue Watching: Left/Right along the row, Up to the buttons, Down to the apps.
@@ -439,7 +467,11 @@
         if (k === KEY.LEFT) focusCW(cwFocus - 1);
         else if (k === KEY.RIGHT) focusCW(cwFocus + 1);
         else if (k === KEY.UP) focusTop(0);
-        else if (k === KEY.DOWN) { leaveCW(); mainGrid.setFocus(Math.min(mainGrid.focus, COLS - 1), true); }
+        else if (k === KEY.DOWN) {
+          var back = plexCfg().cwOnPlex ? plexTile() : -1;   // back to the Plex tile it came from
+          leaveCW();
+          mainGrid.setFocus(back >= 0 ? back : Math.min(mainGrid.focus, COLS - 1), true);
+        }
         else if (k === KEY.BACK) focusCW(0);
         return true;
       }
@@ -463,7 +495,7 @@
         return true;
       }
       // Up from the first app row goes to Continue Watching.
-      if (k === KEY.UP && hasCW && mainGrid.focus < COLS) { focusCW(cwLast); return true; }
+      if (k === KEY.UP && cwShown() && mainGrid.focus < COLS) { focusCW(cwLast); return true; }
       return false;
     },
     // OK on a card; true when Plex handled it.
