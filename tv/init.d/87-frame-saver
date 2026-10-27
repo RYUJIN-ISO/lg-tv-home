@@ -1,0 +1,7 @@
+#!/bin/sh
+# Starts TV Home's screensaver guard (framesaver.py: keeps LG's screensaver
+# away while the picture frame runs, or shows the frame instead of it).
+# In the background, so Homebrew's startup isn't held up.
+F=/media/developer/apps/usr/palm/applications/com.iso.atvhome/framesaver.py
+[ -f "$F" ] || exit 0
+setsid sh -c "sleep 30; exec python3 $F" > /dev/null 2>&1 < /dev/null &

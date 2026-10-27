@@ -1,9 +1,16 @@
 // Picture frame decoder (Web Worker). Decodes a picture once and sends it
 // back as RGB strips, so the main thread only copies finished pixels to the
 // GPU and the motion on screen never waits for decoding.
-//   in:  {id, blob, maxTex, rows}
+//   in:  {id, blob, maxTex, rows, W, H, cw} (screen size, crop width: see texScale in app.js)
 //   out: {id, type: 'size', w, h} | {id, type: 'strip', y, h, data} |
 //        {id, type: 'done'} | {id, type: 'fail'}
+// Same as texScale in app.js: no more pixels than the screen can show.
+function texScale(nw, nh, W, H, cw, maxTex) {
+  var need = Math.max(W / nw, H / nh);
+  if (cw) need = Math.max(need, W / (cw * nw));
+  return Math.min(1, maxTex / Math.max(nw, nh), need);
+}
+
 self.onmessage = function (e) {
   var d = e.data;
   if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function') {
@@ -12,7 +19,7 @@ self.onmessage = function (e) {
   }
   createImageBitmap(d.blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' })
     .then(function (bm) {
-      var nw = bm.width, nh = bm.height, s = Math.min(1, d.maxTex / Math.max(nw, nh));
+      var nw = bm.width, nh = bm.height, s = texScale(nw, nh, d.W, d.H, d.cw, d.maxTex);
       var w = Math.floor(nw * s), h = Math.floor(nh * s);
       self.postMessage({ id: d.id, type: 'size', w: w, h: h });
       var c = new OffscreenCanvas(w, d.rows);
