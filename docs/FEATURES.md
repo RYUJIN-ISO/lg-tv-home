@@ -141,6 +141,35 @@ LG's screensaver stays away while it runs. LG's own auto power off (if it is
 on in the TV settings) still switches the TV off after a few hours without
 input. A remote button can also start it (Remote Buttons, **Picture Frame**).
 
+## Plex
+
+For anyone with a Plex account that can use a Plex server (their own, or
+one someone shared with them). The Plex app from the LG store should be
+installed too; TV Home falls back to it.
+
+- **Sign in:** Settings, **Plex**, **Account** shows a 4-letter code. Open
+  **plex.tv/link** on a phone or computer and enter it; the rows appear a
+  few seconds later. Each TV signs in on its own and shows up as "TV Home"
+  in your Plex account's devices. Nobody needs to copy a password or token.
+- **Continue Watching** sits above the apps: what you are in the middle of,
+  with a progress bar and the time left. **Up** from the first app row
+  reaches it, **Left** and **Right** move along it. **OK** starts it right
+  where you stopped.
+- **New in your libraries** (off by default) shows unwatched new titles
+  below the apps; **OK** opens the title's page in Plex.
+- The **Plex** app tile opens Plex at once: TV Home keeps Plex started in
+  the background (about 115 MB), so it doesn't need its usual 10 seconds.
+
+Settings, **Plex**:
+
+| Setting | What it does |
+|---|---|
+| **Account** | Sign in, or see who is signed in and sign out |
+| **Continue Watching** / **New in your libraries** | Show or hide each row |
+| **Keep Plex ready** | Keeps Plex started in the background (on). Off frees the memory; Plex then starts normally when opened |
+| **Libraries** | Which libraries the rows show (all movie and show libraries by default) |
+| **Refresh now** | Fetches the rows now (otherwise they refresh by themselves when TV Home appears and they are older than 15 minutes) |
+
 ## Remote buttons
 
 Settings, **Remote Buttons** shows a drawing of the Magic Remote. Move over it

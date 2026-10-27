@@ -212,6 +212,71 @@ on screen and closes all user apps except the current and the previous one.
 System apps, inputs, the launcher and Homebrew are never touched. Only one
 copy runs at a time (`/tmp/app-trim.pid`).
 
+## Plex
+
+All of it is in `apps/tv-home/plex.js`, `plex.css`, `plex.py`, `devtools.py`
+and `apps/plex-link/`. `app.js` only calls `window.Plex` at a few places
+(each guarded), so without `plex.js` TV Home works as before.
+
+**Signing in.** `plex.py signin` asks plex.tv for a PIN (`POST
+/api/v2/pins`), the TV shows its code, and `plex.py signin-check` polls
+`/api/v2/pins/<id>` every 3 seconds until the person entered the code at
+plex.tv/link; then the PIN carries a token for this TV. Each TV identifies
+itself with its own random client id (made once, in
+`/var/lib/webosbrew/atvhome/plex-client-id`), so every TV is its own device
+under the account, named "TV Home" plus the id's last 4 characters, and can be
+removed there. Next to the id the file keeps hashes of the TV's LAN and Wi-Fi
+addresses (never sent anywhere): when the data folder was copied from another
+TV, none matches, so the id is replaced and the copied sign-in dropped.
+Switching between LAN and Wi-Fi changes nothing. Signing out forgets the id
+too; the next sign-in is a new device. Plex
+keys from the server (items, libraries) must be numbers; anything else is
+skipped, as they end up in file names and in TV Home's root shell commands. The token is in
+`/var/lib/webosbrew/atvhome/plex-token` (root only, mode 600); it never
+reaches the web page or a picture URL.
+
+**Finding the server.** `plex.tv/api/v2/resources` lists the servers the
+account can use: its own first, else one shared with it, direct connections
+before relays. The working address, its server token, id and name are
+cached for 6 hours in `plex-server.json` (mode 600) and looked up again when
+the address stops answering. A shared server answers with the signed-in
+person's own Continue Watching and watch state.
+
+**Rows.** `plex.py` reads `/hubs/continueWatching` (and the libraries'
+`recentlyAdded` when that row is on), saves the pictures scaled by the
+server into the app's `cache/plex/`, and writes `cache/plex/rows.json`. The
+page shows that file right away and asks `plex.py get`, which refreshes in
+the background when the rows are older than 15 minutes.
+
+**Opening Plex at a title.** The store app (`cdp-30`) is a small encrypted
+loader for the Plex web app at `app.plex.tv/tv-v5-webos/`, and that web app
+ignores launch parameters, so deep links can't work. Instead:
+
+1. `apps/plex-link` (`com.iso.plexlink`, hidden from the app list) is a
+   developer mode app that only loads the same Plex web app. It shares the
+   Plex sign-in with the store app (same origin, same storage).
+2. Developer mode apps can be inspected over the TV's DevTools port
+   (`127.0.0.1:9998`, WAM's remote debugging); store apps can't.
+3. `plex.py play <id>` / `open <id>` launches plexlink, waits until Plex has
+   drawn its screen and is signed in, then calls Plex's own
+   `appController.processDeepLink` with the item (and its resume offset)
+   through `devtools.py`, a small standard library DevTools client. The
+   result of the last call is in `/var/lib/webosbrew/atvhome/plex-play.log`.
+4. If any of this fails, Plex simply stays on its home screen; if plexlink
+   is missing, the store app opens.
+
+Plex's code is minified and changes with Plex updates, so the script finds
+the module that exports Plex's service container by its source text, not
+by its number. It must not touch that module before Plex has drawn its
+first screen: loading it early runs Plex's start-up out of order and leaves
+a black screen.
+
+**Keeping Plex ready.** A few seconds after TV Home is shown (also at power
+on, when the TV opens the home app), `plex.py preload` launches plexlink
+with the app manager's `"preload": "full"` mode, which starts it hidden, but
+only when someone is signed in and it isn't already running. Background apps
+survive the TV's standby. App trimming never closes `com.iso.*` apps.
+
 ## Things that are easy to get wrong
 
 - `luna-send` over SSH prints nothing when its stdin is the SSH channel. The

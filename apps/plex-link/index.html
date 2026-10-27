@@ -1,0 +1,10 @@
+<!doctype html>
+<!-- Opens the same Plex web app as the store app (cdp-30), whose own loader is
+     encrypted and ignores launch params. As a developer app this one can be
+     inspected over the TV's DevTools port, which is how TV Home's plex.py
+     tells Plex what to play (Continue Watching). Same origin, so same login.
+     Hidden from the app list (visible: false). -->
+<html><head><meta charset="utf-8"><title>Plex</title>
+<style>html, body { background: #000; margin: 0; }</style>
+<script>location.replace('https://app.plex.tv/tv-v5-webos/');</script>
+</head><body></body></html>
