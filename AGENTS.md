@@ -7,7 +7,7 @@ words, run the installer and check the result.
 
 ## 1. Ground rules
 
-- **The TV stands in someone's living room.** Before anything that changes the
+- **The TV stands in someone's room.** Before anything that changes the
   screen (launching apps, `tools/bench.sh`), check what is on:
   `luna-send -n 1 luna://com.webos.applicationManager/getForegroundAppInfo '{}'`,
   and look at `/var/log/messages` for `BUTTON_CLICK` (someone is holding the
