@@ -18,6 +18,7 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 | **Settings** (gear) | Language, wallpaper, picture frame, remote buttons, Hue, App Store, clock |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
+| **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Off by default: Settings, **AV receiver button**. |
 
 **Help.** Screens that do something a normal TV doesn't have a small **i**
 (next to the title; **Up** from the top
