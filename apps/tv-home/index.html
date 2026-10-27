@@ -238,6 +238,9 @@
   .picker.side .title { left: 700px; right: auto; width: 1048px; }
   body.editing .picker .tile .card { outline: none; }
   .picker .tile.picked .badge { display: flex; }
+  /* ★ on favourite pictures (top left, the ✓ badge is top right) */
+  .picker .tile .fav { position: absolute; top: 8px; left: 12px; z-index: 4; font-size: 34px; color: #ffd60a;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8); pointer-events: none; }
   .picker .tile.pickable:not(.picked) .card { opacity: .35; }
   .picker .tile.pickable:not(.picked).focus .card { opacity: .7; }
   .picker.remove .tile .badge { background: #ff453a; }

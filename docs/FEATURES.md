@@ -55,13 +55,16 @@ library: the same folders, the same crops, the same screens.
 
 - **Folders** as cards with a mosaic of their pictures: **All pictures**, your
   folders, **New Folder**, **From USB** (and **None** for the wallpaper).
+  **Favourites** (right after All pictures) is built in: it holds the
+  pictures marked ★, can be the frame's pictures, and can't be renamed or
+  deleted.
   **OK** opens a folder. **Hold OK** on a folder: **Choose Pictures** (OK puts
   a picture in or takes it out), **Rename**, **Delete Folder** (the pictures
   stay). A picture can be in several folders.
 - **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
-- **Hold OK on a picture**: **Crop**, which **folders** it is in, and
+- **Hold OK on a picture**: **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).
 - **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
