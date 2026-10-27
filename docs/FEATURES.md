@@ -62,14 +62,15 @@ library: the same folders, the same crops, the same screens.
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
 - **Hold OK on a picture**: **Crop** and which **folders** it is in.
-- **Crop**: a 16:9 frame over the whole picture; the arrows move it (or drag
-  it with the Magic Remote, the wheel resizes). **OK** goes to the bar:
+- **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
-  **Reset**, **Save**. The crop is remembered, never cut into the file, and
+  **Reset**. **Up** moves to the frame: the arrows move it (or drag it with
+  the Magic Remote, the wheel resizes), **OK** saves and goes back to the bar,
+  **Back** goes back without saving. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
-  screen; **Save** adds the whole picture (scaled down to about 18 megapixels
+  screen; **OK** in the frame adds the whole picture (scaled down to about 18 megapixels
   when it is bigger) with its crop and a preview. From Wallpaper it also
   becomes the wallpaper.
 

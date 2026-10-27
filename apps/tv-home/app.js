@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.26.1';
+var VERSION = '0.27.0';
 var COLS = 5;
 var ROW_H = 264;
 var GRID_TOP = 640;
@@ -154,8 +154,8 @@ var STRINGS = {
     moveHint: '{arrows} move · {ok} drop',
     loadFailed: 'Could not load apps. Press OK to retry.',
     fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
-    cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: '{arrows} move · {ok} bar',
-    cropKeysBar: '{up} back to the frame', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
+    cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: '{arrows} move · {ok} save · {back} cancel',
+    cropKeysBar: '{up} crop · {back} close', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
     appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
     libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} crop, folders',
@@ -213,8 +213,8 @@ var STRINGS = {
     moveHint: '{arrows} verschieben · {ok} ablegen',
     loadFailed: 'Apps konnten nicht geladen werden. OK drücken zum Wiederholen.',
     fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
-    cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: '{arrows} verschieben · {ok} Leiste',
-    cropKeysBar: '{up} zurück zum Rahmen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
+    cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: '{arrows} verschieben · {ok} speichern · {back} abbrechen',
+    cropKeysBar: '{up} zuschneiden · {back} schließen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
     appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
     libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} Ausschnitt, Ordner',
@@ -1071,8 +1071,8 @@ var INFO = {
     { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
   ] },
   crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
-    { en: '{arrows} move · {wheel} size', de: '{arrows} verschieben · {wheel} Größe' },
-    { en: '{ok} bar: − + Reset Save · {up} back', de: '{ok} Leiste: − + Zurücksetzen Speichern · {up} zurück' },
+    { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
+    { en: '{ok} save · {back} cancel', de: '{ok} speichern · {back} abbrechen' },
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
     { en: 'The file is never cut', de: 'Die Datei wird nie beschnitten' }
   ] },
@@ -1733,11 +1733,11 @@ function importPicture(pic, img, rect) {
   })(0);
 }
 
-// Crop screen: a 16:9 frame over the whole picture. Arrows move it; OK goes
-// to the bar (Smaller, Larger, sharpness, Reset, Save); Up/Back returns to
-// the frame. The label says how sharp the crop is on the 4K screen.
+// Crop screen: a 16:9 frame over the whole picture. It starts in the bar
+// (Smaller, Larger, sharpness, Reset, i); Up moves to the frame, where the
+// arrows move it, OK saves and Back cancels (both back to the bar). The label says how sharp the crop is on the 4K screen.
 // pic: {url, rect?, onSave(rect or null)} for a picture in the library, or
-// {url, name, mode} from USB (Save imports it).
+// {url, name, mode} from USB (OK in the frame imports it).
 function cropPicture(pic) {
   var probe = new Image();
   probe.onload = function () { openCrop(pic, probe); };
@@ -1751,11 +1751,10 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
-    '<div class="pill save" data-a="save"></div><div class="pill i" data-a="info">i</div></div>' +
+    '<div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
   var pills = [].slice.call(el.querySelectorAll('.cropbar .pill'));
-  var SAVE = pills.indexOf(el.querySelector('.pill.save'));
   var AREA_W = 1760, AREA_H = 880;
   var k = Math.min(AREA_W / W, AREA_H / H);          // picture px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
@@ -1765,7 +1764,10 @@ function openCrop(pic, probe) {
   function centre() { var fw = Math.min(W, H * 16 / 9); f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 }; }
   centre();
   if (pic.rect) f = { w: pic.rect.w * W, x: pic.rect.x * W, y: pic.rect.y * H };
-  var focus = -1;                                     // -1 = frame, else pill index
+  // Starts in the bar. Up: the frame (arrows move it); OK there saves and
+  // goes back to the bar, Back goes back without saving.
+  var focus = 0, barFocus = 0;                        // focus -1 = frame, else pill index
+  var saved = { w: f.w, x: f.x, y: f.y };
 
   function clamp() {
     f.w = Math.max(Math.min(W, H * 16 / 9, f.w), Math.min(W, 480));
@@ -1783,7 +1785,6 @@ function openCrop(pic, probe) {
     var px = f.w * keep;
     pills[2].textContent = px >= 3840 * 0.99 ? '4K' : t('upscaled', Math.round((3840 / px - 1) * 100));
     pills[3].textContent = t('wholePicture');
-    pills[SAVE].textContent = t('save');
     el.querySelector('.crophint').innerHTML = hintHTML(t('cropHint', W + '×' + H) + '  ·  ' +
       (focus < 0 ? t('cropKeysFrame') : t('cropKeysBar')));
   }
@@ -1795,13 +1796,22 @@ function openCrop(pic, probe) {
     paint();
   }
   function rect() { return { x: f.x / W, y: f.y / H, w: f.w / W, r: W / H }; }
+  function toBar() { focus = barFocus; paint(); }
+  // Library picture: store the crop. USB picture: import it with this crop.
+  function save() {
+    if (!pic.onSave) { importPicture(pic, img, rect()); return; }
+    saved = { w: f.w, x: f.x, y: f.y };
+    pic.onSave(rect());
+    toBar();
+  }
   function act(a) {
-    if (a === 'minus') resize(0.9);
-    else if (a === 'plus') resize(1 / 0.9);
-    else if (a === 'reset') {
-      if (pic.onSave) { pic.onSave(null); pop(); } else { centre(); paint(); }
-    } else if (a === 'save') {
-      if (pic.onSave) { pic.onSave(rect()); pop(); } else importPicture(pic, img, rect());
+    if (a === 'minus' || a === 'plus') {
+      resize(a === 'minus' ? 0.9 : 1 / 0.9);
+      if (pic.onSave) { saved = { w: f.w, x: f.x, y: f.y }; pic.onSave(rect()); }
+    } else if (a === 'reset') {
+      centre(); paint();
+      saved = { w: f.w, x: f.x, y: f.y };
+      if (pic.onSave) pic.onSave(null);
     } else if (a === 'info') toggleLegend('crop', true);
   }
 
@@ -1811,27 +1821,40 @@ function openCrop(pic, probe) {
     if (focus < 0) {
       if (c === KEY.LEFT) f.x -= step; else if (c === KEY.RIGHT) f.x += step;
       else if (c === KEY.UP) f.y -= step; else if (c === KEY.DOWN) f.y += step;
-      else if (c === KEY.BACK) { pop(); return; }
+      else if (c === KEY.BACK) { f = { w: saved.w, x: saved.x, y: saved.y }; toBar(); return; }
     } else {
       if (c === KEY.LEFT) focus = (focus + pills.length - 1) % pills.length;
       else if (c === KEY.RIGHT) focus = (focus + 1) % pills.length;
-      else if (c === KEY.UP || c === KEY.BACK) focus = -1;
+      else if (c === KEY.UP) { barFocus = focus; focus = -1; }
+      else if (c === KEY.BACK) { pop(); return; }
     }
     paint();
   };
   view.ok = function () {
-    if (focus < 0) { focus = SAVE; paint(); return; }
-    if (once()) act(pills[focus].getAttribute('data-a'));
+    if (!once()) return;
+    if (focus < 0) save(); else act(pills[focus].getAttribute('data-a'));
   };
   // Magic Remote: drag the frame, wheel resizes, click the pills.
   var drag = null;
-  frameEl.addEventListener('mousedown', function (e) { drag = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y }; focus = -1; paint(); });
+  frameEl.addEventListener('mousedown', function (e) {
+    drag = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y };
+    if (focus >= 0) barFocus = focus;
+    focus = -1; paint();
+  });
   el.addEventListener('mousemove', function (e) {
     if (!drag) return;
     f.x = drag.fx + (e.clientX - drag.x) / k; f.y = drag.fy + (e.clientY - drag.y) / k; paint();
   });
-  el.addEventListener('mouseup', function () { drag = null; });
-  el.addEventListener('wheel', function (e) { e.stopPropagation(); resize(e.deltaY > 0 ? 0.92 : 1 / 0.92); });
+  // Releasing a drag saves, like OK (a library picture; a USB one waits for OK).
+  el.addEventListener('mouseup', function () {
+    if (drag && pic.onSave && once()) save();
+    drag = null;
+  });
+  el.addEventListener('wheel', function (e) {
+    e.stopPropagation();
+    if (focus >= 0) { barFocus = focus; focus = -1; }
+    resize(e.deltaY > 0 ? 0.92 : 1 / 0.92);
+  });
   pills.forEach(function (p, i) {
     p.addEventListener('mouseenter', function () { focus = i; paint(); });
     p.addEventListener('click', function () { focus = i; paint(); if (once()) act(p.getAttribute('data-a')); });
