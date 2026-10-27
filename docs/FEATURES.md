@@ -61,7 +61,9 @@ library: the same folders, the same crops, the same screens.
 - **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
-- **Hold OK on a picture**: **Crop** and which **folders** it is in.
+- **Hold OK on a picture**: **Crop**, which **folders** it is in, and
+  **Delete Picture** (asks first; removes it from the TV and all folders;
+  not offered for the pictures that come with the app).
 - **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
   **Reset**. **Up** moves to the frame: the arrows move it (or drag it with

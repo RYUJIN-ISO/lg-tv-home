@@ -100,6 +100,19 @@ elif cmd == "replace":
     os.remove(tmp)
     os.replace(dst + ".new", dst)
     print("ok")
+elif cmd == "delete":
+    # delete <wallpaper file name>: the picture, its preview and any old
+    # original (wallpapers/originals/<same base name>.*) go.
+    name = os.path.basename(sys.argv[2])
+    dst = os.path.join(WALLS, name)
+    if not os.path.isfile(dst):
+        sys.exit("no such picture: " + name)
+    os.remove(dst)
+    for extra in [os.path.join(WALLS, "thumbs", name)] + \
+            glob.glob(os.path.join(WALLS, "originals", glob.escape(os.path.splitext(name)[0]) + ".*")):
+        if os.path.isfile(extra):
+            os.remove(extra)
+    print("ok")
 elif cmd == "thumb":
     # thumb <name> <b64>: the 640x360 preview of an imported picture
     d = os.path.join(WALLS, "thumbs")
