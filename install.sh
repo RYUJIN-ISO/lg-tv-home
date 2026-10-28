@@ -324,9 +324,21 @@ fi
 if [ "$DEBLOAT" = y ]; then
     say "background services"
     b() { [ "$1" = y ] && echo 0 || echo 1; }
+    # The groups asked about follow the answers; everything else in an
+    # existing debloat.conf (BLOCK_TRACKING, BLOCK_MISC, lines added by hand)
+    # stays as it is. A new one blocks tracking and misc as well.
     conf=$(mktemp)
-    printf 'BLOCK_TRACKING=1\nBLOCK_PRELOAD=%s\nBLOCK_VOICE=%s\nBLOCK_SMARTHOME=%s\nBLOCK_MISC=1\n' \
-        "$( [ "$APP_TRIM" = y ] && echo 1 || echo 0 )" "$(b "$KEEP_VOICE")" "$(b "$KEEP_SMARTHOME")" > "$conf"
+    tv "cat $WB/debloat.conf 2>/dev/null" | python3 -c "
+import sys
+asked = {'BLOCK_PRELOAD': sys.argv[1], 'BLOCK_VOICE': sys.argv[2], 'BLOCK_SMARTHOME': sys.argv[3]}
+lines = sys.stdin.read().splitlines() or ['BLOCK_TRACKING=1', 'BLOCK_PRELOAD=0', 'BLOCK_VOICE=0', 'BLOCK_SMARTHOME=0', 'BLOCK_MISC=1']
+out = []
+for l in lines:
+    k = l.split('=', 1)[0].strip()
+    if k in asked: l = k + '=' + asked.pop(k)
+    out.append(l)
+out += [k + '=' + v for k, v in asked.items()]
+print('\\n'.join(out))" "$( [ "$APP_TRIM" = y ] && echo 1 || echo 0 )" "$(b "$KEEP_VOICE")" "$(b "$KEEP_SMARTHOME")" > "$conf"
     put "$conf" "$WB/debloat.conf"
     rm -f "$conf"
     put tv/debloat.sh "$WB/debloat.sh" 755
