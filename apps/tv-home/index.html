@@ -53,13 +53,13 @@
     transition: transform 200ms cubic-bezier(.2,.8,.2,1); transform-origin: 50% 50%;
     will-change: transform;
   }
-  .card > img {
+  .card > img, .card > canvas {
     position: absolute; left: 50%; top: 50%; width: 136px; height: 136px;
     transform: translate(-50%, -50%); object-fit: contain;
   }
-  .card.bleed > img { width: var(--tile-h); height: var(--tile-h); }
+  .card.bleed > img, .card.bleed > canvas { width: var(--tile-h); height: var(--tile-h); }
   /* A sharp logo from the app's splash screen (makeLogos in app.js). */
-  .card.haslogo > img { width: 66%; height: 40%; }
+  .card.haslogo > img, .card.haslogo > canvas { width: 66%; height: 40%; }
   .card .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18)); }
   .card .gloss {
     position: absolute; inset: 0; opacity: 0; transition: opacity 200ms; will-change: opacity;
@@ -100,8 +100,8 @@
     grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 12px;
   }
   .mini { position: relative; border-radius: 10px; overflow: hidden; background: var(--c, #2a2a2e); }
-  .mini img { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); object-fit: contain; }
-  .mini.bleed img { width: 100%; height: 100%; object-fit: cover; }
+  .mini img, .mini canvas { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); object-fit: contain; }
+  .mini.bleed img, .mini.bleed canvas { width: 100%; height: 100%; object-fit: cover; }
 
   /* Top-left buttons: three squares as wide as one card (3 x 96 + 2 x 16). */
   #topbar { position: absolute; top: 40px; left: 72px; display: flex; gap: 16px; z-index: 3; }
@@ -138,7 +138,7 @@
   body.glass .card.app .shade { display: none; }
 
   /* Full-card tile art (tiles/<appId>.png). */
-  .card.art > img, .mini.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
+  .card.art > img, .card.art > canvas, .mini.art img, .mini.art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
 
   /* Edit mode: every movable tile gets a dashed outline. */
   body.editing .tile .card:not(.settings) { outline: 3px dashed rgba(255,255,255,.45); outline-offset: 6px; }
