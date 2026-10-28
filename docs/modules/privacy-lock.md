@@ -2,13 +2,13 @@
 
 Blocks LG's ad, tracking and ACR (automatic content recognition) servers on
 the TV itself. LG's app store shares servers with them, so the store is
-locked too; an **App Store** switch opens it for 10 minutes when apps need
+locked too; an **App Store** switch opens it, until you leave the Store, when apps need
 updating.
 
 | | |
 |---|---|
 | Installer | **Privacy lock** (`ADBLOCK`) |
-| Switch | none: it is on while installed. Settings, **App Store** opens the store for 10 minutes |
+| Switch | none: it is on while installed. Settings, **App Store** opens the store until you leave it (10 minutes at most) |
 | On the TV | the list `/var/lib/webosbrew/lg-ad-block-hosts.txt`, boot hook `init.d/60-lg-ad-block`, `/var/lib/webosbrew/store-mode.sh`; without TV Home also the small **App-Updates** app (`com.iso.appupdates`) |
 | Removed by | unticking it in `install.sh`: the list's lines leave `/etc/hosts` at once, the files and the hook go |
 
@@ -43,11 +43,14 @@ otherwise reach blocked hosts over IPv6 (AAAA records).
 Settings, **App Store** (and the App-Updates app on TVs without TV Home):
 
 1. `store-mode.sh on` copies `/etc/hosts`, strips it back to the stock part
-   (everything above Homebrew's marker line), and starts a 10 minute timer.
+   (everything above Homebrew's marker line), and starts a watcher and a
+   10 minute timer.
    It also lifts the [tracking services](tracking-services.md) block, because
    the store and updates may need LG's services.
 2. LG's store opens.
-3. `store-mode.sh off`, or the timer, restores both. So does a reboot.
+3. When you leave the store (another app on screen for about 6 seconds), the
+   watcher runs `store-mode.sh off`, which restores both. So do the timer, a
+   2nd press of App-Updates, and a reboot.
 
 `store-mode.sh status` prints `blocked` or `open <seconds left>`.
 

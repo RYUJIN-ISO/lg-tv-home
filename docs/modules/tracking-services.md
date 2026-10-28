@@ -6,7 +6,7 @@ Casting (AirPlay, Chromecast, screen sharing) is never touched.
 | | |
 |---|---|
 | Installer | **Stop LG's tracking and profiling background services** (`DEBLOAT`), plus two questions: voice search (`KEEP_VOICE`), ThinQ / Google Home / Alexa (`KEEP_SMARTHOME`) |
-| Switch | none: on while installed. The App Store switch lifts it for 10 minutes |
+| Switch | none: on while installed. The App Store switch lifts it until you leave the Store |
 | On the TV | `/var/lib/webosbrew/debloat.sh`, its settings `debloat.conf`, `debloat-stub`; boot hook `init.d/80-debloat` |
 | Removed by | unticking it in `install.sh` (`debloat.sh lift`, files and hook go; a reboot restores the rest) |
 

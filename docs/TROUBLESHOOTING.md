@@ -30,7 +30,7 @@ and please report your model.
 ## An app can't update, or LG's store doesn't open
 
 That's the [privacy lock](modules/privacy-lock.md). Settings, **App Store**
-opens it for 10 minutes. With a Pi-hole you don't need the lock at all.
+opens it until you leave the Store (10 minutes at most). With a Pi-hole you don't need the lock at all.
 
 ## A logo looks wrong
 
