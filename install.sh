@@ -2,9 +2,11 @@
 # lg-tv-home installer. Run it on a Linux or macOS computer that can SSH into
 # a rooted LG webOS TV as root (Homebrew Channel plus an SSH key, see
 # docs/PREREQUISITES.md).
-#   ./install.sh          ask the setup questions, show a summary, then install
-#   ./install.sh --yes    reuse the answers saved in setup.conf
-# Running it again is safe: every step installs or updates in place.
+#   ./install.sh          choose the modules, answer a few questions, see a
+#                         summary, then install
+#   ./install.sh --yes    reuse the choices saved in setup.conf
+# Running it again is safe: every step installs or updates in place, and a
+# module that is no longer chosen is taken off the TV (its settings stay).
 set -e
 cd "$(dirname "$0")"
 . lib/common.sh
@@ -12,6 +14,81 @@ cd "$(dirname "$0")"
 CONF=setup.conf
 REUSE=0
 [ "$1" = "--yes" ] && REUSE=1
+
+# ------------------------------------------------------------ modules
+
+# Everything that can be chosen, in the order of the checklist. The ones
+# after LAUNCHER up to PRINTS are parts of TV Home and need it.
+MODULES="LAUNCHER FRAME PLEX LIGHT AVR REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
+PART_OF_HOME="FRAME PLEX LIGHT AVR REMOTE PRINTS"
+
+label() {
+    case $1 in
+        LAUNCHER)   echo "TV Home: the Apple TV style home screen (wallpapers, folders, organize apps)" ;;
+        FRAME)      echo "  Picture Frame: wallpapers full screen, optionally instead of LG's screensaver" ;;
+        PLEX)       echo "  Plex: Continue Watching above the apps (each person signs in on the TV)" ;;
+        LIGHT)      echo "  Philips Hue: Light button (cinema scene) and rooms in Settings (needs a Hue bridge)" ;;
+        AVR)        echo "  AV receiver button: sound to the receiver on HDMI eARC with one press" ;;
+        REMOTE)     echo "  Remote buttons: give Netflix, Prime, Mic, colour keys ... any app or action" ;;
+        PRINTS)     echo "  Museum prints: 16 public-domain paintings as wallpapers (about 49 MB)" ;;
+        ADBLOCK)    echo "Privacy lock: block LG's ad, tracking and ACR servers on the TV (locks the LG Store;" ;;
+        DEBLOAT)    echo "Stop LG's tracking and profiling background services" ;;
+        APP_TRIM)   echo "Keep only the current and previous app in memory (faster)" ;;
+        TELNET_OFF) echo "Turn off the passwordless root telnet that rooting leaves open" ;;
+    esac
+}
+# Second lines for the checklist (where one line isn't enough).
+label2() {
+    case $1 in
+        ADBLOCK) echo "an App Store switch opens it for 10 minutes). Skip it with a Pi-hole or similar." ;;
+    esac
+}
+
+preset() {
+    local on=$1 m
+    for m in $MODULES; do printf -v "$m" n; done
+    for m in $on; do printf -v "$m" y; done
+}
+PRESET_RECOMMENDED="LAUNCHER FRAME PLEX REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
+PRESET_EVERYTHING=$MODULES
+PRESET_PIHOLE="LAUNCHER FRAME PLEX REMOTE PRINTS DEBLOAT APP_TRIM TELNET_OFF"
+PRESET_MINIMAL="LAUNCHER TELNET_OFF"
+
+part_of_home() { case " $PART_OF_HOME " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# The checklist: numbers switch items, letters pick a preset, Enter is done.
+checklist() {
+    local i m a mark
+    while :; do
+        echo
+        i=0
+        for m in $MODULES; do
+            i=$((i + 1))
+            mark="[ ]"
+            [ "${!m}" = y ] && mark="[x]"
+            part_of_home "$m" && [ "$LAUNCHER" != y ] && mark="[-]"
+            printf '  %2d %s %s\n' "$i" "$mark" "$(label "$m")"
+            [ -n "$(label2 "$m")" ] && printf '         %s\n' "$(label2 "$m")"
+        done
+        echo
+        echo "  Presets: r) recommended   e) everything   p) Pi-hole user (all but the privacy lock)"
+        echo "           m) minimal (TV Home only)"
+        read -rp "  Numbers to switch (e.g. 4 5), a preset letter, or Enter when done: " a
+        [ -z "$a" ] && return
+        case "$a" in
+            r) preset "$PRESET_RECOMMENDED"; continue ;;
+            e) preset "$PRESET_EVERYTHING"; continue ;;
+            p) preset "$PRESET_PIHOLE"; continue ;;
+            m) preset "$PRESET_MINIMAL"; continue ;;
+        esac
+        for i in $a; do
+            m=$(echo $MODULES | cut -d' ' -f"$i" 2>/dev/null) || m=""
+            case "$i" in *[!0-9]*) m="" ;; esac
+            if [ -z "$m" ]; then echo "  ($i is not on the list)"; continue; fi
+            if [ "${!m}" = y ]; then printf -v "$m" n; else printf -v "$m" y; fi
+        done
+    done
+}
 
 # ------------------------------------------------------------ questions
 
@@ -29,7 +106,7 @@ ask() { # ask VAR "question" default yn|text
 
 [ -f "$CONF" ] && . "./$CONF"
 if [ -f "$CONF" ] && [ "$REUSE" = 0 ]; then
-    read -rp "Found your answers from last time in $CONF. Use them without asking again? [Y/n] " a
+    read -rp "Found your choices from last time in $CONF. Use them without asking again? [Y/n] " a
     case "${a:-y}" in [Yy]*) REUSE=1 ;; esac
 fi
 
@@ -37,10 +114,10 @@ cat <<'EOF'
 
   lg-tv-home setup
   ----------------
-  Every question has a default in [brackets]; Enter accepts it.
-  Nothing on the TV changes until you confirm the summary at the end.
-
+  Choose the modules, answer a few questions (Enter takes the default in
+  [brackets]). Nothing on the TV changes until you confirm the summary.
 EOF
+echo
 ask TV "SSH host of the TV (an alias from ~/.ssh/config, or root@<ip>):" "lgtv" text
 say "checking the TV"
 tv true || die "cannot SSH into '$TV' as root (see docs/PREREQUISITES.md)"
@@ -50,68 +127,97 @@ MODEL=$(luna luna://com.webos.service.tv.systemproperty/getSystemInfo '{"keys":[
     python3 -c "import json,sys; print(json.load(sys.stdin).get('modelName','?'))" 2>/dev/null || echo "?")
 WEBOS=$(tv "nyx-cmd OSInfo query webos_release" 2>/dev/null || echo "?")
 say "TV: $MODEL, webOS $WEBOS (tested on an LG OLED 2024 with webOS 10.3)"
+ON_TV=$(installed_modules)
+
+# Choices saved before modules existed: Picture Frame and Plex were always
+# part of TV Home, the AV receiver button was a setting (keep it where it is on).
+if [ -f "$CONF" ]; then
+    : "${FRAME:=$LAUNCHER}" "${PLEX:=$LAUNCHER}"
+    if [ -z "$AVR" ]; then
+        AVR=n
+        tv "grep -q '\"avrButton\": *true' $DATA/config.json" 2>/dev/null && AVR=y
+    fi
+else
+    preset "$PRESET_RECOMMENDED"
+fi
+
+if [ "$REUSE" = 0 ]; then
+    echo
+    echo "1) Modules"
+    checklist
+fi
+if [ "$LAUNCHER" != y ]; then for m in $PART_OF_HOME; do printf -v "$m" n; done; fi
 
 echo
-echo "1) Home screen"
-ask LAUNCHER "Install TV Home, the Apple TV style home screen?" y yn
+echo "2) Details"
 if [ "$LAUNCHER" = y ]; then
-    ask SET_HOME "Make it the TV's home screen (Home button, after power on)? LG's stays installed." y yn
+    ask SET_HOME "Make TV Home the TV's home screen (Home button, after power on)? LG's stays installed." y yn
     ask LANGUAGE "Language, en or de (can be changed later in its Settings):" en text
-    echo "   Philips Hue: rooms and lights in TV Home's Settings, plus a Light button that"
-    echo "   switches between a cinema scene and the lighting from before (or a chosen scene)."
-    ask LIGHT "Add Philips Hue control? (needs a Hue bridge on this network)" n yn
-    echo "   Remote buttons: give the remote's app buttons (Netflix, Prime, ...), Mic, Input,"
-    echo "   colour and number keys any app or action, in TV Home's Settings."
-    ask REMOTE "Install the remote button mapper?" y yn
-    echo "   Museum prints: 16 public-domain paintings (Monet, Turner, Cross, Twachtman) as"
-    echo "   wallpapers and for the picture frame, uncropped, about 49 MB on the TV."
-    ask PRINTS "Add the museum prints?" y yn
 fi
-
-echo
-echo "2) Privacy"
-ask ADBLOCK "Block LG's ad, tracking and ACR domains on the TV?" y yn
-if [ "$ADBLOCK" = y ] && [ "$LAUNCHER" != y ]; then
-    echo "   The block also locks the LG Content Store. TV Home has an App Store switch in its"
-    echo "   Settings for that; without TV Home, a small App-Updates app does the same."
-    ask APP_UPDATES "Install the App-Updates app?" y yn
-fi
-ask DEBLOAT "Stop LG's tracking and profiling background services (viewing data, usage logs, promos)?" y yn
 if [ "$DEBLOAT" = y ]; then
     ask KEEP_VOICE "Does anyone use voice search with the mic button? (y keeps it)" n yn
     ask KEEP_SMARTHOME "Do you use the LG ThinQ app, Google Home or Alexa with the TV? (y keeps it)" n yn
 fi
+# Without TV Home, the small App-Updates app is the way to open the locked store.
+APP_UPDATES=n
+[ "$ADBLOCK" = y ] && [ "$LAUNCHER" != y ] && APP_UPDATES=y
 
-echo
-echo "3) Speed and security"
-ask APP_TRIM "Keep only the current and the previous app in memory instead of LG preloading 5 or 6?" y yn
-ask TELNET_OFF "Turn off the passwordless root telnet that rooting leaves open? (SSH keeps working)" y yn
-
-# Save the answers. No secrets in here; the Hue key only lives on the TV.
+# Save the choices. No secrets in here; the Hue key only lives on the TV.
 cat > "$CONF" <<EOF
 TV=$TV
 LAUNCHER=$LAUNCHER
-SET_HOME=${SET_HOME:-n}
-LANGUAGE=${LANGUAGE:-en}
-LIGHT=${LIGHT:-n}
-REMOTE=${REMOTE:-n}
-PRINTS=${PRINTS:-n}
+FRAME=$FRAME
+PLEX=$PLEX
+LIGHT=$LIGHT
+AVR=$AVR
+REMOTE=$REMOTE
+PRINTS=$PRINTS
 ADBLOCK=$ADBLOCK
-APP_UPDATES=${APP_UPDATES:-n}
 DEBLOAT=$DEBLOAT
-KEEP_VOICE=${KEEP_VOICE:-y}
-KEEP_SMARTHOME=${KEEP_SMARTHOME:-y}
 APP_TRIM=$APP_TRIM
 TELNET_OFF=$TELNET_OFF
+SET_HOME=${SET_HOME:-n}
+LANGUAGE=${LANGUAGE:-en}
+KEEP_VOICE=${KEEP_VOICE:-y}
+KEEP_SMARTHOME=${KEEP_SMARTHOME:-y}
 EOF
+
+# What comes off the TV: on it now, not chosen any more.
+REMOVE=""
+for m in $ON_TV; do [ "${!m}" = y ] || REMOVE="$REMOVE $m"; done
+# TV Home leaving takes the frame guard with it (remove_launcher).
+case " $REMOVE " in *" LAUNCHER "*) REMOVE=$(echo "$REMOVE" | sed 's/ FRAME//') ;; esac
 
 echo
 say "Summary"
-sed 's/^/    /' "$CONF"
+for m in $MODULES; do
+    [ "${!m}" = y ] && printf '    install  %s\n' "$(label "$m" | sed 's/^ *//; s/:.*//')"
+done
+for m in $REMOVE; do printf '    REMOVE   %s\n' "$(label "$m" | sed 's/^ *//; s/:.*//')"; done
+[ -n "$REMOVE" ] && echo "    (Settings, sign-ins and pairings stay on the TV; choosing a module again brings them back.)"
+[ "$TELNET_OFF" = y ] || echo "    telnet: left as it is"
 if [ "$REUSE" = 0 ]; then
-    read -rp "Install this on the TV now? [Y/n] " a
-    case "${a:-y}" in [Yy]*) ;; *) echo "Nothing changed. Your answers are saved in $CONF."; exit 0 ;; esac
+    read -rp "Go ahead? [Y/n] " a
+    case "${a:-y}" in [Yy]*) ;; *) echo "Nothing changed. Your choices are saved in $CONF."; exit 0 ;; esac
 fi
+
+# ------------------------------------------------------------ remove
+
+for m in $REMOVE; do
+    say "removing $(label "$m" | sed 's/^ *//; s/:.*//')"
+    case $m in
+        LAUNCHER) remove_launcher ;;
+        FRAME)    remove_frame ;;
+        PLEX)     remove_plex ;;
+        LIGHT)    remove_light ;;
+        REMOTE)   remove_remote ;;
+        ADBLOCK)  remove_adblock ;;
+        DEBLOAT)  remove_debloat ;;
+        APP_TRIM) remove_app_trim ;;
+    esac
+done
+# The App-Updates app is only for a privacy lock without TV Home.
+if [ "$APP_UPDATES" != y ] && tv "test -d $APPS_DIR/$UPDATES_APP"; then remove_app "$UPDATES_APP"; fi
 
 # ------------------------------------------------------------ install
 
@@ -119,10 +225,17 @@ tv "mkdir -p $WB/init.d $DATA/wallpapers $DATA/tiles"
 
 if [ "$LAUNCHER" = y ]; then
     say "TV Home"
-    install_app apps/tv-home "$HOME_APP" "TV Home launcher"
-    install_app apps/plex-link "$PLEX_LINK_APP" "Opens Plex at a title for TV Home"
-    put tv/init.d/87-frame-saver "$WB/init.d/87-frame-saver" 755
-    tv "setsid python3 /media/developer/apps/usr/palm/applications/$HOME_APP/framesaver.py > /dev/null 2>&1 < /dev/null &"
+    mods=""
+    [ "$REMOTE" = y ] && mods="$mods remote"
+    [ "$PLEX" = y ]   && mods="$mods plex"
+    [ "$LIGHT" = y ]  && mods="$mods hue"
+    [ "$ADBLOCK" = y ] && mods="$mods store"
+    [ "$FRAME" = y ]  && mods="$mods frame"
+    [ "$AVR" = y ]    && mods="$mods avr"
+    stage=$(mktemp -d)
+    stage_home "$stage/tv-home" $mods
+    install_app "$stage/tv-home" "$HOME_APP" "TV Home launcher"
+    rm -rf "$stage"
     # First install: start in the chosen language.
     tv "[ -f $DATA/config.json ] || echo '{\"language\":\"$LANGUAGE\"}' > $DATA/config.json"
     if [ "$SET_HOME" = y ]; then
@@ -141,6 +254,30 @@ d['home']='$HOME_APP'; print(json.dumps(d))")
     fi
 fi
 
+if [ "$FRAME" = y ]; then
+    say "Picture Frame"
+    put tv/init.d/87-frame-saver "$WB/init.d/87-frame-saver" 755
+    tv "setsid python3 $APPS_DIR/$HOME_APP/framesaver.py > /dev/null 2>&1 < /dev/null &"
+fi
+
+if [ "$PLEX" = y ]; then
+    say "Plex"
+    install_app apps/plex-link "$PLEX_LINK_APP" "Opens Plex at a title for TV Home"
+fi
+
+if [ "$AVR" = y ]; then
+    # Chosen here, so the button shows (unless it was switched off on the TV before).
+    tv "python3 -c \"
+import json
+p = '$DATA/config.json'
+try: c = json.load(open(p))
+except Exception: c = {}
+if 'avrButton' not in c:
+    c['avrButton'] = True
+    json.dump(c, open(p, 'w'))
+\""
+fi
+
 if [ "$PRINTS" = y ]; then
     say "museum prints"
     tv "mkdir -p $DATA/wallpapers/thumbs"
@@ -149,7 +286,7 @@ if [ "$PRINTS" = y ]; then
 fi
 
 if [ "$LIGHT" = y ]; then
-    say "Light button"
+    say "Philips Hue"
     install_app apps/hue-light "$LIGHT_APP" "Philips Hue"
     if ! tv "test -f $WB/hue-scene.conf"; then
         say "Pair the Hue bridge on the TV: TV Home, Settings, Hue (or run tools/hue-setup.sh)"
@@ -167,7 +304,7 @@ if [ "$REMOTE" = y ]; then
 fi
 
 if [ "$ADBLOCK" = y ]; then
-    say "ad and tracking block list"
+    say "privacy lock (ad and tracking block list)"
     tmp=$(mktemp)
     # The base ("safe") list only: list-store would break the Content Store for good.
     curl -sfL https://raw.githubusercontent.com/hugobatista/lg-tv-ad-block/main/list |
