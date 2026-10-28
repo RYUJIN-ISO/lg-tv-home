@@ -99,18 +99,23 @@ function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function cfg() { return state.config; }
 
 // While a save is pending or in flight, a reload must not adopt the (older)
-// config from disk.
+// config from disk. The local copy is written with the disk save too, not on
+// every step: serialising the whole state per Left/Right press is slow.
 var saveTimer = null, savesInFlight = 0;
 function saveConfig() {
-  persistLocal();
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(function () {
-    saveTimer = null;
-    var json = JSON.stringify(state.config);
-    var b64 = btoa(unescape(encodeURIComponent(json)));
-    savesInFlight++;
-    exec('sh ' + APP_DIR + 'config.sh save ' + b64, function () { savesInFlight--; });
-  }, 400);
+  saveTimer = setTimeout(flushConfig, 400);
+}
+
+function flushConfig() {
+  if (!saveTimer) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  persistLocal();
+  var json = JSON.stringify(state.config);
+  var b64 = btoa(unescape(encodeURIComponent(json)));
+  savesInFlight++;
+  exec('sh ' + APP_DIR + 'config.sh save ' + b64, function () { savesInFlight--; });
 }
 
 // The Magic Remote can deliver a click and an OK key for the same press;
@@ -1073,10 +1078,17 @@ function applyGrid() {
   document.getElementById('grid').style.setProperty('--row-h', ROW_H + 'px');
   document.body.classList.toggle('names', !!c.names);
   document.body.classList.toggle('glass', c.cards !== 'color');
+  document.body.classList.toggle('bar', barCfg().on);
+  var views = document.querySelectorAll('#page, .folderView:not(.picker)');
+  for (var i = 0; i < views.length; i++) paintBar(views[i]);
+}
+
+// The bar's colour and brightness live on the views with tiles, not on
+// body: a variable on body restyles the whole page, menus included.
+function paintBar(el) {
   var bar = barCfg();
-  document.body.classList.toggle('bar', bar.on);
-  document.body.style.setProperty('--bar', BAR_COLORS[bar.color]);
-  document.body.style.setProperty('--bar-o', (bar.bri / 100).toFixed(2));
+  el.style.setProperty('--bar', BAR_COLORS[bar.color]);
+  el.style.setProperty('--bar-o', (bar.bri / 100).toFixed(2));
 }
 
 function barCfg() {
@@ -1242,6 +1254,7 @@ function closeAll() { while (stack.length) pop(); }
 function openFolder(id) {
   var el = layer('folderView');
   el.style.setProperty('--row-h', ROW_H + 'px');
+  paintBar(el);
   el.innerHTML = '<div class="inner"><div class="title"></div><div class="grid"></div><div class="empty"></div></div>';
   var inner = el.querySelector('.inner');
   var view = { el: el };
@@ -1287,8 +1300,31 @@ function menu(spec) {
   el.appendChild(panel);
   var view = { el: el, focus: 0, rows: [] };
 
+  // A row's shape: what decides its element and listeners. When every row
+  // keeps its shape (a Left/Right step), only the texts change in place;
+  // rebuilding the whole panel per press is slow on the TV.
+  function shape(r) {
+    return [!!r.info, !!r.danger, !!r.off, r.value !== undefined || !!r.chevron, !!r.chevron].join();
+  }
+  function labelText(r) {
+    return (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
+  }
+
   view.refresh = function () {
+    var old = view.rows;
     view.rows = spec.rows();
+    var els = panel.querySelectorAll('.row');
+    if (els.length && els.length === view.rows.length &&
+        view.rows.every(function (r, i) { return shape(r) === shape(old[i]); })) {
+      panel.querySelector('h1').textContent = typeof spec.title === 'function' ? spec.title() : spec.title;
+      view.rows.forEach(function (r, i) {
+        var lab = els[i].firstChild, v = els[i].querySelector('.val');
+        if (r.info) { var h = hintHTML(r.label); if (lab.innerHTML !== h) lab.innerHTML = h; }
+        else if (lab.textContent !== labelText(r)) lab.textContent = labelText(r);
+        if (v && v.textContent !== (r.value || '')) v.textContent = r.value || '';
+      });
+      return;
+    }
     panel.innerHTML = '<h1></h1>' + (spec.sub ? '<div class="sub"></div>' : '') + '<div class="rowsclip"><div class="rows"></div></div>';
     panel.querySelector('h1').textContent = typeof spec.title === 'function' ? spec.title() : spec.title;
     if (spec.sub) panel.querySelector('.sub').textContent = spec.sub;
@@ -1306,7 +1342,7 @@ function menu(spec) {
       row.className = 'row' + (r.info ? ' info' : '') + (r.danger ? ' danger' : '') + (r.off ? ' off' : '');
       var lab = document.createElement('span');
       if (r.info) lab.innerHTML = hintHTML(r.label);
-      else lab.textContent = (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
+      else lab.textContent = labelText(r);
       row.appendChild(lab);
       if (r.value !== undefined || r.chevron) {
         var v = document.createElement('span');
@@ -2517,7 +2553,9 @@ document.addEventListener('webOSRelaunch', function () {
 });
 
 // Shown again: reload. Modules hear both (the Picture Frame ends when hidden).
+// Hidden: a pending save goes out now, before an app takes over.
 document.addEventListener('visibilitychange', function () {
+  if (document.hidden) flushConfig();
   hook('visibility', !document.hidden);
   if (!document.hidden) load();
 });
