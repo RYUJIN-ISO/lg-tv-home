@@ -15,10 +15,10 @@ menus wrap around: Up on the first entry jumps to the last one and back.
 
 | Button | What it does |
 |---|---|
-| **Settings** (gear) | Language, **Look** (wallpaper, picture frame, spacing, selected app, clock, AV receiver button), remote buttons, Plex, Hue, App Store |
+| **Settings** (gear) | Language, **Look** (wallpaper, picture frame, app cards, spacing, selected app, clock), **Features**, remote buttons, Plex, Hue, App Store |
 | **Organize Apps** (squares) | Switches edit mode on and off (green while on) |
 | **Light** (bulb) | Switches between cinema and the lighting from before (or a scene you chose). It glows warm while cinema is on; a green ring flashes when it worked, a red one if the bridge didn't answer. **Hold OK** opens the Hue menu. Only shown when Hue is installed. |
-| **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Off by default: Settings, Look, **AV receiver button**. |
+| **AV Receiver** (speaker) | Sends the sound to an AV receiver or soundbar on HDMI eARC, the same as choosing it in LG's sound output menu. When the receiver had switched itself off and the TV fell back to its speakers, this also wakes the receiver. Switched on in Settings, **Features** (on when it was chosen in the installer). |
 
 **Look.** Settings, **Look** has everything about how the home screen looks.
 Rows with arrows change with Left/Right:
@@ -27,11 +27,18 @@ Rows with arrows change with Left/Right:
 |---|---|
 | **Wallpaper** | The picture behind the home screen (see Pictures below) |
 | **Picture frame** | The picture frame's settings (see Picture Frame below) |
+| **App cards** | **Colour** (default): each card in the app's brand colour. **Glass**: dark glass cards like the top-left buttons, with the logo standing on it in the brand's colour (white logos take the brand colour, lightened to read well; logos with their own colours keep them) |
 | **Row spacing** | Space between the rows of apps: **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide**. With names, rows get at least the room the name needs |
 | **Selected app** | What marks the focused app on the home screen and in folders: **Bar** (default), a slim bar floating under it, fading out to both sides; **Name**; **Nothing**. Pickers always show names; Organize Apps shows no bar (the outline marks the app) |
 | **Bar colour** / **Bar brightness** | With Bar: white, blue, green, yellow, orange, red, pink or purple; 20 to 100 % (white, 80 % by default) |
 | **Clock** | The clock at the top right |
-| **AV receiver button** | The AV Receiver button at the top left |
+
+**Features.** Settings, **Features** lists the modules installed on this TV
+(Remote Buttons, Plex, Philips Hue, Picture Frame, AV receiver button) with
+On / Off. Off hides the feature everywhere and stops it: Remote Buttons gives
+the buttons back to LG, the Picture Frame no longer replaces the screensaver.
+Its settings stay. To take a module off the TV completely, run `install.sh`
+again and untick it.
 
 **Help.** Screens that do something a normal TV doesn't have a small **i**
 (next to the title; **Up** from the top
@@ -236,8 +243,8 @@ time. Press it again when you are done, or wait; it locks itself again.
 
 LG's app icons are at most 192 px, so some logos look soft on a 4K screen. A
 640x384 PNG named after the app (for example `netflix.png`) in
-`/var/lib/webosbrew/atvhome/tiles/` replaces that app's tile. Netflix comes
-with one. To list app IDs:
+`/var/lib/webosbrew/atvhome/tiles/` replaces that app's tile. Netflix and
+YouTube (`youtube.leanback.v4`: the red play button on black) come with one. To list app IDs:
 `ssh <tv> "luna-send -n 1 luna://com.webos.applicationManager/listApps '{}' < /dev/null" | grep -o '"id":"[^"]*"'`
 
 ## What stays off
