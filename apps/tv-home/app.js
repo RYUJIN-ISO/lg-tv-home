@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.32.1';
+var VERSION = '0.32.2';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
