@@ -101,10 +101,12 @@ def frame_running():
     return beat_fresh() or time.time() - seen_running < 10
 
 
+# Off too while the Picture Frame is switched off in Settings > Features.
 def saver_on():
     try:
-        return json.load(open(CONFIG)).get("frame", {}).get("saver") is True
-    except (OSError, ValueError):
+        c = json.load(open(CONFIG))
+        return c.get("frame", {}).get("saver") is True and c.get("modules", {}).get("frame") is not False
+    except (OSError, ValueError, AttributeError):
         return False
 
 

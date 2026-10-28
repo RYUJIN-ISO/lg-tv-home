@@ -53,11 +53,13 @@
     transition: transform 200ms cubic-bezier(.2,.8,.2,1); transform-origin: 50% 50%;
     will-change: transform;
   }
-  .card > img {
+  .card > img, .card > canvas {
     position: absolute; left: 50%; top: 50%; width: 136px; height: 136px;
     transform: translate(-50%, -50%); object-fit: contain;
   }
-  .card.bleed > img { width: var(--tile-h); height: var(--tile-h); }
+  .card.bleed > img, .card.bleed > canvas { width: var(--tile-h); height: var(--tile-h); }
+  /* A sharp logo from the app's splash screen (makeLogos in app.js). */
+  .card.haslogo > img, .card.haslogo > canvas { width: 66%; height: 40%; }
   .card .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18)); }
   .card .gloss {
     position: absolute; inset: 0; opacity: 0; transition: opacity 200ms; will-change: opacity;
@@ -80,11 +82,13 @@
      fading out to both sides. No layer of its own (no will-change): one per
      card made the first moves stutter on the TV; repainting 4 px is cheap. */
   body.bar:not(.names):not(.editing) #grid .tile::after, body.bar:not(.names):not(.editing) .folderView:not(.picker) .tile::after {
-    content: ""; position: absolute; left: 12%; right: 12%; top: 214px; height: 4px; border-radius: 2px;
+    content: ""; position: absolute; left: 12%; right: 12%; top: 206px; height: 4px; border-radius: 2px;   /* ~6 px under the enlarged card */
     background: linear-gradient(90deg, transparent, var(--bar, #fff) 30%, var(--bar, #fff) 70%, transparent);
     opacity: 0; transition: opacity 200ms;
   }
   body.bar:not(.names):not(.editing) #grid .tile.focus::after, body.bar:not(.names):not(.editing) .folderView:not(.picker) .tile.focus::after { opacity: var(--bar-o, .8); }
+  /* With the bar, the focused card keeps its own colours (no white shine). */
+  body.bar:not(.names):not(.editing) #grid .tile.focus .gloss, body.bar:not(.names):not(.editing) .folderView:not(.picker) .tile.focus .gloss { opacity: 0; }
 
   /* Move mode: the picked-up tile floats and wobbles slightly. */
   .tile.moving .card { transform: scale(1.18) translateY(-10px); outline: 4px solid rgba(255,255,255,.9); outline-offset: 4px; }
@@ -97,8 +101,8 @@
     grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 12px;
   }
   .mini { position: relative; border-radius: 10px; overflow: hidden; background: var(--c, #2a2a2e); }
-  .mini img { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); object-fit: contain; }
-  .mini.bleed img { width: 100%; height: 100%; object-fit: cover; }
+  .mini img, .mini canvas { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); object-fit: contain; }
+  .mini.bleed img, .mini.bleed canvas { width: 100%; height: 100%; object-fit: cover; }
 
   /* Top-left buttons: three squares as wide as one card (3 x 96 + 2 x 16). */
   #topbar { position: absolute; top: 40px; left: 72px; display: flex; gap: 16px; z-index: 3; }
@@ -126,8 +130,16 @@
   .tbtn.flash-ok { outline-color: #34c759; }
   .tbtn.flash-err { outline-color: #ff453a; }
 
+  /* Settings > Look > App cards: Glass. Dark glass like the top-left buttons
+     (no backdrop blur: costly on the TV); the logos are keyed in app.js. */
+  body.glass .card.app, body.glass .mini {
+    background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05)), rgba(18,18,22,.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(255,255,255,.09);
+  }
+  body.glass .card.app .shade { display: none; }
+
   /* Full-card tile art (tiles/<appId>.png). */
-  .card.art > img, .mini.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
+  .card.art > img, .card.art > canvas, .mini.art img, .mini.art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
 
   /* Edit mode: every movable tile gets a dashed outline. */
   body.editing .tile .card:not(.settings) { outline: 3px dashed rgba(255,255,255,.45); outline-offset: 6px; }
@@ -153,37 +165,9 @@
   }
 
 
-  /* Remote drawing next to the Remote Buttons menus (Settings). */
-  #remoteArt { position: fixed; left: 210px; top: 80px; width: 296px; height: 920px; z-index: 21; display: none; }
-  body.remote #remoteArt { display: block; }
-  #remoteArt .body { fill: #18181b; stroke: rgba(255,255,255,.22); stroke-width: 3; }
-  #remoteArt .btn { fill: #2b2b31; stroke: rgba(255,255,255,.14); stroke-width: 2; }
-  #remoteArt .lbl { fill: rgba(255,255,255,.85); font-size: 20px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; font-weight: 600; }
-  #remoteArt .lbl.sm { font-size: 12px; letter-spacing: .5px; }
-  #remoteArt .lbl.nf { fill: #e50914; font-weight: 800; letter-spacing: .5px; }
-  #remoteArt .app + .lbl { font-size: 17px; }
-  #remoteArt .fixed { opacity: .45; }
-  #remoteArt .pwr { fill: #3a1214; stroke: #d0343a; }
-  #remoteArt .clr.red { fill: #d7263d; } #remoteArt .clr.green { fill: #1fa34a; }
-  #remoteArt .clr.yellow { fill: #e8c31d; } #remoteArt .clr.blue { fill: #2d7ff0; }
-  #remoteArt .mapped { stroke: #34c759; stroke-width: 5; }
-  #remoteArt .sel { fill: #fff; stroke: #fff; stroke-width: 3; }
-  #remoteArt .sel + .lbl, #remoteArt .sel + .lbl.nf { fill: #111; }
-  #remoteArt .btn:not(.fixed) { cursor: pointer; }
-  #remoteArt .fixed { opacity: .3; }
-  /* Info card + controls next to the drawing */
-  #remoteInfo { position: fixed; left: 600px; top: 150px; width: 820px; z-index: 21; display: none; }
-  body.remote #remoteInfo { display: block; }
-  #remoteInfo .name { font-size: 50px; font-weight: 600; }
-  #remoteInfo .act { font-size: 32px; color: rgba(255,255,255,.7); margin-top: 12px; }
-  #remoteInfo .act.on { color: #34c759; }
-  #remoteInfo .tip { font-size: 24px; color: rgba(255,255,255,.88); margin-top: 26px; }
-  #remotePills { position: fixed; left: 600px; top: 840px; z-index: 21; display: none; gap: 20px; }
-  body.remote #remotePills { display: flex; }
+  /* Pills: small rounded buttons (crop bar, Remote Buttons). */
   .pill { padding: 18px 30px; border-radius: 40px; font-size: 26px; background: rgba(255,255,255,.12); transition: transform 150ms, background 150ms; cursor: pointer; }
   .pill.sel { background: #fff; color: #111; transform: scale(1.06); }
-  body.remote-sub #remoteInfo, body.remote-sub #remotePills { display: none; }
-  .layer.remoteLayer { pointer-events: none; }
 
   /* ---- Overlays (folder view, menus, text input) ---- */
   .layer { position: fixed; inset: 0; z-index: 20; }
@@ -205,27 +189,7 @@
   .card.album .count { position: absolute; right: 12px; bottom: 10px; padding: 2px 10px; border-radius: 12px;
     background: rgba(0,0,0,.6); font-size: 20px; font-weight: 600; }
 
-  /* Picture frame: full screen, dimmed; two images crossfade and drift slowly. */
-  .layer.frame { z-index: 40; background: #000; cursor: none; }
-  .frame .fimg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0;
-    transition: opacity 2s ease, transform 30s linear; will-change: opacity, transform; }
-  .frame .fimg.on { opacity: 1; }
-  .frame .fdim { position: absolute; inset: 0; background: #000; }
-  .frame .fgl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
-  /* The home screen is hidden under the frame, so it isn't composited every frame. */
-  body.framing #clock, body.framing #topbar, body.framing #page, body.framing #wall, body.framing #wallDim { visibility: hidden; }
 
-  /* Hue: room cards glow warmer with brightness; Light button glows in cinema mode. */
-  .card.room { background: #2b2b31; }
-  .card.room.lit { background: linear-gradient(150deg, rgba(255,196,92,var(--glow)), rgba(214,120,30,var(--glow))), #2b2b31; }
-  .card.room svg { position: absolute; left: 50%; top: 44%; width: 80px; height: 80px; transform: translate(-50%, -50%); fill: rgba(255,255,255,.45); }
-  .card.room.lit svg { fill: #fff; }
-  .card.room .rname { position: absolute; left: 20px; top: 14px; font-size: 22px; font-weight: 600; }
-  .card.room .pct { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 26px; font-weight: 600; }
-  .tbtn.cinema { background: rgba(255,196,92,.35); }
-  .tbtn.cinema svg { fill: #ffd27a; }
-  .tbtn.cinema.focus { background: #ffd27a; }
-  .tbtn.cinema.focus svg { fill: #111; }
 
   /* Crop screen (USB wallpapers) */
   .cropView { background: #070708; }
@@ -285,6 +249,7 @@
   .row.focus { background: #fff; color: #111; transform: scale(1.02); }
   .row.focus .val, .row.focus .chev { color: rgba(0,0,0,.55); }
   .row.danger { color: #ff6b6b; }
+  .row.off { opacity: .35; }     /* a switched-off feature's settings */
   .row.focus.danger { color: #c00; }
 
   /* Hints: remote keys as small key caps, bright enough to read at a glance. */
@@ -310,7 +275,7 @@
   }
   .inputBox .sub { margin: 22px 4px 0; }
 </style>
-<link rel="stylesheet" href="plex.css">
+<link rel="stylesheet" href="modules.css">
 </head>
 <body>
 <div id="wall"></div>
@@ -319,52 +284,9 @@
 <div id="clock"></div>
 <div id="msg"></div>
 <div id="hint"></div>
-<div id="remoteInfo"><div class="name"></div><div class="act"></div><div class="tip"></div></div>
-<div id="remotePills"><div class="pill" data-pill="power"></div><div class="pill" data-pill="other"></div><div class="pill" data-pill="reset"></div><div class="pill" data-pill="info"></div></div>
-<svg id="remoteArt" viewBox="0 0 360 1120">
-  <!-- Magic Remote (MR2x), front view; data-key = name in remap.js -->
-  <path class="body" d="M30 170 Q30 20 180 20 Q330 20 330 170 L330 1050 Q330 1100 280 1100 L80 1100 Q30 1100 30 1050 Z"/>
-  <circle class="btn fixed pwr" cx="180" cy="62" r="22"/>
-  <g class="nums">
-    <circle class="btn" data-key="Qt.Key_1" cx="95" cy="130" r="25"/><text class="lbl" x="95" y="130">1</text>
-    <circle class="btn" data-key="Qt.Key_2" cx="180" cy="130" r="25"/><text class="lbl" x="180" y="130">2</text>
-    <circle class="btn" data-key="Qt.Key_3" cx="265" cy="130" r="25"/><text class="lbl" x="265" y="130">3</text>
-    <circle class="btn" data-key="Qt.Key_4" cx="95" cy="198" r="25"/><text class="lbl" x="95" y="198">4</text>
-    <circle class="btn" data-key="Qt.Key_5" cx="180" cy="198" r="25"/><text class="lbl" x="180" y="198">5</text>
-    <circle class="btn" data-key="Qt.Key_6" cx="265" cy="198" r="25"/><text class="lbl" x="265" y="198">6</text>
-    <circle class="btn" data-key="Qt.Key_7" cx="95" cy="266" r="25"/><text class="lbl" x="95" y="266">7</text>
-    <circle class="btn" data-key="Qt.Key_8" cx="180" cy="266" r="25"/><text class="lbl" x="180" y="266">8</text>
-    <circle class="btn" data-key="Qt.Key_9" cx="265" cy="266" r="25"/><text class="lbl" x="265" y="266">9</text>
-    <circle class="btn" data-key="Key_webOS_ProgramList" cx="95" cy="334" r="25"/><text class="lbl sm" x="95" y="334">LIST</text>
-    <circle class="btn" data-key="Qt.Key_0" cx="180" cy="334" r="25"/><text class="lbl" x="180" y="334">0</text>
-    <circle class="btn" data-key="Key_webOS_ScreenRemote" cx="265" cy="334" r="25"/><text class="lbl" x="265" y="334">···</text>
-  </g>
-  <!-- volume / channel rockers, mute, mic -->
-  <rect class="btn fixed" x="68" y="392" width="54" height="150" rx="27"/><text class="lbl" x="95" y="420">+</text><text class="lbl" x="95" y="514">−</text>
-  <rect class="btn" data-key="Key_webOS_ChannelUp" x="238" y="392" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="425">CH+</text>
-  <rect class="btn" data-key="Key_webOS_ChannelDown" x="238" y="467" width="54" height="75" rx="27"/><text class="lbl sm" x="265" y="508">CH−</text>
-  <circle class="btn fixed" cx="180" cy="420" r="25"/><text class="lbl sm" x="180" y="420">MUTE</text>
-  <circle class="btn" data-key="Key_webOS_Voice" cx="180" cy="512" r="27"/><text class="lbl sm" x="180" y="512">MIC</text>
-  <circle class="btn fixed" cx="95" cy="590" r="25"/><text class="lbl sm" x="95" y="590">HOME</text>
-  <circle class="btn" data-key="Key_webOS_InputSource" cx="265" cy="590" r="25"/><text class="lbl sm" x="265" y="590">INPUT</text>
-  <!-- wheel -->
-  <circle class="btn fixed" cx="180" cy="715" r="98"/><circle class="btn fixed" cx="180" cy="715" r="40"/><text class="lbl" x="180" y="715">OK</text>
-  <circle class="btn fixed" cx="85" cy="840" r="25"/><text class="lbl sm" x="85" y="840">BACK</text>
-  <circle class="btn fixed" cx="275" cy="840" r="25"/><text class="lbl sm" x="275" y="840">SET</text>
-  <!-- colour buttons -->
-  <rect class="btn clr red" data-key="Key_webOS_Red" x="60" y="890" width="50" height="22" rx="11"/>
-  <rect class="btn clr green" data-key="Key_webOS_Green" x="126" y="890" width="50" height="22" rx="11"/>
-  <rect class="btn clr yellow" data-key="Key_webOS_Yellow" x="192" y="890" width="50" height="22" rx="11"/>
-  <rect class="btn clr blue" data-key="Key_webOS_Blue" x="258" y="890" width="50" height="22" rx="11"/>
-  <!-- app buttons (this TV's remote: Netflix/Prime, Disney+/Rakuten, LG Channels/Alexa) -->
-  <rect class="btn app" data-key="Key_webOS_Netflix" x="48" y="932" width="128" height="48" rx="10"/><text class="lbl nf" x="112" y="956">NETFLIX</text>
-  <rect class="btn app" data-key="Key_webOS_Amazon" x="184" y="932" width="128" height="48" rx="10"/><text class="lbl" x="248" y="956">prime video</text>
-  <rect class="btn app" data-key="Key_webOS_Disneyplus" x="48" y="986" width="128" height="48" rx="10"/><text class="lbl" x="112" y="1010">Disney+</text>
-  <rect class="btn app" data-key="Key_webOS_RakutenTV" x="184" y="986" width="128" height="48" rx="10"/><text class="lbl" x="248" y="1010">Rakuten TV</text>
-  <rect class="btn app" data-key="Key_webOS_LGChannels" x="48" y="1040" width="128" height="48" rx="10"/><text class="lbl" x="112" y="1064">LG Channels</text>
-  <rect class="btn app" data-key="Key_webOS_ALEXA" x="184" y="1040" width="128" height="48" rx="10"/><text class="lbl" x="248" y="1064">alexa</text>
-</svg>
 <script src="app.js"></script>
-<script src="plex.js"></script>
+<!-- The features chosen in install.sh, bundled from modules/<name>/ (see modules/README.md). -->
+<script src="modules.js"></script>
+<script>start();</script>
 </body>
 </html>
