@@ -9,11 +9,11 @@
 //
 // Remote: arrows, OK, Back. Hold OK on a tile for its options. Up from the
 // first row reaches the top-left buttons: Settings, Organize Apps (edit mode)
-// and Light. The Magic Remote works too: hover, click, click and hold, wheel.
+// and the ones modules add (Light, AV receiver). The Magic Remote works too: hover, click, click and hold, wheel.
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.31.0';
+var VERSION = '0.32.0';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -33,43 +33,31 @@ var LONG_PRESS_MS = 600;
 var CACHE_KEY = 'atvhome.state';
 var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461 };
 var NEVER_SHOW = [APP_ID, 'com.webos.app.home'];
-// The Picture Frame as an app on the home screen: moves, goes into folders and
-// off the home screen like any app. Its launch is TV Home's own frame launch
-// (the same as the remote button action), started here directly.
-var FRAME_KEY = '__frame';
-var FRAME_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="136" height="136" viewBox="0 0 24 24" fill="#fff"><path d="M21 3H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H3V5h18v14zM5 17l3.5-4.5 2.5 3 3.5-4.5L19 17H5z"/></svg>');
-
 var DEFAULT_CONFIG = {
   version: 1,
   language: 'en',
   wallpaper: 'default.jpg',
   clock: true,
-  plex: {},       // Plex rows (plex.js); its settings, empty = defaults
+  modules: {},    // Settings > Features: module id -> false while switched off
+  cards: 'color', // Settings > Look > App cards: 'color' (brand colour) or 'glass'
   order: [],      // top-level keys: app keys and folder ids, in display order
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
   added: [],      // keys of installed apps without a launch point, put on it
-  avrButton: false,  // top-left button: sound to an AV receiver on HDMI eARC (wakes it over CEC)
   names: false,      // app name under the focused card on the home screen and in folders
   rowGap: 'even',    // Settings > Row spacing: a key of ROW_GAPS
   bar: { on: true, color: 'white', bri: 80 },   // Settings > Focus bar (under the focused card while names are off)
-  // picture frame: pictures null = all wallpapers; focus = per picture 16:9
-  // still frame {x, y, w} as fractions of the picture
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
-  favourites: [],      // picture names; the built-in Favourites folder (id 'fav')
-  frame: { every: 5, bri: 60, pan: true, show: 'all', saver: false }   // show: 'all' or a picture folder id
+  favourites: []       // picture names; the built-in Favourites folder (id 'fav')
 };
+// Modules add their own defaults (addModule).
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
 
 var state = { launchPoints: [], installed: [], wallpapers: [], config: null };
 var editMode = false;
 var topFocus = -1;      // focused top-left button, -1 = focus is in the grid
-var LIGHT_APP = 'com.iso.moviescene';
-var LIGHT_SCRIPT = '/media/developer/apps/usr/palm/applications/' + LIGHT_APP + '/scene.sh';
-var lightFlash = '';    // '', 'ok' or 'err': ring around the Light button
-var lightCinema = false; // cinema scene active (button glows)
 var apps = {};          // key -> app item
 var appOrder = [];      // keys in LG's order
 var stack = [];         // open overlay views, top = last
@@ -95,8 +83,7 @@ function exec(command, cb) {
 }
 
 function launch(app) {
-  if (app.key === FRAME_KEY) { closeAll(); frameBack = ''; startFrame(); return; }
-  if (window.Plex && Plex.launch(app)) return;
+  if (claim('launch', app)) return;
   luna('luna://com.webos.applicationManager/launch', { id: app.id, params: app.params }, function (res) {
     if (res.returnValue === false) {
       exec("luna-send -n 1 luna://com.webos.applicationManager/launch '" +
@@ -140,12 +127,65 @@ function persistLocal() {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
+// Keys the defaults don't know stay: they belong to a module that is not
+// installed right now and get used again once it is.
 function normalizeConfig(c) {
   var out = clone(DEFAULT_CONFIG);
   if (c && typeof c === 'object') {
-    for (var k in out) if (c[k] !== undefined) out[k] = c[k];
+    for (var k in c) if (c[k] !== undefined) out[k] = c[k];
   }
   return out;
+}
+
+// ---------------------------------------------------------------- modules
+
+// The features beyond the home screen itself (Picture Frame, Plex, Hue,
+// Remote Buttons, AV receiver, App Store) are modules: modules/<id>/<id>.js
+// (+ .css), bundled into modules.js by install.sh with only the ones chosen
+// there. A module calls addModule({...}) with its texts, defaults and hooks;
+// the core calls those hooks at fixed points (see modules/README.md). A
+// module that is installed can still be switched off in Settings > Features:
+// then none of its hooks run.
+var MODULES = [];
+
+function addModule(m) {
+  MODULES.push(m);
+  ['en', 'de'].forEach(function (l) {
+    var s = m.strings && (m.strings[l] || m.strings.en);
+    for (var k in s) STRINGS[l][k] = s[k];
+  });
+  for (var i in m.info) INFO[i] = m.info[i];
+  for (var d in m.defaults) DEFAULT_CONFIG[d] = clone(m.defaults[d]);
+}
+
+// A module can keep its on/off itself (isOn / setOn: the AV receiver button
+// has always been a setting); otherwise config.modules says.
+function moduleOn(m) {
+  if (m.available && !m.available()) return false;
+  if (m.isOn) return !!state.config && m.isOn();
+  return !(state.config && (state.config.modules || {})[m.id] === false);
+}
+
+// Calls hook `name` of every module that is on; returns their results
+// (arrays are joined, undefined dropped).
+function hook(name) {
+  var args = [].slice.call(arguments, 1), out = [];
+  MODULES.forEach(function (m) {
+    if (typeof m[name] !== 'function' || !moduleOn(m)) return;
+    var r = m[name].apply(m, args);
+    if (r !== undefined) out = out.concat(r);
+  });
+  return out;
+}
+
+// The first module whose hook returns true has handled it.
+function claim(name) {
+  var args = [].slice.call(arguments, 1);
+  for (var i = 0; i < MODULES.length; i++) {
+    var m = MODULES[i];
+    if (typeof m[name] === 'function' && moduleOn(m) && m[name].apply(m, args) === true) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- i18n
@@ -157,8 +197,7 @@ var STRINGS = {
     wallpaper: 'Wallpaper',
     none: 'None',
     newFolder: 'New Folder',
-    editHome: 'Organize Apps', light: 'Light', addApps: 'Add Apps', homeAppsTitle: 'Apps on the home screen', appPick: 'App …',
-    editHint: '{ok} options · {back} done',
+    editHome: 'Organize Apps', addApps: 'Add Apps', homeAppsTitle: 'Apps on the home screen', editHint: '{ok} options · {back} done',
     removeFromHome: 'Remove from Home Screen',
     uninstall: 'Uninstall', uninstallApps: 'Uninstall Apps', uninstallSub: 'Apps that can be removed from the TV.',
     uninstallQ: 'Uninstall {0}?', uninstallNQ: 'Uninstall {0} apps?', uninstallYes: 'Uninstall',
@@ -166,14 +205,14 @@ var STRINGS = {
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
     showClock: 'Show Clock', on: 'On', off: 'Off',
+    features: 'Features', featuresSub: 'Switched off, a feature is hidden and does nothing. To remove one from the TV, run install.sh again.',
+    cards: 'App cards', cardsColor: 'Colour', cardsGlass: 'Glass',
     rowSpacing: 'Row spacing',
     gapCompact: 'Compact', gapEven: 'Even', gapRoomy: 'Roomy', gapWide: 'Wide',
     look: 'Look', selectedApp: 'Selected app', selBar: 'Bar', selName: 'Name', selNone: 'Nothing',
     barColor: 'Bar colour', barBri: 'Bar brightness',
     col_white: 'White', col_blue: 'Blue', col_green: 'Green', col_yellow: 'Yellow', col_orange: 'Orange',
     col_red: 'Red', col_pink: 'Pink', col_purple: 'Purple',
-    avr: 'AV Receiver', avrSetting: 'AV receiver button', avrOn: 'Sound to the AV receiver (HDMI eARC)',
-    avrFailed: 'The TV did not switch the sound output.',
     reset: 'Reset Layout', resetQ: 'Reset layout?',
     resetSub: 'Folders, order and the app selection are reset. The wallpaper stays.', resetYes: 'Reset',
     tip: 'Organize Apps (top left): arrange, group, uninstall',
@@ -189,43 +228,22 @@ var STRINGS = {
     fromUsb: 'From USB …', usbLoading: 'Looking for pictures on USB …', usbNone: 'No pictures (JPG/PNG) found on a USB stick.',
     cropHint: 'Picture {0} · best: 3840×2160 (16:9)', cropKeysFrame: '{arrows} move · {ok} save · {back} cancel',
     cropKeysBar: '{up} crop · {back} close', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
-    resetButtons: 'Reset', resetButtonsQ: 'Reset all buttons to LG default?',
-    appStore: 'App Store', storeLocked: 'Locked', storeOpen: 'Open · {0} min',
     libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} ★, crop, folders',
-    frameHere: '{ok} start here · {hold} ★, crop, folders', usbHint: '{ok} crop and add',
+    usbHint: '{ok} crop and add',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
-    frameMotion: 'Motion', pan: 'Pan', still: 'Still', wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
-    frame: 'Picture Frame', frameStart: 'Start', framePictures: 'Pictures', frameAll: 'All',
-    frameEvery: 'Change every', frameHow: 'Running: {ch} picture · {arrows} look around · {ok} end', framePickHint: '{ok} in / out · {hold} crop',
-    frameNone: 'Add a wallpaper first.', minutes: '{0} min', hour: '1 hour',
-    hue: 'Hue', hueHint: '{ok} on / off · {hold} room', hueConnecting: 'Connecting to Hue …',
-    hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
-    huePress: 'Press the button on the Hue bridge', huePressSub: 'Waiting up to 60 seconds.',
-    huePaired: 'Hue connected.', lightButton: 'Light button', power: 'Power', brightness: 'Brightness',
-    scenes: 'Scenes', lights: 'Lights', room: 'Room', cinemaScene: 'Cinema scene', backTo: 'Back to',
-    backPrevious: 'Lighting before cinema', lightHow: 'One press: cinema. Next press: {0}.',
-    notSet: 'Not set', unreachable: 'unreachable',
-    remoteButtons: 'Remote Buttons', remoteTip: '{arrows} {pointer} pick · {ok} change · {back} close', otherButton: 'Other button …',
-    remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
-    learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
-    learnBlocked: 'This button can\'t be changed (needed to control the TV).',
-    lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps',
-    tvHome: 'Home screen (TV Home)', liveTv: 'Live TV', hdmi: 'HDMI {0}', button: 'Button {0}',
-    saved: 'Saved. Works right away.',
-    b_mic: 'Mic', b_input: 'Input', b_list: 'List', b_more: '··· (more)',
-    b_red: 'Red', b_green: 'Green', b_yellow: 'Yellow', b_blue: 'Blue',
-    b_chup: 'Channel +', b_chdown: 'Channel −',
-    frameSaver: 'Instead of Screensaver', favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
+    wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
+    framePickHint: '{ok} in / out · {hold} crop',
+    brightness: 'Brightness',
+    favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
     wallpaper: 'Hintergrundbild',
     none: 'Keines',
     newFolder: 'Neuer Ordner',
-    editHome: 'Apps organisieren', light: 'Licht', addApps: 'Apps hinzufügen', homeAppsTitle: 'Apps auf dem Startbildschirm', appPick: 'App …',
-    editHint: '{ok} Optionen · {back} fertig',
+    editHome: 'Apps organisieren', addApps: 'Apps hinzufügen', homeAppsTitle: 'Apps auf dem Startbildschirm', editHint: '{ok} Optionen · {back} fertig',
     removeFromHome: 'Vom Startbildschirm entfernen',
     uninstall: 'Deinstallieren', uninstallApps: 'Apps deinstallieren', uninstallSub: 'Apps, die vom Fernseher entfernt werden können.',
     uninstallQ: '{0} deinstallieren?', uninstallNQ: '{0} Apps deinstallieren?', uninstallYes: 'Deinstallieren',
@@ -233,14 +251,14 @@ var STRINGS = {
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
     showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
+    features: 'Funktionen', featuresSub: 'Ausgeschaltet ist eine Funktion versteckt und tut nichts. Um eine vom Fernseher zu entfernen, install.sh nochmal ausführen.',
+    cards: 'App-Karten', cardsColor: 'Farbe', cardsGlass: 'Glas',
     rowSpacing: 'Reihenabstand',
     gapCompact: 'Eng', gapEven: 'Gleichmäßig', gapRoomy: 'Luftig', gapWide: 'Weit',
     look: 'Aussehen', selectedApp: 'Ausgewählte App', selBar: 'Balken', selName: 'Name', selNone: 'Nichts',
     barColor: 'Balkenfarbe', barBri: 'Balkenhelligkeit',
     col_white: 'Weiß', col_blue: 'Blau', col_green: 'Grün', col_yellow: 'Gelb', col_orange: 'Orange',
     col_red: 'Rot', col_pink: 'Pink', col_purple: 'Lila',
-    avr: 'AV-Receiver', avrSetting: 'Taste AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
-    avrFailed: 'Der TV hat den Tonausgang nicht umgeschaltet.',
     reset: 'Anordnung zurücksetzen', resetQ: 'Anordnung zurücksetzen?',
     resetSub: 'Ordner, Reihenfolge und App-Auswahl werden zurückgesetzt. Das Hintergrundbild bleibt.', resetYes: 'Zurücksetzen',
     tip: 'Apps organisieren (oben links): anordnen, gruppieren, deinstallieren',
@@ -256,35 +274,15 @@ var STRINGS = {
     fromUsb: 'Von USB …', usbLoading: 'Suche Bilder auf USB …', usbNone: 'Keine Bilder (JPG/PNG) auf einem USB-Stick gefunden.',
     cropHint: 'Bild {0} · ideal: 3840×2160 (16:9)', cropKeysFrame: '{arrows} verschieben · {ok} speichern · {back} abbrechen',
     cropKeysBar: '{up} zuschneiden · {back} schließen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
-    resetButtons: 'Zurücksetzen', resetButtonsQ: 'Alle Tasten auf LG-Standard zurücksetzen?',
-    appStore: 'App Store', storeLocked: 'Gesperrt', storeOpen: 'Offen · {0} Min.',
     libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} ★, Ausschnitt, Ordner',
-    frameHere: '{ok} hier starten · {hold} ★, Ausschnitt, Ordner', usbHint: '{ok} zuschneiden und hinzufügen',
+    usbHint: '{ok} zuschneiden und hinzufügen',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
-    frameMotion: 'Bewegung', pan: 'Schwenken', still: 'Still', wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
-    frame: 'Bilderrahmen', frameStart: 'Starten', framePictures: 'Bilder', frameAll: 'Alle',
-    frameEvery: 'Wechsel alle', frameHow: 'Läuft: {ch} Bild · {arrows} umschauen · {ok} Ende', framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
-    frameNone: 'Zuerst ein Hintergrundbild hinzufügen.', minutes: '{0} Min.', hour: '1 Stunde',
-    hue: 'Hue', hueHint: '{ok} an / aus · {hold} Raum', hueConnecting: 'Verbinde mit Hue …',
-    hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
-    huePress: 'Den Knopf auf der Hue Bridge drücken', huePressSub: 'Wartet bis zu 60 Sekunden.',
-    huePaired: 'Hue verbunden.', lightButton: 'Licht-Taste', power: 'Ein / Aus', brightness: 'Helligkeit',
-    scenes: 'Szenen', lights: 'Lampen', room: 'Raum', cinemaScene: 'Kino-Szene', backTo: 'Zurück zu',
-    backPrevious: 'Licht vor dem Kino', lightHow: 'Einmal drücken: Kino. Nochmal: {0}.',
-    notSet: 'Nicht gesetzt', unreachable: 'nicht erreichbar',
-    remoteButtons: 'Fernbedienungstasten', remoteTip: '{arrows} {pointer} wählen · {ok} ändern · {back} schließen', otherButton: 'Andere Taste …',
-    remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
-    learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
-    learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
-    lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps',
-    tvHome: 'Startbildschirm (TV Home)', liveTv: 'Live-TV', hdmi: 'HDMI {0}', button: 'Taste {0}',
-    saved: 'Gespeichert. Wirkt sofort.',
-    b_mic: 'Mikrofon', b_input: 'Eingang', b_list: 'Liste', b_more: '··· (mehr)',
-    b_red: 'Rot', b_green: 'Grün', b_yellow: 'Gelb', b_blue: 'Blau',
-    b_chup: 'Kanal +', b_chdown: 'Kanal −',
-    frameSaver: 'Statt Bildschirmschoner', favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
+    wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
+    framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
+    brightness: 'Helligkeit',
+    favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -367,9 +365,13 @@ function buildApps() {
       });
       appOrder.push(key);
     });
-  apps[FRAME_KEY] = { type: 'app', key: FRAME_KEY, id: APP_ID, params: { frame: true }, lp: true, removable: false,
-                      title: t('frame'), icon: FRAME_ICON, tile: '', color: '#3a3a3c' };
-  appOrder.push(FRAME_KEY);
+  // Cards modules put on the home screen (the Picture Frame): they move, go
+  // into folders and off the home screen like any app. virtual: not a real
+  // app (no remote button can open it as one).
+  hook('apps').forEach(function (a) {
+    apps[a.key] = a;
+    appOrder.push(a.key);
+  });
 }
 
 function folderOf(key) {
@@ -468,10 +470,102 @@ function iconInto(el, app) {
   if (!app.icon) return;
   var img = document.createElement('img');
   img.alt = '';
-  img.onload = function () { bleed(el, img); };
   img.onerror = function () { img.style.display = 'none'; };
-  img.src = app.icon;
+  logoInto(el, img, app.icon, app.color, true);
   el.insertBefore(img, el.firstChild);
+}
+
+// Settings > Look > App cards: Glass. The card is dark glass (like the
+// top-left buttons) and the logo stands on it: the icon's flat background
+// colour is keyed out, and a white logo takes that colour (the brand's), so
+// Prime Video's logo is blue on glass. Logos with their own colours keep
+// them; dark brand colours keep a white logo. Done once per icon on a canvas
+// (a few ms), then kept for the session.
+var glassLogos = {};
+
+function glassOn() { return !!state.config && state.config.cards === 'glass'; }
+
+// img shows src: as it is, or (Glass) as the keyed logo. withBleed: an icon
+// (not full-card art), which fills the card height when it is a full square.
+function logoInto(card, img, src, color, withBleed) {
+  if (!glassOn()) {
+    if (withBleed) img.onload = function () { bleed(card, img); };
+    img.src = src;
+    return;
+  }
+  function use(r) {
+    if (withBleed && r.bleed) card.classList.add('bleed');
+    img.src = r.url;
+  }
+  if (glassLogos[src]) { use(glassLogos[src]); return; }
+  var probe = new Image();
+  probe.onload = function () { use(glassLogos[src] = glassLogo(probe, color)); };
+  probe.onerror = function () { img.src = src; };
+  probe.src = src;
+}
+
+function hexRgb(c) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(c || '');
+  if (!m) return null;
+  var n = parseInt(m[1], 16);
+  return [n >> 16, (n >> 8) & 255, n & 255];
+}
+
+// The colour with its lightness raised to at least 0.6 (same hue and
+// saturation); null for greys and blacks.
+function readable(rgb) {
+  if (!rgb) return null;
+  var r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+  var hi = Math.max(r, g, b), lo = Math.min(r, g, b), l = (hi + lo) / 2, d = hi - lo;
+  if (d < 0.12) return null;
+  var sat = d / (1 - Math.abs(2 * l - 1));
+  var h = hi === r ? ((g - b) / d + 6) % 6 : hi === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  l = Math.max(l, 0.6);
+  var c = (1 - Math.abs(2 * l - 1)) * Math.min(1, sat), x = c * (1 - Math.abs(h % 2 - 1)), m = l - c / 2;
+  var f = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h) % 6];
+  return f.map(function (v) { return Math.round((v + m) * 255); });
+}
+
+function glassLogo(img, color) {
+  var W = img.naturalWidth, H = img.naturalHeight, k = Math.min(1, 640 / Math.max(W, H));
+  var w = Math.max(4, Math.round(W * k)), h = Math.max(4, Math.round(H * k));
+  var c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  var ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  var d;
+  try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return { url: img.src, bleed: false }; }
+  var px = d.data;
+  function at(x, y) { var i = (y * w + x) * 4; return [px[i], px[i + 1], px[i + 2], px[i + 3]]; }
+  var corners = [at(1, 1), at(w - 2, 1), at(1, h - 2), at(w - 2, h - 2)], bg = corners[0];
+  var opaque = corners.every(function (q) { return q[3] >= 240; });
+  var flat = opaque && corners.every(function (q) {
+    return Math.abs(q[0] - bg[0]) + Math.abs(q[1] - bg[1]) + Math.abs(q[2] - bg[2]) < 40;
+  });
+  var i, a, white = 0, logo = 0;
+  for (i = 0; i < px.length; i += 4) {
+    if (flat) {
+      // How far from the background: 0 = background, 1 = logo; edges in
+      // between get their own colour back (unmixed from the background).
+      var dist = Math.max(Math.abs(px[i] - bg[0]), Math.abs(px[i + 1] - bg[1]), Math.abs(px[i + 2] - bg[2]));
+      a = Math.max(0, Math.min(1, (dist - 16) / 48));
+      if (a > 0 && a < 1) for (var j = 0; j < 3; j++) px[i + j] = Math.max(0, Math.min(255, bg[j] + (px[i + j] - bg[j]) / a));
+      px[i + 3] = Math.round(px[i + 3] * a);
+    }
+    if (px[i + 3] > 230) {               // solid pixels only: thin letters are mostly edges
+      logo++;
+      if (Math.min(px[i], px[i + 1], px[i + 2]) > 160) white++;   // light in every channel (edges are tinted)
+    }
+  }
+  // A white logo takes the brand colour, if that is a colour (not grey or
+  // black), lightened where needed to read on the dark glass (WOW's dark
+  // teal becomes a brighter teal).
+  var brand = readable(flat ? bg : hexRgb(color));
+  if (brand && logo && white / logo > 0.8) {
+    for (i = 0; i < px.length; i += 4) { px[i] = brand[0]; px[i + 1] = brand[1]; px[i + 2] = brand[2]; }
+  }
+  ctx.putImageData(d, 0, 0);
+  return { url: c.toDataURL('image/png'), bleed: opaque };
 }
 
 var ICONS = {
@@ -485,7 +579,6 @@ var ICONS = {
   usb: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07A1.98 1.98 0 0 0 9 9.2 2 2 0 1 0 6 11v2a2 2 0 0 0 2 2h3v3.05a2.5 2.5 0 1 0 2 0V15h3a2 2 0 0 0 2-2v-2h1V7h-4z"/></svg>',
   apps: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>',
   info: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
-  light: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1zm3-19a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2z"/></svg>'
 };
 var GEAR = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>';
 
@@ -497,14 +590,8 @@ function renderTile(entry) {
   var label = document.createElement('div');
   label.className = 'label';
 
-  if (entry.type === 'room') {
-    card.classList.add('room');
-    card.classList.toggle('lit', entry.room.on);
-    card.style.setProperty('--glow', entry.room.on ? (0.35 + entry.room.bri / 160).toFixed(2) : 0);
-    card.innerHTML = ICONS.light + '<div class="rname"></div><div class="pct"></div><div class="gloss"></div>';
-    card.querySelector('.rname').textContent = entry.title;
-    card.querySelector('.pct').textContent = entry.room.on ? entry.room.bri + '%' : t('off');
-    label.textContent = entry.title;
+  // Card types of modules (Hue rooms): tile(entry, card, label) fills the card.
+  if (claim('tile', entry, card, label)) {
   } else if (entry.type === 'album') {
     card.classList.add('album');
     var mos = '<div class="mos n' + Math.min(entry.pics.length, 4) + '">';
@@ -518,11 +605,12 @@ function renderTile(entry) {
     label.textContent = entry.title;
   } else if (entry.type === 'app' && entry.tile) {
     // Sharp full-card artwork (tiles/<appId>.png) instead of the LG icon.
-    card.classList.add('art');
+    card.classList.add('art', 'app');
     card.innerHTML = '<img alt=""><div class="gloss"></div>';
-    card.querySelector('img').src = entry.tile;
+    logoInto(card, card.querySelector('img'), entry.tile, entry.color, false);
     label.textContent = entry.title;
   } else if (entry.type === 'app') {
+    card.classList.add('app');
     card.innerHTML = '<div class="shade"></div><div class="gloss"></div>';
     iconInto(card, entry);
     label.textContent = entry.title;
@@ -536,7 +624,7 @@ function renderTile(entry) {
       if (app.tile) {
         m.classList.add('art');
         m.innerHTML = '<img alt="">';
-        m.querySelector('img').src = app.tile;
+        logoInto(m, m.querySelector('img'), app.tile, app.color, false);
       } else {
         iconInto(m, app);
       }
@@ -697,38 +785,23 @@ function scrollMain(row) {
 function refreshMain(keepKey) {
   applyGrid();                      // row height first: scrolling and the Plex rows use it
   buildApps();
-  var plexKept = window.Plex && Plex.keep();
+  // keep: a module's own focus (a Plex card) survives the new grid.
+  var kept = {};
+  MODULES.forEach(function (m) { if (m.keep && moduleOn(m)) kept[m.id] = m.keep(); });
   mainGrid.set(mainEntries(), keepKey);
-  if (window.Plex) Plex.refresh(plexKept);
+  MODULES.forEach(function (m) { if (m.refresh && moduleOn(m)) m.refresh(kept[m.id]); });
   renderTop();
   applyLook();
 }
 
 // ---------------------------------------------------------------- top buttons
 
+// Modules add buttons: {icon, title, action, longAction, cls() -> extra classes}.
 function topButtons() {
-  var b = [
+  return [
     { icon: GEAR, title: t('settings'), action: openSettings },
     { icon: ICONS.apps, title: t('editHome'), action: function () { setEditMode(!editMode); } }
-  ];
-  if (hasLight()) b.push({ icon: ICONS.light, title: t('light'), light: true, action: toggleLight, longAction: openHue });
-  if (cfg().avrButton) b.push({ icon: AVR_ICON, title: t('avr'), action: soundToAvr });
-  return b;
-}
-
-// AV receiver button (Settings, "AV receiver button"): selects HDMI eARC as the
-// sound output, the same as LG's sound output menu. When the receiver switched
-// itself off, the TV falls back to its speakers; choosing eARC again makes the
-// TV ask the receiver over CEC to come on.
-var AVR_ICON = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
-var avrHintTimer = null;
-function soundToAvr() {
-  exec("luna-send -n 1 -w 8000 luna://com.webos.service.apiadapter/audio/changeSoundOutput '{\"output\":\"external_arc\"}'", function (res) {
-    var ok = /"returnValue":\s*true/.test(res.stdoutString || '');
-    showHint(ok ? t('avrOn') : t('avrFailed'));
-    clearTimeout(avrHintTimer);
-    avrHintTimer = setTimeout(function () { showHint(editMode ? t('editHint') : ''); }, 2500);
-  });
+  ].concat(hook('topButtons'));
 }
 
 function renderTop() {
@@ -738,7 +811,7 @@ function renderTop() {
   buttons.forEach(function (btn, i) {
     var el = document.createElement('div');
     el.className = 'tbtn' + (i === topFocus ? ' focus' : '') + (i === 1 && editMode ? ' on' : '') +
-      (btn.light && lightFlash ? ' flash-' + lightFlash : '') + (btn.light && lightCinema ? ' cinema' : '');
+      (btn.cls ? ' ' + btn.cls() : '');
     el.innerHTML = btn.icon + '<div class="tlabel"></div>';
     el.querySelector('.tlabel').textContent = btn.title;
     el.addEventListener('mouseenter', function () { focusTop(i); });
@@ -749,34 +822,9 @@ function renderTop() {
   if (topFocus >= buttons.length) topFocus = buttons.length - 1;
 }
 
-// Toggles the Hue movie scene directly (no app launch / toast); the Light
-// button shows a brief green ring on success, red if the bridge failed.
-var lightTimer = null;
-function toggleLight() {
-  setLightFlash('ok');
-  exec('sh ' + LIGHT_SCRIPT, function (res) {
-    var out = (res.stdoutString || '').trim();
-    var ok = res.returnValue !== false && (out === 'movie' || out === 'restored');
-    if (!ok && /not set up|KEY|BRIDGE/.test(res.stderrString || '')) { setLightFlash(''); openHue(); return; }
-    if (ok) { lightCinema = out === 'movie'; renderTop(); }
-    setLightFlash(ok ? 'ok' : 'err');
-    clearTimeout(lightTimer);
-    lightTimer = setTimeout(function () { setLightFlash(''); }, 1200);
-  });
-}
-
-function setLightFlash(state) {
-  lightFlash = state;
-  var buttons = topButtons(), els = document.getElementById('topbar').children;
-  buttons.forEach(function (b, i) {
-    if (!b.light || !els[i]) return;
-    els[i].classList.remove('flash-ok', 'flash-err');
-    if (state) els[i].classList.add('flash-' + state);
-  });
-}
 
 function focusTop(i) {
-  if (window.Plex) Plex.leave();
+  hook('leave');
   var tiles = mainGrid.tiles();
   if (tiles[mainGrid.focus]) tiles[mainGrid.focus].classList.remove('focus');
   topFocus = i;
@@ -798,6 +846,7 @@ function applyGrid() {
   ROW_H = TILE_H + Math.max(ROW_GAPS[c.rowGap] || ROW_GAPS.even, c.names ? NAME_GAP : 0);
   document.getElementById('grid').style.setProperty('--row-h', ROW_H + 'px');
   document.body.classList.toggle('names', !!c.names);
+  document.body.classList.toggle('glass', c.cards === 'glass');
   var bar = barCfg();
   document.body.classList.toggle('bar', bar.on);
   document.body.style.setProperty('--bar', BAR_COLORS[bar.color]);
@@ -810,9 +859,11 @@ function barCfg() {
            bri: Math.max(20, Math.min(100, +b.bri || 80)) };
 }
 
-// Settings > Look: how the home screen looks, including the picture frame.
-// "Selected app" is one setting for the name and the focus bar (only one of
-// them shows at a time); the bar's colour and brightness appear with Bar.
+// Settings > Look: how the home screen looks. "Selected app" is one setting
+// for the name and the focus bar (only one of them shows at a time); the
+// bar's colour and brightness appear with Bar. Modules add rows: lookPictures
+// (under Wallpaper: the Picture Frame) and lookRows (at the end).
+var CARD_STYLES = ['color', 'glass'];
 function openLook() {
   var SEL = ['bar', 'name', 'none'];
   menu({
@@ -822,8 +873,13 @@ function openLook() {
       var sel = c.names ? 'name' : b.on ? 'bar' : 'none';
       function setBar(key, value) { c.bar = barCfg(); c.bar[key] = value; saveConfig(); applyGrid(); refreshTop(); }
       var rows = [
-        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures('wallpaper'); } },
-        { label: t('frame'), chevron: true, action: openFrameSettings },
+        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } }
+      ].concat(hook('lookPictures'), [
+        stepRow(t('cards'), t(c.cards === 'glass' ? 'cardsGlass' : 'cardsColor'), function (d) {
+          var i = CARD_STYLES.indexOf(c.cards === 'glass' ? 'glass' : 'color') + d;
+          if (i < 0 || i >= CARD_STYLES.length) return;
+          c.cards = CARD_STYLES[i]; saveConfig(); refreshMain(); refreshTop();
+        }),
         stepRow(t('rowSpacing'), t('gap' + c.rowGap.charAt(0).toUpperCase() + c.rowGap.slice(1)), function (d) {
           var i = ROW_GAP_ORDER.indexOf(c.rowGap) + d;
           if (i < 0 || i >= ROW_GAP_ORDER.length) return;
@@ -836,7 +892,7 @@ function openLook() {
           c.bar = barCfg(); c.bar.on = SEL[i] === 'bar';
           saveConfig(); refreshMain(); refreshTop();
         })
-      ];
+      ]);
       if (sel === 'bar') rows.push(
         stepRow(t('barColor'), t('col_' + b.color), function (d) {
           var i = BAR_ORDER.indexOf(b.color) + d;
@@ -849,11 +905,8 @@ function openLook() {
       rows.push(
         stepRow(t('showClock'), c.clock ? t('on') : t('off'), function () {
           c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
-        }),
-        stepRow(t('avrSetting'), c.avrButton ? t('on') : t('off'), function () {
-          c.avrButton = !c.avrButton; saveConfig(); renderTop(); refreshTop();
         }));
-      return rows;
+      return rows.concat(hook('lookRows'));
     }
   });
 }
@@ -940,12 +993,7 @@ function push(view) {
   if (below && below.el && !view.float) below.el.style.visibility = 'hidden';
   stack.push(view);
   document.body.classList.add('overlay');
-  remoteSubState();
-}
-
-// Hide the Remote Buttons info card while one of its submenus is open.
-function remoteSubState() {
-  document.body.classList.toggle('remote-sub', !!remoteView && stack[stack.length - 1] !== remoteView);
+  hook('stack');
 }
 
 function pop() {
@@ -958,7 +1006,7 @@ function pop() {
   if (!stack.length) document.body.classList.remove('overlay');
   var top = stack[stack.length - 1];
   if (top && top.el) top.el.style.visibility = '';
-  remoteSubState();
+  hook('stack');
   if (top && top.refresh) top.refresh();
 }
 
@@ -1186,23 +1234,7 @@ function hintHTML(s) {
 // What a screen's small "i" shows: a legend in a corner. It doesn't take
 // the keys; "i" again or leaving the screen closes it.
 var INFO = {
-  light: { title: { en: 'Light', de: 'Licht' }, lines: [
-    { en: '{ok} cinema ↔ back', de: '{ok} Kino ↔ zurück' },
-    { en: '{hold} Hue rooms and lights', de: '{hold} Hue-Räume und Lampen' },
-    { en: 'Glows while cinema is on', de: 'Leuchtet, solange Kino an ist' }
-  ] },
-  hue: { title: { en: 'Hue', de: 'Hue' }, lines: [
-    { en: '{ok} room on / off', de: '{ok} Raum an / aus' },
-    { en: '{hold} brightness, scenes, lights', de: '{hold} Helligkeit, Szenen, Lampen' },
-    { en: '{lr} brightness', de: '{lr} Helligkeit' }
-  ] },
-  remote: { title: { en: 'Remote Buttons', de: 'Fernbedienungstasten' }, lines: [
-    { en: '{arrows} {pointer} pick a button', de: '{arrows} {pointer} Taste wählen' },
-    { en: '{ok} app, input, nothing or LG default', de: '{ok} App, Eingang, nichts oder LG-Standard' },
-    { en: 'Grey: fixed, needed by the TV', de: 'Grau: fest, braucht der Fernseher' }
-  ] },
   pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
-    { en: 'Shared by Wallpaper and Picture Frame', de: 'Gemeinsam für Hintergrund und Bilderrahmen' },
     { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
     { en: '{hold} picture: ★ favourite, crop, folders', de: '{hold} Bild: ★ Favorit, Ausschnitt, Ordner' },
     { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
@@ -1213,16 +1245,10 @@ var INFO = {
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
     { en: 'The file stays whole · ✂ cuts it for good (asks first)', de: 'Die Datei bleibt ganz · ✂ schneidet sie endgültig (fragt vorher)' }
   ] },
-  frameSettings: { title: { en: 'Picture Frame', de: 'Bilderrahmen' }, lines: [
-    { en: 'Pan: glides to the crop · Still: crop, no motion', de: 'Schwenken: gleitet zum Ausschnitt · Still: Ausschnitt, ruhig' },
-    { en: '{ch} picture · {arrows} look around · {ok} end', de: '{ch} Bild · {arrows} umschauen · {ok} Ende' },
-    { en: 'Instead of Screensaver: a key returns to your app', de: 'Statt Bildschirmschoner: eine Taste kehrt zur App zurück' }
-  ] },
   settings: { title: { en: 'TV Home', de: 'TV Home' }, lines: [
     { en: '{hold} on an app: options', de: '{hold} auf einer App: Optionen' },
-    { en: '{up} from the first row: Settings, Organize Apps, Light', de: '{up} aus der ersten Reihe: Einstellungen, Apps organisieren, Licht' },
-    { en: '{back} first row', de: '{back} erste Reihe' },
-    { en: 'App Store: open 10 min, then locked again', de: 'App Store: 10 Min. offen, dann wieder gesperrt' }
+    { en: '{up} from the first row: Settings, Organize Apps …', de: '{up} aus der ersten Reihe: Einstellungen, Apps organisieren …' },
+    { en: '{back} first row', de: '{back} erste Reihe' }
   ] }
 };
 
@@ -1548,50 +1574,51 @@ function wallpaperLabel() {
   return c.wallpaper.replace(/\.[a-z]+$/i, '');
 }
 
-// LG Content Store access (tv/store-mode.sh): the privacy block also blocks
-// the store, this opens it for 10 minutes (it re-locks on its own).
-var STORE_MODE = '/var/lib/webosbrew/store-mode.sh';
-var storeState = { available: false, open: false, left: 0 };
 
-function loadStore(cb) {
-  exec('[ -f ' + STORE_MODE + ' ] && sh ' + STORE_MODE + ' status', function (res) {
-    var out = (res.stdoutString || '').trim();
-    storeState.available = /^(blocked|open)/.test(out);
-    storeState.open = out.indexOf('open') === 0;
-    storeState.left = parseInt(out.split(' ')[1], 10) || 0;
-    if (cb) cb();
-  });
-}
-
-function storeLabel() {
-  return storeState.open ? t('storeOpen', Math.max(1, Math.ceil(storeState.left / 60))) : t('storeLocked');
-}
-
-function toggleStore() {
-  var opening = !storeState.open;
-  exec('sh ' + STORE_MODE + ' ' + (opening ? 'on' : 'off'), function () {
-    loadStore(function () {
-      refreshTop();
-      if (opening) launch({ id: 'com.webos.app.discovery', params: {} });
-    });
-  });
-}
-
+// Modules add their rows (settingsRows) and may refresh what those show when
+// the settings open (settingsOpen).
 function openSettings() {
-  loadStore(refreshTop);
+  hook('settingsOpen');
   menu({
     title: function () { return t('settingsTitle'); },
     info: 'settings',
     rows: function () {
-      var c = cfg();
       return [
         { label: t('language'), value: LANG_NAMES[lang()], chevron: true, action: chooseLanguage },
-        { label: t('look'), chevron: true, action: openLook },
-        { label: t('remoteButtons'), chevron: true, action: openRemote }
-      ].concat(window.Plex ? [Plex.settingsRow()] : []).concat(hasLight() ? [{ label: t('hue'), chevron: true, action: openHue }] : []).concat(storeState.available ? [{ label: t('appStore'), value: storeLabel(), action: toggleStore }] : []).concat([
+        { label: t('look'), chevron: true, action: openLook }
+      ].concat(MODULES.some(function (m) { return m.title; }) ? [{ label: t('features'), chevron: true, action: openFeatures }] : [],
+        hook('settingsRows'), [
         { info: true, label: t('tip') },
         { info: true, label: 'TV Home ' + VERSION }
       ]);
+    }
+  });
+}
+
+// Settings > Features: every installed module with a title, on or off. Off
+// hides it and stops its hooks; toggled(on) lets it start or stop what runs
+// on the TV. (Without a title it is part of something else: the App Store
+// switch belongs to the privacy lock and only goes with it.)
+function openFeatures() {
+  menu({
+    title: function () { return t('features'); },
+    sub: t('featuresSub'),
+    rows: function () {
+      return MODULES.filter(function (m) { return m.title && (!m.available || m.available()); }).map(function (m) {
+        var on = moduleOn(m);
+        function toggle() {
+          var c = cfg();
+          c.modules = c.modules || {};
+          if (m.setOn) m.setOn(!on);
+          else if (on) c.modules[m.id] = false;
+          else delete c.modules[m.id];
+          saveConfig();
+          if (m.toggled) m.toggled(!on);
+          refreshMain();
+          refreshTop();
+        }
+        return { label: local(m.title), value: '‹ ' + (on ? t('on') : t('off')) + ' ›', action: toggle, adjust: toggle };
+      });
     }
   });
 }
@@ -1613,7 +1640,7 @@ function indexOfKey(key) {
 // fractions of the picture, r = its width / height), pictureFolders
 // [{id, name, items}]. A crop never changes the file.
 function library() {
-  var c = cfg(), f = frameCfg();
+  var c = cfg(), f = c.frame || {};
   if (!c.crops) c.crops = {};
   if (!c.pictureFolders) c.pictureFolders = [];
   // Earlier versions kept these under the picture frame.
@@ -1670,26 +1697,44 @@ function pickerView(el, grid) {
   return view;
 }
 
-// Top level, the same from both menus: All pictures, the folders, New Folder,
+// What the library is opened for: Wallpaper (here) or a module's (the
+// Picture Frame's). title, hint (in a folder), none (offer None),
+// wallpaper (a USB import becomes the wallpaper), albumOn(entry) (✓ on a
+// folder), picOn(name) (✓ on a picture), pick(folder, entry, grid) (OK on a
+// picture).
+var WALLPAPER = {
+  title: function () { return t('wallpaper'); },
+  hint: 'wpUseHint', none: true, wallpaper: true,
+  albumOn: function (e) { return e.key === 'none' && cfg().wallpaper === 'none'; },
+  picOn: function (name) { return name === cfg().wallpaper; },
+  pick: function (fo, e, grid) {
+    cfg().wallpaper = e.key;
+    saveConfig();
+    applyLook();
+    var tiles = grid.tiles();
+    for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
+  }
+};
+
+// Top level, the same for every use: All pictures, the folders, New Folder,
 // From USB (and None for the wallpaper). OK opens a folder; hold OK on a
-// folder: Choose Pictures, Rename, Delete. mode: 'wallpaper' or 'frame'.
+// folder: Choose Pictures, Rename, Delete.
 function openPictures(mode) {
-  var el = pickerLayer(mode === 'frame' ? t('frame') : t('wallpaper'), t('libHint'));
+  var el = pickerLayer(mode.title(), t('libHint'));
   function entries() {
     var list = [{ type: 'album', key: 'all', title: t('allPictures'), pics: folderPics(null) },
                 { type: 'album', key: 'fav', title: t('favourites'), pics: folderPics(favFolder()) }];
     pictureFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: folderPics(fo) }); });
     list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
-    if (mode === 'wallpaper') list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
+    if (mode.none) list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
     return list;
   }
   var grid = new Grid({
     container: el.querySelector('.grid'),
     decorate: function (tile, e) {
-      // ✓ on what is in use: the frame's folder, or None as wallpaper.
-      var on = mode === 'frame' ? e.type === 'album' && e.key === (pictureFolder(frameCfg().show) ? frameCfg().show : 'all')
-        : e.key === 'none' && cfg().wallpaper === 'none';
+      // ✓ on what is in use (the frame's folder, or None as wallpaper).
+      var on = mode.albumOn(e);
       tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
       tile.classList.toggle('picked', on);
     },
@@ -1731,7 +1776,7 @@ function folderOptions_(fo) {
       { label: t('deleteFolder'), danger: true, action: function () {
         confirmSheet(t('deleteFolderQ'), t('deleteFolderSub'), t('dissolveYes'), function () {
           cfg().pictureFolders = pictureFolders().filter(function (x) { return x !== fo; });
-          if (frameCfg().show === fo.id) frameCfg().show = 'all';
+          hook('pictureFolderDeleted', fo.id);
           saveConfig();
           pop();                       // the folder's menu (the sheet closed itself)
         });
@@ -1740,33 +1785,20 @@ function folderOptions_(fo) {
   } });
 }
 
-// A folder's pictures (fo = null: all). OK: use as wallpaper (✓ on the
-// current one), or start the frame with this folder at this picture.
-// Hold OK: the picture's options (Crop, Folders).
+// A folder's pictures (fo = null: all). OK: mode.pick (use as wallpaper, ✓
+// on the current one; or start the frame there). Hold OK: the picture's
+// options (Crop, Folders).
 function openPictureFolder(fo, mode) {
-  var el = pickerLayer(fo ? fo.name : t('allPictures'), mode === 'frame' ? t('frameHere') : t('wpUseHint'));
+  var el = pickerLayer(fo ? fo.name : t('allPictures'), t(mode.hint));
   var grid = new Grid({
     container: el.querySelector('.grid'),
     decorate: function (tile, e) {
       if (e.wp && isFav(e.key)) tile.insertAdjacentHTML('beforeend', '<div class="fav">★</div>');
-      if (mode !== 'wallpaper') return;
+      if (!mode.picOn) return;
       tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
-      tile.classList.toggle('picked', e.key === cfg().wallpaper);
+      tile.classList.toggle('picked', mode.picOn(e.key));
     },
-    onActivate: function (e) {
-      if (mode === 'frame') {
-        frameCfg().show = fo ? fo.id : 'all';
-        saveConfig();
-        closeAll();
-        startFrame(e.key);
-        return;
-      }
-      cfg().wallpaper = e.key;
-      saveConfig();
-      applyLook();
-      var tiles = grid.tiles();
-      for (var i = 0; i < tiles.length; i++) tiles[i].classList.toggle('picked', grid.entries[i].key === e.key);
-    },
+    onActivate: function (e) { mode.pick(fo, e, grid); },
     onLongPress: function (e) { if (e.wp) pictureOptions(e.wp); }
   });
   var view = pickerView(el, grid);
@@ -1780,7 +1812,7 @@ function openPictureFolder(fo, mode) {
   push(view);
   var list = entries();
   grid.set(list);
-  for (var i = 0; i < list.length; i++) if (list[i].key === cfg().wallpaper) grid.setFocus(i, true);
+  if (mode.picOn) for (var i = 0; i < list.length; i++) if (mode.picOn(list[i].key)) grid.setFocus(i, true);
 }
 
 function pictureOptions(w) {
@@ -1979,7 +2011,7 @@ function importPicture(pic, img, rect) {
       exec(USB_PY + ' thumb ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
         showHint('');
         library().crops[file] = rect;
-        if (pic.mode === 'wallpaper') cfg().wallpaper = file;
+        if (pic.mode.wallpaper) cfg().wallpaper = file;
         saveConfig();
         closeAll();
         load();
@@ -2122,1053 +2154,6 @@ function openCrop(pic, probe) {
   paint();
 }
 
-// ---------------------------------------------------------------- picture frame
-
-// Wallpapers full screen and dimmed, like a framed picture. Any key ends it.
-// LG's screensaver is held off by keepawake.py (see AWAKE_*); LG's own auto
-// power off still applies. Against OLED burn-in the picture drifts a few pixels now and then.
-var FRAME_EVERY = [1, 5, 15, 30, 60];   // minutes
-// keepawake.py answers tvpowerd's screensaver requests with "no" while the
-// heartbeat file is fresh; the idle timer restart covers surface-manager.
-var AWAKE_BEAT = "touch /tmp/atvhome-awake.beat; luna-send -n 1 luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer '{}' > /dev/null";
-var AWAKE_START = AWAKE_BEAT + "; setsid python3 " + APP_DIR + "keepawake.py > /dev/null 2>&1 < /dev/null &";
-var SAVER_START = 'setsid python3 ' + APP_DIR + 'framesaver.py > /dev/null 2>&1 < /dev/null &';
-var AWAKE_STOP = "rm -f /tmp/atvhome-awake.beat; [ -f /tmp/atvhome-awake.pid ] && kill $(cat /tmp/atvhome-awake.pid) 2>/dev/null; true";
-var frameView = null;
-// App to return to when the frame replaced LG's screensaver over it (set by
-// framesaver.py in the launch params); only a key press goes back there.
-var frameBack = '';
-
-function frameCfg() {
-  var c = cfg();
-  if (!c.frame) c.frame = clone(DEFAULT_CONFIG.frame);
-  return c.frame;
-}
-
-function framePictures() {
-  var list = folderPics(pictureFolder(frameCfg().show));
-  return list.length ? list : state.wallpapers;
-}
-
-function everyLabel(m) { return m < 60 ? t('minutes', m) : t('hour'); }
-
-function openFrameSettings() {
-  function step(list, v, d) { var i = list.indexOf(v); return list[(i + d + list.length) % list.length]; }
-  menu({
-    title: function () { return t('frame'); },
-    info: 'frameSettings',
-    rows: function () {
-      var f = frameCfg(), n = framePictures().length;
-      var rows = [
-        { label: t('frameStart'), action: startFrame },
-        { label: t('framePictures'), value: pictureFolder(f.show) ? pictureFolder(f.show).name : t('allPictures'),
-          chevron: true, action: function () { openPictures('frame'); } }
-      ];
-      if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
-        adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
-        action: function () { f.every = step(FRAME_EVERY, f.every, 1); saveConfig(); refreshTop(); } });
-      function motion() { f.pan = f.pan === false; saveConfig(); refreshTop(); }
-      rows.push({ label: t('frameMotion'), value: f.pan === false ? t('still') : t('pan'),
-        action: motion, adjust: motion });
-      rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
-        adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
-        action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
-      rows.push({ label: t('frameSaver'), value: f.saver ? t('on') : t('off'), action: function () {
-        f.saver = !f.saver; saveConfig(); exec(SAVER_START); refreshTop();
-      } });
-      rows.push({ info: true, label: t('frameHow') });
-      return rows;
-    }
-  });
-}
-
-// start: name of the picture to begin with (optional).
-function startFrame(start) {
-  var pics = framePictures();
-  if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
-  if (frameView) return;
-  // Shuffled order; what was shown is kept so CH- can go back.
-  var order = [], shown = 0, history = [], at = -1;
-  function shuffled() {
-    if (shown >= order.length) {
-      order = pics.slice();
-      for (var i = order.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1)), x = order[i];
-        order[i] = order[j]; order[j] = x;
-      }
-      shown = 0;
-    }
-    return order[shown++];
-  }
-  function nextPic() {
-    if (at < history.length - 1) return history[++at];
-    history.push(shuffled());
-    return history[at = history.length - 1];
-  }
-  function prevPic() { return at > 0 ? history[--at] : null; }
-  var first = pics.filter(function (w) { return w.name === start; })[0];
-  if (first) history.push(first);
-  // The picture nextPic() will return, without moving on (for preloading).
-  function peekNext() {
-    if (at >= history.length - 1) history.push(shuffled());
-    return history[at + 1];
-  }
-  var el = layer('frame');
-  var view = { el: el, timers: [], stop: null };
-  view.end = function (why) {
-    exec('echo "$(date +%T) frame ended: ' + (why || 'ok') + '" >> /tmp/atvhome-events.log');
-    view.byUser = true;
-    pop();
-  };
-  view.key = view.end;
-  view.ok = view.end;
-  // CH+/CH- change the picture, arrows move through it; other keys end it.
-  var lastSkip = 0;
-  view.control = function (code) {
-    if (code === 33 || code === 34) {
-      if (Date.now() - lastSkip > 400 && view.skip) { lastSkip = Date.now(); view.skip(code === 33 ? 1 : -1); }
-      return true;
-    }
-    if (code >= 37 && code <= 40) {
-      if (view.move) view.move(code === 37 ? -1 : code === 39 ? 1 : 0, code === 38 ? -1 : code === 40 ? 1 : 0);
-      return true;
-    }
-    return false;
-  };
-  view.onClose = function () {
-    view.timers.forEach(clearInterval);
-    exec(AWAKE_STOP);
-    if (view.stop) view.stop();
-    frameView = null;
-    document.body.classList.remove('framing');
-    var back = frameBack;
-    frameBack = '';
-    if (view.byUser && back) launch({ id: back, params: {} });
-  };
-  el.addEventListener('click', function () { if (frameView === view) view.end('click'); });
-  frameView = view;
-  document.body.classList.add('framing');
-  push(view);
-  if (!glFrame(view, nextPic, prevPic, peekNext, pics.length)) cssFrame(view, nextPic, prevPic, pics.length);
-  exec(AWAKE_START);
-  view.timers.push(setInterval(function () { exec(AWAKE_BEAT); }, 60000));
-}
-
-// WebGL renderer: every picture is one GPU texture, drawn each frame at a
-// slowly moving offset. Pictures bigger than the screen (or not 16:9) pan
-// across their whole area and turn round gently; 16:9 pictures only drift a
-// few pixels (OLED care). Uploads go in strips, a few per frame, so a new
-// picture never stalls the motion.
-// Shared with frameworker.js (keep the two in step).
-function texScale(nw, nh, W, H, cw, maxTex) {
-  var need = Math.max(W / nw, H / nh);
-  if (cw) need = Math.max(need, W / (cw * nw));
-  return Math.min(1, maxTex / Math.max(nw, nh), need);
-}
-
-var PAN_SPEED = 7;          // screen pixels per second, on average
-var FADE_MS = 700;
-
-function glFrame(view, nextPic, prevPic, peekNext, count) {
-  var canvas = document.createElement('canvas');
-  var dpr = window.devicePixelRatio || 1;
-  var W = Math.round(1920 * dpr), H = Math.round(1080 * dpr);
-  canvas.width = W; canvas.height = H;
-  canvas.className = 'fgl';
-  var gl = null;
-  try {
-    gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false,
-      powerPreference: 'high-performance' });
-  } catch (e) {}
-  if (!gl) return false;
-  view.el.appendChild(canvas);
-
-  function shader(type, src) {
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src); gl.compileShader(s);
-    return s;
-  }
-  var prog = gl.createProgram();
-  gl.attachShader(prog, shader(gl.VERTEX_SHADER,
-    'attribute vec2 p; varying vec2 uv; uniform vec2 off; uniform vec2 span;' +
-    'void main() { uv = off + (p * vec2(0.5, -0.5) + 0.5) * span; gl_Position = vec4(p, 0.0, 1.0); }'));
-  gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
-    // highp: texture coordinates near 1.0 (the lower part of the picture)
-    // have too few steps in mediump, so that part moved in visible jumps.
-    '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n' +
-    'varying vec2 uv; uniform sampler2D tex; uniform float alpha; uniform float bri;' +
-    'void main() { float m = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);' +
-    ' gl_FragColor = vec4(texture2D(tex, uv).rgb * bri * m, alpha); }'));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { view.el.removeChild(canvas); return false; }
-  gl.useProgram(prog);
-  var buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  var loc = gl.getAttribLocation(prog, 'p');
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  var U = {};
-  ['off', 'span', 'alpha', 'bri', 'tex'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
-  gl.uniform1f(U.bri, frameCfg().bri / 100);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);   // RGB strips from the worker are tightly packed
-  var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
-  // Texture size: no more pixels than the screen can show of the picture
-  // (filling the screen, or its crop if that zooms in further). Bigger
-  // textures look the same but fill the TV's memory, and swapping makes
-  // the pan stutter. cw = crop width as a fraction of the picture.
-  function cropW(pic) { var r = cropOf(pic.name); return r ? r.w : 0; }
-
-  var cur = null, prev = null, fadeStart = 0, raf = 0, stopped = false, loading = false, queued = null, timer = 0;
-  var ready = null, busyPic = null, showWhenDone = false;   // ready = preloaded next picture
-  var strip = document.createElement('canvas');
-  var sctx = strip.getContext('2d', { willReadFrequently: true });
-  var times = [], last = 0;
-
-  // A view into the picture: top-left x, y and width v, in picture pixels
-  // (the height follows from the screen's 16:9).
-  function view_(x, y, v) { return { x: x, y: y, v: v }; }
-  function ease(f) { return (1 - Math.cos(Math.PI * f)) / 2; }
-  function mix(a, b, e) { return view_(a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e, a.v + (b.v - a.v) * e); }
-  // Back and forth within 2% around a view (OLED care).
-  function drift(at) {
-    var v2 = at.v / 1.02;
-    return { a: view_(at.x, at.y, v2), b: view_(at.x + at.v - v2, at.y + (at.v - v2) * H / W, v2), leg: 600000 };
-  }
-
-  // How the picture moves. Still: its crop (or the centre, zoomed to fill)
-  // with a slight drift. Pan with a crop: from the far side of the picture
-  // towards the crop, zooming in, arriving before the next picture; then it
-  // rests there. Pan without a crop: corner to corner and back.
-  function plan(w, h, name) {
-    var rect = cropOf(name);
-    var k = Math.max(W / w, H / h), cv = W / k, chh = H / k;
-    var crop = rect ? view_(rect.x * w, rect.y * h, rect.w * w) : null;
-    var centre = view_((w - cv) / 2, (h - chh) / 2, cv);
-    if (frameCfg().pan === false) return drift(crop || centre);
-    var tx = w - cv, ty = h - chh;
-    if (crop) {
-      var far = [[0, 0], [tx, 0], [0, ty], [tx, ty]].map(function (c) {
-        var dx = c[0] + cv / 2 - (crop.x + crop.v / 2), dy = c[1] + chh / 2 - (crop.y + crop.v * H / W / 2);
-        return { c: c, d: dx * dx + dy * dy };
-      }).sort(function (p, q) { return q.d - p.d; })[0].c;
-      var from = view_(far[0], far[1], cv);
-      var dist = (Math.hypot(from.x - crop.x, from.y - crop.y) + Math.abs(cv - crop.v) / 2) * k;   // screen px
-      var leg = Math.max(20000, dist / PAN_SPEED * 1000);
-      var budget = count > 1 ? frameCfg().every * 60000 * 0.85 : Infinity;
-      if (leg > budget) { from = mix(crop, from, budget / leg); leg = budget; }
-      return { a: from, b: crop, leg: leg, once: true, rest: drift(crop) };
-    }
-    if (tx * k < 40 && ty * k < 40) return drift(centre);
-    var x0 = Math.random() < 0.5 ? 0 : tx, y0 = Math.random() < 0.5 ? 0 : ty;
-    return { a: view_(x0, y0, cv), b: view_(tx - x0, ty - y0, cv),
-             leg: Math.max(60, Math.hypot(tx, ty) * k / PAN_SPEED) * 1000 };
-  }
-
-
-  // Pictures arrive in 64-row strips, so a new picture never stalls the
-  // motion. The file is read as a blob and decoded ONCE, off the main thread
-  // (createImageBitmap); strips are then cheap crops of that decoded copy.
-  // (Cropping straight from an <img> re-decodes the whole JPEG per strip on
-  // the TV.) Without blob decoding a 2D canvas cuts the strips instead.
-  var SH = 64, BM_OPTS = { premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' };
-  var stats = { loads: 0, alloc: 0, upload: 0, slowLoading: 0, loadMs: 0, mode: '' };
-
-  function fetchBlob(url, done) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url);
-    xhr.responseType = 'blob';
-    xhr.onload = function () { done(xhr.response && xhr.response.size ? xhr.response : null); };
-    xhr.onerror = function () { done(null); };
-    xhr.send();
-  }
-
-  // Best path: frameworker.js decodes and cuts RGB strips in a worker thread;
-  // the main thread only copies them to the texture (4 ms per frame at most).
-  var worker = null, jobs = {}, jobId = 0;
-  try { if (window.Worker) worker = new Worker('frameworker.js'); } catch (e) {}
-  if (worker) {
-    worker.onmessage = function (e) { var j = jobs[e.data.id]; if (j) j(e.data); };
-    // A worker that fails to start sends every waiting picture down the fallback.
-    worker.onerror = function () {
-      Object.keys(jobs).forEach(function (id) { if (jobs[id]) jobs[id]({ id: +id, type: 'fail' }); });
-      worker = null;
-    };
-  }
-
-  function viaWorker(pic, blob, t0, fallback) {
-    var id = ++jobId, tex = null, w = 0, h = 0, queue = [], finished = false, done = 0;
-    jobs[id] = function (m) {
-      if (stopped) return;
-      if (m.type === 'fail') { delete jobs[id]; if (tex) gl.deleteTexture(tex); worker = null; fallback(); return; }
-      if (m.type === 'size') {
-        w = m.w; h = m.h;
-        tex = newTexture(w, h);
-        stats.mode = 'worker';
-        requestAnimationFrame(upload);
-      } else if (m.type === 'strip') queue.push(m);
-      else if (m.type === 'done') finished = true;
-    };
-    worker.postMessage({ id: id, blob: blob, maxTex: maxTex, rows: SH, W: W, H: H, cw: cropW(pic) });
-    function upload() {
-      if (stopped) { delete jobs[id]; return; }
-      var begin = performance.now();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      while (queue.length && performance.now() - begin < 4) {
-        var m = queue.shift(), t1 = performance.now();
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, m.y, w, m.h, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array(m.data));
-        stats.upload = Math.max(stats.upload, performance.now() - t1);
-        done += m.h;
-      }
-      if (!(finished && !queue.length && done >= h)) { requestAnimationFrame(upload); return; }
-      delete jobs[id];
-      stats.loadMs = Math.max(stats.loadMs, performance.now() - t0);
-      loaded({ tex: tex, w: w, h: h, pic: pic });
-    }
-  }
-
-  function newTexture(w, h) {
-    var tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    var ta = performance.now();
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-    stats.alloc = Math.max(stats.alloc, performance.now() - ta);
-    stats.loads++;
-    stats.size = w + 'x' + h;
-    return tex;
-  }
-
-  function decodeOnce(blob, done) {
-    if (!blob || typeof createImageBitmap !== 'function') { done(null); return; }
-    createImageBitmap(blob, BM_OPTS).then(done, function () { done(null); });
-  }
-
-  function load(pic, show) {
-    loading = true; busyPic = pic; showWhenDone = show;
-    var t0 = performance.now();
-    fetchBlob(pic.url, function (blob) {
-      if (stopped) return;
-      if (blob && worker) viaWorker(pic, blob, t0, function () { slowLoad(pic, blob, t0); });
-      else slowLoad(pic, blob, t0);
-    });
-  }
-
-  // Fallbacks: decode on this thread (blob), or an <img> cut by a canvas.
-  function slowLoad(pic, blob, t0) {
-    decodeOnce(blob, function (full) {
-      if (stopped) { if (full) full.close(); return; }
-      if (full) { build(pic, full, null, t0); return; }
-      var img = new Image();
-      img.src = pic.url;
-      var ready = img.decode ? img.decode() : new Promise(function (ok, bad) { img.onload = ok; img.onerror = bad; });
-      ready.then(function () { if (!stopped) build(pic, null, img, t0); }, function () { loading = false; });
-    });
-  }
-
-  function build(pic, full, img, t0) {
-    var nw = full ? full.width : img.naturalWidth, nh = full ? full.height : img.naturalHeight;
-    var s = texScale(nw, nh, W, H, cropW(pic), maxTex);
-    var w = Math.floor(nw * s), h = Math.floor(nh * s);
-    stats.mode = full ? 'blob' : 'canvas';
-    var tex = newTexture(w, h);
-    var n = Math.ceil(h / SH), parts = [], asked = 0, done = 0;
-    function rows(i) { return Math.min(SH, h - i * SH); }
-    function ask() {
-      while (asked < n && asked - done < 4) {
-        (function (i) {
-          if (!full) { parts[i] = 'canvas'; return; }
-          var sy = Math.floor(i * SH / s), sh = Math.min(nh - sy, Math.ceil(rows(i) / s));
-          var opts = { premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' };
-          if (s < 1) { opts.resizeWidth = w; opts.resizeHeight = rows(i); opts.resizeQuality = 'medium'; }
-          createImageBitmap(full, 0, sy, nw, sh, opts).then(function (bm) { parts[i] = bm; }, function () { parts[i] = 'canvas'; });
-        })(asked++);
-      }
-    }
-    function canvasStrip(i) {
-      var hh = rows(i), src = full || img;
-      if (strip.width !== w) { strip.width = w; strip.height = SH; }
-      sctx.clearRect(0, 0, w, SH);
-      sctx.drawImage(src, 0, i * SH / s, nw, hh / s, 0, 0, w, hh);
-      return hh === SH ? strip : sctx.getImageData(0, 0, w, hh);
-    }
-    (function upload() {
-      if (stopped) {
-        parts.forEach(function (p) { if (p && p.close) p.close(); });
-        if (full) full.close();
-        return;
-      }
-      ask();
-      // As many ready strips as fit in 4 ms of this frame.
-      var begin = performance.now();
-      while (done < n && parts[done] !== undefined && performance.now() - begin < 4) {
-        var part = parts[done], t1 = performance.now();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, done * SH, gl.RGB, gl.UNSIGNED_BYTE,
-          part === 'canvas' ? canvasStrip(done) : part);
-        stats.upload = Math.max(stats.upload, performance.now() - t1);
-        if (part.close) part.close();
-        parts[done++] = null;
-        ask();
-      }
-      if (done < n) { requestAnimationFrame(upload); return; }
-      if (full) full.close();
-      if (img) img.src = '';
-      stats.loadMs = Math.max(stats.loadMs, performance.now() - t0);
-      loaded({ tex: tex, w: w, h: h, pic: pic });
-    })();
-  }
-
-
-
-  // Where the plan is now: a one-way trip (then its rest), or back and forth
-  // with an eased turn at each end.
-  function auto(o, now) {
-    var p = o.p, t = (now - o.start) / p.leg;
-    if (p.once) {
-      if (t < 1) return mix(p.a, p.b, ease(t));
-      t = (t - 1) * p.leg / p.rest.leg;
-      p = p.rest;
-    }
-    var lap = Math.floor(t), e = ease(t - lap);
-    return mix(p.a, p.b, lap % 2 ? 1 - e : e);
-  }
-
-  function place(o, now) {
-    var q;
-    if (o.man) {
-      // Moved by hand: glide towards the target, frame-rate independent.
-      var a = 1 - Math.exp(-(now - o.man.t) / 160);
-      o.man.t = now;
-      o.man.x += (o.man.tx - o.man.x) * a; o.man.y += (o.man.ty - o.man.y) * a;
-      q = o.man;
-    } else q = auto(o, now);
-    gl.uniform2f(U.off, q.x / o.w, q.y / o.h);
-    gl.uniform2f(U.span, q.v / o.w, q.v * H / W / o.h);
-    gl.bindTexture(gl.TEXTURE_2D, o.tex);
-  }
-
-  function draw(now) {
-    if (stopped) return;
-    raf = requestAnimationFrame(draw);
-    if (last) { times.push(now - last); if (loading && now - last > 25) stats.slowLoading++; }
-    last = now;
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    if (!cur) return;
-    // Fade the new picture in over the old one (or over black at the start).
-    var a = Math.min(1, (now - fadeStart) / FADE_MS);
-    gl.disable(gl.BLEND);
-    if (prev && a < 1) {
-      gl.uniform1f(U.alpha, 1);
-      place(prev, now);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    } else if (prev) { gl.deleteTexture(prev.tex); prev = null; }
-    if (a < 1) gl.enable(gl.BLEND);
-    gl.uniform1f(U.alpha, a);
-    place(cur, now);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
-  function loaded(o) {
-    loading = false; busyPic = null;
-    if (showWhenDone) show(o);
-    else { if (ready) gl.deleteTexture(ready.tex); ready = o; }
-    if (queued) { var q = queued; queued = null; go(q); } else preload();
-  }
-  function show(o) {
-    if (prev) gl.deleteTexture(prev.tex);
-    prev = cur;
-    o.p = plan(o.w, o.h, o.pic.name);
-    o.start = fadeStart = performance.now();
-    cur = o;
-  }
-  // Show a picture: instantly when it is the preloaded one.
-  function go(pic) {
-    if (ready && ready.pic === pic) { var o = ready; ready = null; show(o); preload(); return; }
-    if (loading && busyPic === pic) { showWhenDone = true; return; }
-    if (loading) { queued = pic; return; }
-    load(pic, true);
-  }
-  function preload() {
-    if (loading || stopped) return;
-    var pic = peekNext();
-    if (!ready || ready.pic !== pic) load(pic, false);
-  }
-  function change() { go(nextPic()); }
-  function restartTimer() {
-    clearInterval(timer);
-    if (count > 1) timer = setInterval(change, frameCfg().every * 60000);
-  }
-  view.skip = function (d) {
-    var pic = d > 0 ? nextPic() : prevPic();
-    if (!pic) return;
-    go(pic);
-    restartTimer();
-  };
-  // Arrows: stop the auto pan and move the visible area by 15% of the screen.
-  view.move = function (dx, dy) {
-    var o = cur;
-    if (!o) return;
-    var now = performance.now();
-    if (!o.man) { var q = auto(o, now); o.man = { x: q.x, y: q.y, v: q.v, tx: q.x, ty: q.y, t: now }; }
-    var vw = o.man.v, vh = vw * H / W;
-    o.man.tx = Math.max(0, Math.min(o.w - vw, o.man.tx + dx * vw * 0.15));
-    o.man.ty = Math.max(0, Math.min(o.h - vh, o.man.ty + dy * vh * 0.15));
-  };
-
-  load(nextPic(), true);
-  raf = requestAnimationFrame(draw);
-  restartTimer();
-
-  // Frame times go to /tmp/atvhome-frame.txt when the frame ends.
-  view.stop = function () {
-    stopped = true;
-    clearInterval(timer);
-    cancelAnimationFrame(raf);
-    if (times.length > 60) {
-      var sorted = times.slice().sort(function (a, b) { return a - b; });
-      var total = times.reduce(function (a, b) { return a + b; }, 0);
-      var slow = times.filter(function (x) { return x > 25; }).length;
-      exec('echo "v' + VERSION + ' webgl frames=' + times.length + ' fps=' + (times.length / total * 1000).toFixed(1) +
-        ' p99=' + sorted[Math.floor(sorted.length * 0.99)].toFixed(1) + 'ms max=' + sorted[sorted.length - 1].toFixed(1) +
-        'ms over25ms=' + slow + ' whileLoading=' + stats.slowLoading + ' loads=' + stats.loads +
-        ' alloc=' + stats.alloc.toFixed(0) + 'ms strip=' + stats.upload.toFixed(1) + 'ms load=' + stats.loadMs.toFixed(0) +
-        'ms via=' + stats.mode +
-        ' pan=' + (frameCfg().pan !== false) + ' tex=' + maxTex + ' last=' + stats.size + ' highp=' + ((gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT) || {}).precision || 0) + '" >> /tmp/atvhome-frame.txt');
-    }
-    [cur, prev, ready].forEach(function (o) { if (o) gl.deleteTexture(o.tex); });
-    if (worker) worker.terminate();
-    var lose = gl.getExtension('WEBGL_lose_context');
-    if (lose) lose.loseContext();
-  };
-  return true;
-}
-
-// Fallback without WebGL: two images crossfade, 16:9 only (cover).
-function cssFrame(view, nextPic, prevPic, count) {
-  var el = view.el, front = 1;
-  el.insertAdjacentHTML('beforeend', '<div class="fimg"></div><div class="fimg"></div><div class="fdim"></div>');
-  var imgs = el.querySelectorAll('.fimg');
-  el.querySelector('.fdim').style.opacity = (1 - frameCfg().bri / 100).toFixed(2);
-  function drift(img) {
-    var dx = Math.round(Math.random() * 24 - 12), dy = Math.round(Math.random() * 24 - 12);
-    img.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.02)';
-  }
-  view.skip = function (d) { var pic = d > 0 ? nextPic() : prevPic(); if (pic) show(pic); };
-  function show(chosen) {
-    var pic = chosen || nextPic();
-    var pre = new Image();
-    pre.onload = pre.onerror = function () {
-      if (frameView !== view) return;
-      var next = imgs[1 - front];
-      next.style.backgroundImage = 'url("' + pic.url + '")';
-      drift(next);
-      next.classList.add('on');
-      imgs[front].classList.remove('on');
-      front = 1 - front;
-    };
-    pre.src = pic.url;
-  }
-  show();
-  if (count > 1) view.timers.push(setInterval(show, frameCfg().every * 60000));
-  else view.timers.push(setInterval(function () { drift(imgs[front]); }, 10 * 60000));
-}
-
-// ---------------------------------------------------------------- hue
-
-// Philips Hue through hue.py (in the Light app, run as root): rooms and
-// lights, scenes, and the Light button setup (room, cinema scene, back to).
-var HUE_PY = 'python3 /media/developer/apps/usr/palm/applications/' + LIGHT_APP + '/hue.py';
-var HUE_MODE = '/var/lib/webosbrew/hue-scene.mode';
-var hueData = null;
-var hueSend = {};   // debounce timers for brightness changes
-
-function hasLight() {
-  return state.installed.some(function (a) { return a.id === LIGHT_APP; });
-}
-
-function hue(args, cb) {
-  exec(HUE_PY + ' ' + args, function (res) {
-    var ok = res.returnValue !== false;
-    if (cb) cb((res.stdoutString || '').trim(), ok, (res.stderrString || '').trim());
-  });
-}
-
-function loadHue(cb) {
-  hue('status', function (out, ok) {
-    try { hueData = ok ? JSON.parse(out) : null; } catch (e) { hueData = null; }
-    if (hueData && hueData.paired) { lightCinema = hueData.mode === 'movie'; renderTop(); }
-    if (cb) cb();
-  });
-}
-
-function hueRoom(id) {
-  var r = null;
-  (hueData && hueData.rooms || []).forEach(function (x) { if (x.id === id) r = x; });
-  return r;
-}
-
-function sceneName(room, id) {
-  var n = '';
-  (room && room.scenes || []).forEach(function (s) { if (s.id === id) n = s.name; });
-  return n;
-}
-
-function openHue() {
-  closeAll();
-  showHint(t('hueConnecting'));
-  loadHue(function () {
-    showHint('');
-    if (!hueData) { showHint(t('hueFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
-    if (!hueData.paired) { pairBridge(); return; }
-    openHueRooms();
-  });
-}
-
-// Rooms as cards: OK switches a room, hold OK opens it. Plus the Light
-// button card.
-function openHueRooms() {
-  var el = layer('folderView picker');
-  el.innerHTML = '<div class="inner"><div class="title"></div><div class="pickhint"></div><div class="grid"></div></div>';
-  el.querySelector('.title').textContent = 'Hue';
-  el.querySelector('.pickhint').innerHTML = hintHTML(t('hueHint'));
-  var inner = el.querySelector('.inner');
-  var view = { el: el };
-  function entries() {
-    var list = (hueData.rooms || []).map(function (r) { return { type: 'room', key: 'room' + r.id, title: r.name, room: r }; });
-    list.push({ type: 'special', key: '__button', icon: 'light', title: t('lightButton') });
-    return list;
-  }
-  var grid = new Grid({
-    container: el.querySelector('.grid'),
-    onActivate: function (e) {
-      if (e.key === '__button') { lightButtonMenu(); return; }
-      e.room.on = !e.room.on;
-      grid.set(entries(), e.key);
-      hue('room ' + e.room.id + (e.room.on ? ' on' : ' off'), function () { loadHue(view.refresh); });
-    },
-    onLongPress: function (e) { if (e.room) roomMenu(e.room.id); },
-    onRow: function (row) { inner.style.transform = 'translateY(' + (row > 1 ? -(row - 1) * PICK_ROW_H : 0) + 'px)'; }
-  });
-  view.key = function (e) { if (!grid.key(e) && e.keyCode === KEY.BACK) pop(); };
-  view.ok = function () { grid.activate(grid.focus); };
-  view.longOk = function () { grid.longPress(grid.focus); };
-  view.refresh = function () { if (hueData && hueData.rooms) grid.set(entries()); };
-  view.grid = grid;
-  infoButton(view, inner, 'hue', grid);
-  push(view);
-  grid.set(entries());
-}
-
-// Brightness: change locally right away, send after a short pause.
-function hueBri(kind, id, value) {
-  clearTimeout(hueSend[kind + id]);
-  hueSend[kind + id] = setTimeout(function () { hue(kind + ' ' + id + ' bri ' + value); }, 350);
-}
-
-function roomMenu(id) {
-  menu({
-    title: function () { var r = hueRoom(id); return r ? r.name : ''; },
-    rows: function () {
-      var r = hueRoom(id);
-      if (!r) return [];
-      var rows = [
-        { label: t('power'), value: r.on ? t('on') : t('off'), action: function () {
-          r.on = !r.on; refreshTop(); hue('room ' + id + (r.on ? ' on' : ' off'), function () { loadHue(refreshTop); });
-        } },
-        { label: t('brightness'), value: '‹ ' + (r.on ? r.bri + '%' : t('off')) + ' ›', adjust: function (d) {
-          r.bri = Math.max(1, Math.min(100, (r.on ? r.bri : 0) + d * 10)); r.on = true;
-          refreshTop(); hueBri('room', id, r.bri);
-        } }
-      ];
-      if (r.scenes.length) rows.push({ info: true, label: t('scenes') });
-      r.scenes.forEach(function (sc) {
-        rows.push({ label: sc.name, action: function () {
-          hue('scene ' + id + ' ' + sc.id, function () { lightCinema = false; renderTop(); loadHue(refreshTop); });
-        } });
-      });
-      rows.push({ info: true, label: t('lights') });
-      r.lights.forEach(function (l) {
-        rows.push({ label: l.name, value: !l.reachable ? t('unreachable') : (l.on ? '‹ ' + l.bri + '% ›' : t('off')),
-          action: function () {
-            l.on = !l.on; refreshTop(); hue('light ' + l.id + (l.on ? ' on' : ' off'));
-          },
-          adjust: function (d) {
-            l.bri = Math.max(1, Math.min(100, (l.on ? l.bri : 0) + d * 10)); l.on = true;
-            refreshTop(); hueBri('light', l.id, l.bri);
-          } });
-      });
-      return rows;
-    }
-  });
-}
-
-// Light button: room, cinema scene, and what the second press goes back to.
-function lightButtonMenu() {
-  function save(args) { hue('set ' + args, function () { loadHue(refreshTop); }); }
-  function pick(title, items, current, onPick) {
-    menu({ title: title, rows: function () {
-      return items.map(function (it) {
-        return { label: it.name, check: it.id === current(), action: function () { onPick(it.id); pop(); } };
-      });
-    } });
-  }
-  menu({
-    title: t('lightButton'),
-    info: 'light',
-    rows: function () {
-      var b = hueData.button, r = hueRoom(b.group);
-      var backLabel = b.back === 'scene' ? (sceneName(r, b.backScene) || t('notSet')) : t('backPrevious');
-      return [
-        { label: t('room'), value: r ? r.name : t('notSet'), chevron: true, action: function () {
-          pick(t('room'), hueData.rooms, function () { return hueData.button.group; }, function (gid) {
-            hueData.button.group = gid; hueData.button.scene = ''; save('group=' + gid);
-          });
-        } },
-        { label: t('cinemaScene'), value: sceneName(r, b.scene) || t('notSet'), chevron: true, action: function () {
-          if (!r) return;
-          pick(t('cinemaScene'), r.scenes, function () { return hueData.button.scene; }, function (sid) {
-            hueData.button.scene = sid; save('scene=' + sid);
-          });
-        } },
-        { label: t('backTo'), value: backLabel, chevron: true, action: function () {
-          if (!r) return;
-          var items = [{ id: 'previous', name: t('backPrevious') }].concat(r.scenes);
-          pick(t('backTo'), items, function () {
-            return hueData.button.back === 'scene' ? hueData.button.backScene : 'previous';
-          }, function (sid) {
-            hueData.button.back = sid === 'previous' ? 'previous' : 'scene';
-            hueData.button.backScene = sid === 'previous' ? '' : sid;
-            save('back=' + sid);
-          });
-        } },
-        { info: true, label: t('lightHow', backLabel) }
-      ];
-    }
-  });
-}
-
-// Pairing on the TV: find the bridge (or type its IP), press its button.
-function pairBridge() {
-  hue('discover', function (out) {
-    var list = [];
-    try { list = JSON.parse(out || '[]'); } catch (e) {}
-    if (list.length) waitForButton(list[0].ip);
-    else askText(t('hueIp'), '', function (ip) { waitForButton(ip.trim()); });
-  });
-}
-
-function waitForButton(ip) {
-  var tries = 0, done = false;
-  var sheet = menu({ title: t('huePress'), sub: t('huePressSub'), sheet: true,
-    onClose: function () { done = true; },
-    rows: function () { return [{ label: t('cancel'), action: pop }]; } });
-  (function poll() {
-    if (done) return;
-    hue('pair ' + ip, function (out) {
-      if (done) return;
-      if (out === 'ok') {
-        done = true;
-        closeAll();
-        showHint(t('huePaired')); setTimeout(function () { showHint(''); }, 2500);
-        loadHue(function () { openHueRooms(); if (!hueData.button.group) lightButtonMenu(); });
-        return;
-      }
-      if (++tries >= 30) { pop(); showHint(t('hueFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
-      setTimeout(poll, 2000);
-    });
-  })();
-  return sheet;
-}
-
-// ---------------------------------------------------------------- remote buttons
-
-// Remote mapper (tv/remote-mapper): a surface-manager key filter that reads
-// /var/lib/webosbrew/remote-mapper/map.json. This UI edits that map via the
-// control script; changes apply immediately (the script reloads the filter).
-var MAPPER = '/var/lib/webosbrew/remote-mapper/remote-mapper.sh';
-// Buttons of the Magic Remote that can be remapped, as the filter names them.
-// Home, Back, OK, arrows, volume and power are deliberately not offered.
-var REMOTE_BUTTONS = [
-  { key: 'Key_webOS_Voice', label: 'b_mic' },
-  { key: 'Key_webOS_InputSource', label: 'b_input' },
-  { key: 'Key_webOS_ProgramList', label: 'b_list' },
-  { key: 'Key_webOS_ScreenRemote', label: 'b_more' },
-  { key: 'Key_webOS_ChannelUp', label: 'b_chup' },
-  { key: 'Key_webOS_ChannelDown', label: 'b_chdown' },
-  { key: 'Key_webOS_Red', label: 'b_red' },
-  { key: 'Key_webOS_Green', label: 'b_green' },
-  { key: 'Key_webOS_Yellow', label: 'b_yellow' },
-  { key: 'Key_webOS_Blue', label: 'b_blue' },
-  { key: 'Key_webOS_Netflix', text: 'Netflix' },
-  { key: 'Key_webOS_Amazon', text: 'Prime Video' },
-  { key: 'Key_webOS_Disneyplus', text: 'Disney+' },
-  { key: 'Key_webOS_RakutenTV', text: 'Rakuten TV' },
-  { key: 'Key_webOS_LGChannels', text: 'LG Channels' },
-  { key: 'Key_webOS_ALEXA', text: 'Alexa' }
-];
-// Never mappable: power, volume, mute, home, back, settings, arrows, OK.
-var BLOCKED_KEYS = /^(Qt\.Key_Super_L|Key_webOS_(Back|Exit|Settings)|Qt\.Key_(Up|Down|Left|Right|Return|Enter|Select|VolumeUp|VolumeDown|VolumeMute|PowerOff))$/;
-var remoteState = { map: { buttons: {} }, active: false, installed: false };
-var learnTimer = null;
-
-// Learn mode ends with the Remote Buttons menu (Back, Home, closing it).
-function stopLearning(silent) {
-  if (!learnTimer) return;
-  clearInterval(learnTimer);
-  learnTimer = null;
-  mapper('learn off');
-  if (!silent) showHint('');
-}
-
-function buttonLabel(key) {
-  for (var i = 0; i < REMOTE_BUTTONS.length; i++) {
-    var b = REMOTE_BUTTONS[i];
-    if (b.key === key) return b.text || t(b.label);
-  }
-  var m = /^code:(\d+)$/.exec(key);
-  if (m) return t('button', m[1]);
-  return key.replace(/^(Qt\.)?Key_(webOS_)?/, '');
-}
-
-function specialActions() {
-  var list = [{ id: APP_ID, title: t('tvHome') }, { id: APP_ID, params: { frame: true }, title: t('frame') }];
-  if (state.installed.some(function (a) { return a.id === LIGHT_APP; })) list.push({ id: LIGHT_APP, title: t('light') });
-  list.push({ id: 'com.webos.app.livetv', title: t('liveTv') });
-  for (var n = 1; n <= 4; n++) list.push({ id: 'com.webos.app.hdmi' + n, title: t('hdmi', n) });
-  return list;
-}
-
-function sameAction(a, sp) {
-  return !!a && a.app === sp.id && JSON.stringify(a.params || {}) === JSON.stringify(sp.params || {});
-}
-
-function actionLabel(a) {
-  if (!a) return t('lgDefault');
-  if (a.action === 'none') return t('doNothing');
-  var sp = specialActions();
-  for (var i = 0; i < sp.length; i++) if (sameAction(a, sp[i])) return sp[i].title;
-  for (var j = 0; j < state.installed.length; j++) if (state.installed[j].id === a.app) return state.installed[j].title;
-  return a.app || '?';
-}
-
-function mapper(args, cb) {
-  exec('sh ' + MAPPER + ' ' + args, function (res) {
-    cb && cb((res.stdoutString || '').trim(), res.returnValue !== false && !res.stderrString);
-  });
-}
-
-function loadRemote(cb) {
-  mapper('getmap; echo @@; sh ' + MAPPER + ' status', function (out, ok) {
-    var parts = out.split('@@');
-    remoteState.installed = ok && parts.length === 2;
-    try { remoteState.map = JSON.parse(parts[0]); } catch (e) { remoteState.map = { buttons: {} }; }
-    if (!remoteState.map.buttons) remoteState.map.buttons = {};
-    remoteState.active = (parts[1] || '').trim() === 'active';
-    cb && cb();
-  });
-}
-
-function saveRemote() {
-  var b64 = btoa(unescape(encodeURIComponent(JSON.stringify({ buttons: remoteState.map.buttons }))));
-  mapper('setmap ' + b64, function () { showHint(t('saved')); setTimeout(function () { showHint(''); }, 2500); });
-  paintRemote(null);
-}
-
-// Highlight the focused button and mark mapped ones on the drawing.
-function paintRemote(selKey) {
-  var els = document.querySelectorAll('#remoteArt [data-key]');
-  for (var i = 0; i < els.length; i++) {
-    var k = els[i].getAttribute('data-key');
-    els[i].classList.toggle('mapped', !!remoteState.map.buttons[k]);
-    els[i].classList.toggle('sel', k === selKey);
-  }
-}
-
-// Remote Buttons screen: navigate the drawing (arrows / pointer), OK opens
-// the focused button's choices. Two pills: mapper on/off, Other button.
-var remoteView = null;
-var remoteFocus = null;   // focused SVG button or pill element
-
-function remoteTargets() {
-  return [].slice.call(document.querySelectorAll('#remoteArt [data-key]:not(.fixed), #remotePills .pill'));
-}
-
-function remoteKeyOf(el) { return el && el.getAttribute('data-key'); }
-
-function paintRemoteInfo() {
-  var els = remoteTargets();
-  for (var i = 0; i < els.length; i++) els[i].classList.toggle('sel', els[i] === remoteFocus);
-  var key = remoteKeyOf(remoteFocus);
-  paintRemote(key);
-  var pills = document.querySelectorAll('#remotePills .pill');
-  pills[0].textContent = t('remoteOff') + ': ' + (remoteState.active ? t('on') : t('off'));
-  pills[1].textContent = t('otherButton');
-  pills[2].textContent = t('resetButtons');
-  pills[3].textContent = 'i';
-  var info = document.getElementById('remoteInfo');
-  var a = key && remoteState.map.buttons[key];
-  info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
-  info.querySelector('.act').textContent = key ? actionLabel(a) : '';
-  info.querySelector('.act').classList.toggle('on', !!a);
-  info.querySelector('.tip').innerHTML = hintHTML(remoteState.installed ? t('remoteTip') : t('remoteMissing'));
-}
-
-function focusRemote(el) {
-  remoteFocus = el;
-  paintRemoteInfo();
-}
-
-// Spatial navigation: nearest target in the pressed direction.
-function moveRemote(dir) {
-  if (!remoteFocus) return;
-  var c = remoteFocus.getBoundingClientRect();
-  var cx = c.left + c.width / 2, cy = c.top + c.height / 2, best = null, bestScore = 1e9;
-  remoteTargets().forEach(function (el) {
-    if (el === remoteFocus) return;
-    var r = el.getBoundingClientRect();
-    var dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
-    var p = dir === KEY.LEFT ? -dx : dir === KEY.RIGHT ? dx : dir === KEY.UP ? -dy : dy;
-    var q = (dir === KEY.LEFT || dir === KEY.RIGHT) ? Math.abs(dy) : Math.abs(dx);
-    // Only targets inside a ~55° cone of the pressed direction count.
-    if (p <= 4 || q > p * 1.5) return;
-    var score = p + 1.2 * q;
-    if (score < bestScore) { bestScore = score; best = el; }
-  });
-  if (best) focusRemote(best);
-}
-
-function remoteActivate() {
-  if (!remoteFocus || !once()) return;
-  var pill = remoteFocus.getAttribute('data-pill');
-  if (pill === 'power') {
-    mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(paintRemoteInfo); });
-  } else if (pill === 'other') {
-    learnButton();
-  } else if (pill === 'info') {
-    toggleLegend('remote', true);
-  } else if (pill === 'reset') {
-    confirmSheet(t('resetButtonsQ'), '', t('resetYes'), function () {
-      remoteState.map.buttons = {};
-      saveRemote();
-      paintRemoteInfo();
-    });
-  } else if (remoteState.installed) {
-    chooseButtonAction(remoteKeyOf(remoteFocus));
-  }
-}
-
-function bindRemoteMouse() {
-  if (bindRemoteMouse.done) return;
-  bindRemoteMouse.done = true;
-  remoteTargets().forEach(function (el) {
-    el.addEventListener('mouseenter', function () { if (stack[stack.length - 1] === remoteView) focusRemote(el); });
-    el.addEventListener('click', function () {
-      if (stack[stack.length - 1] !== remoteView) return;
-      focusRemote(el); remoteActivate();
-    });
-  });
-}
-
-function openRemote() {
-  closeAll();
-  document.body.classList.add('remote');
-  bindRemoteMouse();
-  var el = layer('remoteLayer');
-  remoteView = {
-    el: el,
-    key: function (e) {
-      if (e.keyCode === KEY.BACK) pop();
-      else moveRemote(e.keyCode);
-    },
-    ok: remoteActivate,
-    refresh: paintRemoteInfo,
-    onClose: function () {
-      stopLearning();
-      remoteView = null;
-      document.body.classList.remove('remote');
-      paintRemote(null);
-    }
-  };
-  push(remoteView);
-  if (!remoteFocus || remoteFocus.classList.contains('fixed')) remoteFocus = document.querySelector('#remoteArt [data-key="Key_webOS_Netflix"]');
-  loadRemote(paintRemoteInfo);
-  paintRemoteInfo();
-}
-
-function chooseButtonAction(key) {
-  function set(a) {
-    if (a) remoteState.map.buttons[key] = a; else delete remoteState.map.buttons[key];
-    saveRemote();
-    pop();
-    refreshTop();
-  }
-  menu({
-    title: buttonLabel(key),
-    sub: actionLabel(remoteState.map.buttons[key]),
-    onFocus: function () { paintRemote(key); },
-    rows: function () {
-      var cur = remoteState.map.buttons[key];
-      var rows = [
-        { label: t('lgDefault'), check: !cur, action: function () { set(null); } },
-        { label: t('doNothing'), check: !!(cur && cur.action === 'none'), action: function () { set({ action: 'none' }); } },
-        { info: true, label: t('actions') }
-      ];
-      specialActions().forEach(function (sp) {
-        rows.push({ label: sp.title, check: sameAction(cur, sp), action: function () {
-          set(sp.params ? { app: sp.id, params: sp.params } : { app: sp.id });
-        } });
-      });
-      var isSpecial = cur && specialActions().some(function (sp) { return sameAction(cur, sp); });
-      rows.push({ label: t('appPick'), value: cur && cur.app && !isSpecial ? actionLabel(cur) : '', chevron: true,
-        action: function () {
-          appPicker({
-            title: buttonLabel(key), single: true, side: true, keys: appOrder.filter(function (k) { return k !== FRAME_KEY; }),
-            isPicked: function (k) { return !!(cur && apps[k].id === cur.app); },
-            focusKey: appOrder.filter(function (k) { return k !== FRAME_KEY && cur && apps[k].id === cur.app; })[0],
-            onDone: function (sel) {
-              var a = apps[sel[0]];
-              set(Object.keys(a.params || {}).length ? { app: a.id, params: a.params } : { app: a.id });
-            }
-          });
-        } });
-      return rows;
-    }
-  });
-}
-
-// Learn mode: the filter publishes presses; poll them for ~20 s.
-function learnButton() {
-  stopLearning(true);
-  showHint(t('learnSub'));
-  mapper('learn on', function () {
-    var tries = 0;
-    learnTimer = setInterval(function () {
-      if (!learnTimer) return;
-      mapper('learned', function (out) {
-        if (!learnTimer) return;   // menu closed meanwhile
-        var list = [];
-        try { list = JSON.parse(out || '[]'); } catch (e) {}
-        var hit = list.filter(function (e) { return e.code; })[0];
-        if (!hit && ++tries < 25) return;
-        stopLearning();
-        if (!hit) { showHint(t('learnNone')); setTimeout(function () { showHint(''); }, 2500); return; }
-        var key = hit.name || ('code:' + hit.code);
-        if (BLOCKED_KEYS.test(key)) { showHint(t('learnBlocked')); setTimeout(function () { showHint(''); }, 3000); return; }
-        var el = document.querySelector('#remoteArt [data-key="' + key + '"]');
-        if (el && !el.classList.contains('fixed')) focusRemote(el);
-        chooseButtonAction(key);
-      });
-    }, 800);
-  });
-}
 
 // ---------------------------------------------------------------- input
 
@@ -3191,7 +2176,7 @@ function current() {
 var mainView = {
   key: function (e) {
     var k = e.keyCode;
-    if (window.Plex && Plex.key(e)) return;
+    if (claim('key', e)) return;          // a module's own row (Plex)
     if (topFocus >= 0) {
       var n = topButtons().length;
       if (k === KEY.LEFT) focusTop(Math.max(0, topFocus - 1));
@@ -3210,12 +2195,12 @@ var mainView = {
   },
   ok: function () {
     if (topFocus >= 0) { var b = topButtons()[topFocus]; if (b && once()) b.action(); return; }
-    if (window.Plex && Plex.ok()) return;
+    if (claim('ok')) return;
     if (!mainGrid.entries.length) { load(); return; }
     mainGrid.activate(mainGrid.focus);
   },
   longOk: function () {
-    if (window.Plex && Plex.longOk()) return;
+    if (claim('longOk')) return;
     if (topFocus < 0) { mainGrid.longPress(mainGrid.focus); return; }
     var b = topButtons()[topFocus];
     if (b && b.longAction && once()) b.longAction();
@@ -3227,15 +2212,8 @@ var okTimer = null, okLong = false, okDown = false;
 document.addEventListener('keydown', function (e) {
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
   var v = current();
-  // Picture frame: any key ends it (OK too, without reaching the tile behind).
-  // (1536/1537: the Magic Remote's pointer appearing or hiding, which webOS
-  // also sends when another window takes and gives back the focus: not a key.)
-  if (frameView && v === frameView) {
-    e.preventDefault();
-    if (e.keyCode === 1536 || e.keyCode === 1537 || !e.keyCode) return;
-    if (!frameView.control(e.keyCode)) frameView.end('key ' + e.keyCode);
-    return;
-  }
+  // A module that takes every key while its view is on top (the Picture Frame).
+  if (claim('keydown', e, v)) { e.preventDefault(); return; }
   if (e.keyCode === KEY.OK) {
     e.preventDefault();
     if (okDown) return; // auto-repeat while held
@@ -3271,35 +2249,23 @@ document.addEventListener('wheel', function (e) {
 
 document.addEventListener('webOSRelaunch', function () {
   if (launchParams().bench) { setTimeout(bench, 500); return; }
-  // A frame launch while the frame runs (framesaver.py after closing LG's
-  // screensaver over it): keep it, don't let the hidden timer end it.
-  if (launchParams().frame) { clearTimeout(hiddenTimer); if (!frameView) { closeAll(); frameBack = launchParams().back || ''; startFrame(); } return; }
+  // A launch meant for a module (the Picture Frame: {frame: true}).
+  if (claim('relaunch', launchParams())) return;
   // Home pressed again: back to a clean home screen.
   closeAll();
   if (mainGrid.moving >= 0) mainGrid.endMove();
   if (editMode) setEditMode(false);
   topFocus = -1;
-  if (window.Plex) Plex.reset();
+  hook('reset');
   renderTop();
   mainGrid.setFocus(0, true);
   load();
 });
 
-// Hidden: another app took over, so the frame ends. But LG's screensaver can
-// cover the frame for a moment until framesaver.py closes it again, so wait
-// a few seconds before ending it.
-var hiddenTimer = null;
+// Shown again: reload. Modules hear both (the Picture Frame ends when hidden).
 document.addEventListener('visibilitychange', function () {
-  clearTimeout(hiddenTimer);
-  if (document.hidden) {
-    if (frameView) hiddenTimer = setTimeout(function () {
-      if (!document.hidden || !frameView) return;
-      exec('echo "$(date +%T) frame ended: still hidden after 5 s" >> /tmp/atvhome-events.log');
-      closeAll();
-    }, 5000);
-    return;
-  }
-  load();
+  hook('visibility', !document.hidden);
+  if (!document.hidden) load();
 });
 
 // ---------------------------------------------------------------- loading
@@ -3324,7 +2290,7 @@ function adopt(data, fromDisk) {
 }
 
 function load() {
-  if (window.Plex) Plex.load();
+  hook('load');
   exec('sh ' + APP_DIR + 'launchpoints.sh', function (res) {
     var data = null;
     try { data = JSON.parse(res.stdoutString || ''); } catch (e) {}
@@ -3334,10 +2300,7 @@ function load() {
     }
     showMsg('');
     var changed = adopt(data, true);
-    if (hasLight()) exec('cat ' + HUE_MODE + ' 2>/dev/null', function (res) {
-      var on = (res.stdoutString || '').trim() === 'movie';
-      if (on !== lightCinema) { lightCinema = on; renderTop(); }
-    });
+    hook('loaded');
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
     persistLocal();
@@ -3402,7 +2365,7 @@ mainGrid = new Grid({
   onActivate: onMainActivate,
   onLongPress: onMainLongPress,
   onRow: function (row) {
-    if (window.Plex) Plex.leave();
+    hook('leave');
     if (topFocus >= 0) {
       topFocus = -1;
       var els = document.getElementById('topbar').children;
@@ -3413,21 +2376,24 @@ mainGrid = new Grid({
   onMove: function (entries) { saveOrderFrom(entries); }
 });
 
-tick();
-setInterval(tick, 10000);
+// Called by index.html once app.js and modules.js are loaded, so the first
+// paint already has the modules' cards, buttons and texts.
+function start() {
+  tick();
+  setInterval(tick, 10000);
 
-try {
-  var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-  if (cached && cached.launchPoints) {
-    state.launchPoints = cached.launchPoints;
-    state.wallpapers = cached.wallpapers || [];
-    state.installed = cached.installed || [];
-    state.config = normalizeConfig(cached.config);
-    refreshMain();
-  }
-} catch (e) {}
-if (!state.config) state.config = normalizeConfig(null);
-applyLook();
-load();
-exec(SAVER_START);
-if (launchParams().frame) setTimeout(function () { frameBack = launchParams().back || ''; startFrame(); }, 300);
+  try {
+    var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && cached.launchPoints) {
+      state.launchPoints = cached.launchPoints;
+      state.wallpapers = cached.wallpapers || [];
+      state.installed = cached.installed || [];
+      state.config = normalizeConfig(cached.config);
+      refreshMain();
+    }
+  } catch (e) {}
+  if (!state.config) state.config = normalizeConfig(null);
+  applyLook();
+  load();
+  hook('start', launchParams());
+}
