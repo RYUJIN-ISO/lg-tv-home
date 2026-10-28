@@ -1,9 +1,33 @@
 # How it works
 
-Everything lives in two places on the TV: developer mode apps under
-`/media/developer/apps/usr/palm/applications/`, and scripts plus data under
-`/var/lib/webosbrew/`. The root file system and `/etc` are read only and are
-never changed.
+The overview: where everything lives, what runs when, and how TV Home
+replaces LG's home screen. Each module's page explains its own internals:
+[Picture Frame](modules/picture-frame.md), [Plex](modules/plex.md),
+[Philips Hue](modules/hue.md), [Remote Buttons](modules/remote-buttons.md),
+[AV receiver button](modules/av-receiver.md), [privacy lock](modules/privacy-lock.md),
+[tracking services](modules/tracking-services.md), [app trimming](modules/app-trim.md),
+[telnet off](modules/telnet-off.md). Sharp logos: [LOGOS.md](LOGOS.md).
+
+## Where everything lives
+
+The root file system and `/etc` are read only and are never changed. Everything
+is in two places, plus `/tmp` for things that should vanish at reboot:
+
+| Path on the TV | What | From |
+|---|---|---|
+| `/media/developer/apps/usr/palm/applications/com.iso.atvhome/` | TV Home (with the chosen modules bundled in `modules.js` / `modules.css`) | TV Home |
+| `.../com.iso.plexlink/` | hidden Plex helper app | Plex |
+| `.../com.iso.moviescene/` | the Light app (`hue.py`, `scene.sh`) | Philips Hue |
+| `.../com.iso.appupdates/` | App-Updates app | privacy lock without TV Home |
+| `/var/lib/webosbrew/init.d/` | boot hooks (below) | several |
+| `/var/lib/webosbrew/atvhome/` | `config.json`, your wallpapers, `tiles/`, `autotiles/`, Plex sign-in files | TV Home, Plex |
+| `/var/lib/webosbrew/remote-mapper/` | the key filter and your button map | Remote Buttons |
+| `/var/lib/webosbrew/hue-scene.conf`, `hue-scene.mode` | Hue pairing and button setup | Philips Hue |
+| `/var/lib/webosbrew/lg-ad-block-hosts.txt`, `store-mode.sh` | block list, store switch | privacy lock |
+| `/var/lib/webosbrew/debloat.sh`, `debloat.conf`, `debloat-stub` | service block | tracking services |
+| `/var/lib/webosbrew/app-trim.sh` | app watcher | app trimming |
+| `/var/webos-profile/override/atvhome_profile.json` | makes TV Home the home app after boot | TV Home |
+| `/var/luna/preferences/webosbrew_telnet_disabled` | Homebrew's telnet switch | telnet off |
 
 ## Boot scripts
 
@@ -13,12 +37,13 @@ has returned (plus 10 seconds). If the TV powers off while the flag is armed,
 the next boot starts in failsafe mode with a "crash" message. So every boot
 script here returns at once and does its slow work in the background:
 
-| Script | Does |
-|---|---|
-| `60-lg-ad-block` | adds the block list to `/etc/hosts` (instant) |
-| `80-debloat` | after 45 s, stops the selected LG services (`debloat.sh apply`) |
-| `85-app-trim` | after 60 s, starts the app watcher (`app-trim.sh`) |
-| `86-remote-mapper` | after 20 s, puts the remote mapper back (`remote-mapper.sh apply`) |
+| Script | Does | Module |
+|---|---|---|
+| `60-lg-ad-block` | adds the block list to `/etc/hosts` (instant) | privacy lock |
+| `80-debloat` | after 45 s, stops the selected LG services (`debloat.sh apply`) | tracking services |
+| `85-app-trim` | after 60 s, starts the app watcher (`app-trim.sh`) | app trimming |
+| `86-remote-mapper` | after 20 s, puts the key filter back (`remote-mapper.sh apply`) | Remote Buttons |
+| `87-frame-saver` | after 30 s, starts the screensaver guard (`framesaver.py`) | Picture Frame |
 
 ## Replacing the home screen
 
@@ -56,8 +81,10 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
 - **Previews**: `wallpapers/thumbs/<name>` (640x360) is used on picture
   cards when it exists, so a grid never decodes every full-size picture.
 - **Config**: `/var/lib/webosbrew/atvhome/config.json`, written by `config.sh`
-  (base64 through exec): `{language, wallpaper, clock, order[], folders{},
-  hidden[], added[]}`. Apps LG shows are on the home screen unless they are in
+  (base64 through exec): `{language, wallpaper, clock, cards, order[],
+  folders{}, hidden[], added[], modules{}, ...}` plus each module's own keys
+  (`frame`, `plex`, `avrButton`). Keys TV Home doesn't know are kept, so a
+  module's settings survive while it is off or not installed. Apps LG shows are on the home screen unless they are in
   `hidden`; apps LG hides or that have no launch point only show when they are
   in `added`.
 - **Rendering**: the app lays out at 1920x1080 but the TV draws it at
@@ -78,247 +105,29 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   puts them back together and stores the crop's preview in
   `wallpapers/thumbs/`. Image URLs carry `?v=<mtime>` so a changed file is
   not shown from the cache.
-- **Picture frame**: drawn with WebGL, not CSS (CSS animation of a large
-  layer makes the compositor rasterise tiles while it moves, which hitches).
-  Each picture is one GPU texture. Loading never touches the motion:
-  `frameworker.js` (a Web Worker) decodes the file once and sends RGB strips
-  of 64 rows; the main thread only copies ready strips into the texture,
-  4 ms per frame at most. Fallbacks: decode on the main thread from a blob,
-  or an `<img>` cut by a canvas. (Cutting strips straight from an `<img>`
-  re-decodes the whole JPEG per strip on the TV: measured 4 fps.) The next
-  picture is preloaded while the current one shows, so CH+ and the timer
-  switch at once; crossfades take 0.7 s. Every frame draws the texture at a
-  moving offset: Every view is a window (x, y, width) into
-  the picture, so travel and zoom interpolate together. Pan with a still
-  frame: a one-way trip from the window farthest from the frame to the frame
-  (cosine eased, about 7 screen pixels per second, started closer when it
-  would not arrive within 85% of the change interval), then a 2% drift on the
-  frame. Pan without one: corner to corner and back. Still: the frame or the
-  centre, filling the screen, with the 2% drift. Picture folders are
-  `pictureFolders = [{id, name, items}]`, shared by Wallpaper and Picture
-  Frame; `frame.show` is the folder the frame plays. Crops live in the config (`crops[name] = {x, y, w, r}`, fractions plus
-  the picture's shape), shared with the home wallpaper (CSS background size
-  and position), and never change the file. Dimming happens in the shader. Frame
-  times, slow frames during loads and the load path are appended to
-  `/tmp/atvhome-frame.txt` when the frame ends.
-- **Screensaver**: tvpowerd starts it, after asking every client registered
-  with `com.webos.service.tvpower/power/registerScreenSaverRequest`; a single
-  `responseScreenSaverRequest {clientName, ack: false, timestamp}` keeps it
-  away. `keepawake.py` (started in the background through `exec` when the
-  frame starts) answers "no" while the launcher touches
-  `/tmp/atvhome-awake.beat` every minute, and quits when the heartbeat is
-  older than 150 s, so it can never block the screensaver for good. The
-  launcher also restarts surface-manager's idle timer
-  (`com.webos.surfacemanager.screenSaver/restartUserActivityTimer`). Remote
-  buttons start the frame by launching TV Home with `{"frame": true}`.
 - **Help legends**: `INFO` in `app.js` holds each screen's legend (title,
   short lines, English and German); `{ok}`, `{hold}`, `{arrows}` and so on in
   any hint string become key caps (`hintHTML`). `toggleLegend(id)` shows it
   in a corner without taking the keys; `push`/`pop` close it. Grid screens
   get their "i" from `infoButton()`, menus from `spec.info`.
-- **Screensaver guard**: `framesaver.py` (started by `init.d/87-frame-saver`
-  and by TV Home). tvpowerd asks registered clients before its screensaver
-  (`registerScreenSaverRequest`) but starts it whatever they answer, about 3 s
-  later (tested with both answers). So the guard works from tvpowerd's power
-  state (`getPowerState`): with Instead of Screensaver on (`frame.saver`), on
-  "Screen Saver" it starts the frame behind LG's screensaver and closes LG's
-  after 10 s, so the frame is already there (no black, no home screen). A key
-  during those 10 s ends the hidden frame and returns to the app before.
-  While a frame runs, the guard switches LG's screensaver off
-  (`general.screenSaverEnabled`, which tvpowerd follows live) and back on
-  afterwards; a marker file makes it undo that after a crash or power cut,
-  and a screensaver the user switched off stays off. If LG's still comes up
-  over a running frame, it is closed at once. The frame ignores key codes
-  1536/1537 (the pointer showing or hiding, also sent when another window
-  takes the focus), and waits 5 s before ending when TV Home is hidden.
-  LG's timer (`option.screenSaverTimer`, 3 min) can't be changed on this
-  model. Log: `/tmp/atvhome-saver.log`; why a frame ended:
-  `/tmp/atvhome-events.log`.
-- **Languages**: `STRINGS` in `app.js`, English by default and German. The
-  Light and App-Updates apps read the language from the launcher config.
+- **Languages**: `STRINGS` in `app.js` (modules bring their own texts),
+  English by default and German. The Light and App-Updates apps read the
+  language from the launcher config.
+- **Sharp logos**: cut out of the apps' splash screens, see [LOGOS.md](LOGOS.md).
 
-## Remote button mapper
+## The installer
 
-LG Input Hook's `ezinject` approach does not work on webOS 24 and 25. What
-actually decides what a button does:
-
-1. `lginput2` receives the remote and logs `NL_BUTTON_CLICK {KEY_NETFLIX}`.
-   Its `/dev/uinput` devices are not how buttons reach the interface (a read
-   only capture of `/dev/input/event*` saw almost nothing).
-2. **surface-manager** runs a chain of QML/JavaScript key filters
-   (`/usr/lib/qt5/qml/KeyFilters/*.js`). App buttons go through
-   `appLaunch.js`, `handleCPHotkeys` and `cpHotkeyInfo.mapping_info`.
-3. LG's own `other/mapping_info` setting can't be used: surface-manager reads
-   it once at start, and on every power on it fetches LG's mapping from the
-   server through `sdx` and writes it back.
-4. **The chain is a configd value**, `com.webos.surfacemanager.keyFilters`
-   (`[{file, handler}]`), which surface-manager subscribes to and reloads at
-   once. `com.webos.service.config/setConfigs` (runtime only, not saved)
-   inserts our own filter, `tv/remote-mapper/remap.js`. It is loaded with
-   `Qt.include` and gets the same globals as LG's filters (`lunaCall`,
-   `KeyPolicy`, `WebOS`, `Qt`). It sits right after `handleScreenSaver`; for a
-   mapped key it launches the target and returns `KeyPolicy.Accepted`,
-   everything else passes on with `NextPolicy`.
-5. Buttons are named after LG's `WebOS.Key_webOS_*` constants (resolved by
-   name, because QML enums can't be listed), `Qt.Key_*`, or `code:<n>`.
-6. **Other button** (learn mode): the filter publishes key presses into a
-   custom configd value (`com.iso.remotemapper.learned`). surface-manager may
-   not call Homebrew's `exec`, but configd accepts new keys. Learn mode ends
-   by itself after 30 seconds and never swallows navigation keys.
-
-No LG file is changed, any error in the filter falls back to LG's handling,
-and a reboot restores the stock chain until `86-remote-mapper` adds ours again.
-`remote-mapper/disabled` keeps it off.
-
-## Hue
-
-`apps/hue-light/hue.py` (Python standard library, run as root) talks to the
-bridge's v1 API over HTTPS (self-signed certificate) and keeps its settings
-in `/var/lib/webosbrew/hue-scene.conf`: `BRIDGE`, `KEY`, `GROUP`, `SCENE`
-(cinema), `RESTORE` (a GroupScene named "TV Home before" that stores the
-lighting before cinema), `BACK` (`previous` or `scene`) and `BACK_SCENE`.
-`hue-scene.mode` remembers whether cinema is on.
-
-- **toggle**: cinema off, so (when `BACK=previous`) save the current lighting
-  into the snapshot scene with `storelightstate`, then recall the cinema
-  scene. Cinema on, so recall the snapshot or `BACK_SCENE`. `scene.sh` is a
-  wrapper for it (Light button and the Philips Hue app, which remote buttons open).
-- **status** returns rooms and zones with their lights and scenes (without the
-  snapshot scene) in one call for the Hue screen; **room**, **light** and
-  **scene** change things; **set** saves the button setup and creates the
-  snapshot scene in the chosen room.
-- **pair**: POST `/api` with `devicetype` until the bridge button is pressed;
-  **discover** asks `discovery.meethue.com`.
-
-## Privacy
-
-- **Block list**: the base list of `hugobatista/lg-tv-ad-block`, duplicated
-  for IPv6 (`::`), because apps otherwise reach blocked hosts over AAAA
-  records.
-- **Services** (`tv/debloat.sh`, groups from `/var/lib/webosbrew/debloat.conf`):
-  systemd units are stopped and masked with `--runtime` (`/etc` is read only).
-  Services the bus starts on demand get their program covered by a stub that
-  exits right away, so callers fail in about 0.1 s instead of the bus starting
-  them again. Kept on purpose: casting, `trigger_alexa` (needed by the Alexa
-  button) and `sdx` (part of the broadcast stack; its uploads are blocked
-  anyway).
-- `systemctl` takes 10 to 20 seconds per call on these TVs, so applying or
-  lifting takes 2 to 3 minutes and runs in the background. The newest call
-  wins.
-- **App Store**: `tv/store-mode.sh on` strips the block list for 10 minutes
-  and lifts the service block; `off` (or the timer) restores both. TV Home's
-  Settings and the App-Updates app both use it.
-
-## App trimming
-
-LG's `preload-manager` starts Netflix, YouTube, the browser, LG Channels,
-voice and AirPlay at boot (about 300 MB on a TV with 1.9 GB, which leads to
-heavy swapping). `app-trim.sh` replaces it: every 3 seconds it checks the app
-on screen and closes all user apps except the current and the previous one.
-System apps, inputs, the launcher and Homebrew are never touched. Only one
-copy runs at a time (`/tmp/app-trim.pid`).
-
-## Sharp logos
-
-LG's launch points carry icons of at most 192 px; the TV draws TV Home at
-devicePixelRatio 2, so a 192 px icon is stretched to 384 px. Most apps'
-`splashBackground` (from `listApps`) is a 1920x1080 picture with the logo
-large in the middle.
-
-1. `cache.js` (root) copies each app's splash into the app's `cache/` (the
-   web runtime only loads files from its own folder) as `_splash`, with
-   `_sig` = the file's size and time. When `autotiles/<appId>.<sig>.png`
-   already exists in the data dir, it hands over that instead (`_logo`);
-   `<appId>.<sig>.none` means: no logo there, keep the icon.
-2. The page (`makeLogos` / `splashLogo` in `app.js`) works through the
-   splashes one at a time, only while nobody presses a key and no menu is
-   open (about 100 ms each on the TV). On a canvas it models the
-   background per row from the left and right edges (that also covers
-   vertical gradients), marks what differs by more than a threshold, takes
-   the band of rows around the centre (so a glow at the bottom stays out)
-   and the columns in it, and accepts the box only when it is centred, not
-   tiny, not most of the screen and not sparse. A light burst behind the
-   logo makes the box too big; then it tries again with a higher threshold.
-   The logo is cut out with soft, unmixed edges onto transparency.
-3. The logo is scaled to at most 480x200 (about twice what a card shows)
-   and sent as raw RGBA pixels, base64 in parts (each exec argument stays
-   under 128 KiB). `autotile.py` writes the PNG with Python's zlib and
-   removes older versions of the same app. (Not the browser's own PNG: the
-   TV's `toDataURL` sometimes writes broken rows.) Then TV Home reloads.
-
-On a card the logo stands on the colour of the icon's background (Colour
-cards), drawn white if it has about the card's own colour; Glass cards tint
-white logos in the brand colour like any icon. Tile art (`tiles/`) always
-wins.
-
-## Plex
-
-All of it is in the Plex module (`apps/tv-home/modules/plex/`: `plex.js`,
-`plex.css`, `plex.py`, `devtools.py`) and `apps/plex-link/`. On the TV the
-`.py` files sit next to `app.js`; without the module TV Home works as
-before.
-
-**Signing in.** `plex.py signin` asks plex.tv for a PIN (`POST
-/api/v2/pins`), the TV shows its code, and `plex.py signin-check` polls
-`/api/v2/pins/<id>` every 3 seconds until the person entered the code at
-plex.tv/link; then the PIN carries a token for this TV. Each TV identifies
-itself with its own random client id (made once, in
-`/var/lib/webosbrew/atvhome/plex-client-id`), so every TV is its own device
-under the account, named "TV Home" plus the id's last 4 characters, and can be
-removed there. Next to the id the file keeps hashes of the TV's LAN and Wi-Fi
-addresses (never sent anywhere): when the data folder was copied from another
-TV, none matches, so the id is replaced and the copied sign-in dropped.
-Switching between LAN and Wi-Fi changes nothing. Signing out forgets the id
-too; the next sign-in is a new device. Plex
-keys from the server (items, libraries) must be numbers; anything else is
-skipped, as they end up in file names and in TV Home's root shell commands. The token is in
-`/var/lib/webosbrew/atvhome/plex-token` (root only, mode 600); it never
-reaches the web page or a picture URL.
-
-**Finding the server.** `plex.tv/api/v2/resources` lists the servers the
-account can use: its own first, else one shared with it, direct connections
-before relays. The working address, its server token, id and name are
-cached for 6 hours in `plex-server.json` (mode 600) and looked up again when
-the address stops answering. A shared server answers with the signed-in
-person's own Continue Watching and watch state.
-
-**Rows.** `plex.py` reads `/hubs/continueWatching` (and the libraries'
-`recentlyAdded` when that row is on), saves the pictures scaled by the
-server into the app's `cache/plex/`, and writes `cache/plex/rows.json`. The
-page shows that file right away, then runs `plex.py refresh` and swaps in
-its answer: every time TV Home appears, at most once a minute. So what was
-just watched in Plex is at the front when you come back (the server reorders
-the hub as you watch). `plex.py get` (cached rows, background refresh after
-15 minutes) is still there for scripts.
-
-**Opening Plex at a title.** The store app (`cdp-30`) is a small encrypted
-loader for the Plex web app at `app.plex.tv/tv-v5-webos/`, and that web app
-ignores launch parameters, so deep links can't work. Instead:
-
-1. `apps/plex-link` (`com.iso.plexlink`, hidden from the app list) is a
-   developer mode app that only loads the same Plex web app. It shares the
-   Plex sign-in with the store app (same origin, same storage).
-2. Developer mode apps can be inspected over the TV's DevTools port
-   (`127.0.0.1:9998`, WAM's remote debugging); store apps can't.
-3. `plex.py play <id>` / `open <id>` launches plexlink, waits until Plex has
-   drawn its screen and is signed in, then calls Plex's own
-   `appController.processDeepLink` with the item (and its resume offset)
-   through `devtools.py`, a small standard library DevTools client. The
-   result of the last call is in `/var/lib/webosbrew/atvhome/plex-play.log`.
-4. If any of this fails, Plex simply stays on its home screen; if plexlink
-   is missing, the store app opens.
-
-Plex's code is minified and changes with Plex updates, so the script finds
-the module that exports Plex's service container by its source text, not
-by its number. It must not touch that module before Plex has drawn its
-first screen: loading it early runs Plex's start-up out of order and leaves
-a black screen.
-
-**Keeping Plex ready.** A few seconds after TV Home is shown (also at power
-on, when the TV opens the home app), `plex.py preload` launches plexlink
-with the app manager's `"preload": "full"` mode, which starts it hidden, but
-only when someone is signed in and it isn't already running. Background apps
-survive the TV's standby. App trimming never closes `com.iso.*` apps.
+- `install.sh` shows the checklist, saves the choices in `setup.conf` (no
+  secrets) and looks at what is on the TV now (`installed_modules` in
+  `lib/common.sh`, by the files each module leaves). Modules on the TV but no
+  longer chosen are removed (`remove_<module>`), then the chosen ones are
+  installed or updated in place. `uninstall.sh` runs every removal.
+- TV Home is built per TV: `stage_home` copies `apps/tv-home` without
+  `modules/`, joins `modules/<id>/<id>.js` and `.css` of the chosen modules
+  into `modules.js` / `modules.css`, and copies their other files next to
+  `app.js`. `build_ipk` packs it, `install_app` installs it through
+  `appInstallService/dev/install`.
+- How modules plug into TV Home (hooks, writing one): `apps/tv-home/modules/README.md`.
 
 ## Things that are easy to get wrong
 

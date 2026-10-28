@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.32.0';
+var VERSION = '0.32.1';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -725,9 +725,15 @@ var LOGO_W = 480, LOGO_H = 200;   // about twice what a card shows of a logo
 // Called after every reload: adds what is new (the queue itself stays).
 function makeLogos() {
   var was = logoQueue.length;
+  // Tried shortly before: its result is on the way (once saved, cache.js no
+  // longer hands over the splash). Much later: its logo file was deleted to
+  // have it cut again (docs/LOGOS.md).
   appOrder.forEach(function (k) {
     var a = apps[k];
-    if (a && a.splash && !a.logo && !logoTried[a.id]) { logoTried[a.id] = true; logoQueue.push(a); }
+    if (!a || !a.splash || a.logo || Date.now() - (logoTried[a.id] || 0) < 120000) return;
+    if (logoQueue.some(function (q) { return q.id === a.id; })) return;
+    logoTried[a.id] = Date.now();
+    logoQueue.push(a);
   });
   if (logoQueue.length && !was && !logoBusy) setTimeout(nextLogo, 3000);
 }

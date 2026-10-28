@@ -1,7 +1,7 @@
 # Museum prints
 
 Paintings in the public domain, from Wikimedia Commons. They are kept
-uncropped: in TV Home, Settings, Picture Frame, Pictures, hold OK on a print
+uncropped: in TV Home, Settings, Look, Wallpaper, All pictures, hold OK on a print
 to choose its 16:9 frame, or let the frame pan across it.
 
 | File | Painter | Painting | Size | Source |
