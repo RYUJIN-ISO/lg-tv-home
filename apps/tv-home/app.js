@@ -702,11 +702,12 @@ function renderTile(entry) {
 
 // LG's icons are at most 192 px, drawn at 384 on the 4K screen, so they look
 // soft. Most apps' splash screens (1920x1080) show the logo large: cut out
-// once here, saved on the TV by autotile.sh, it replaces the icon (cache.js
+// once here, saved on the TV by autotile.py, it replaces the icon (cache.js
 // hands over `_logo` from then on). One app at a time while TV Home sits
 // still: about 100 ms each, a first run only.
 var logoQueue = [], logoBusy = false, logoTried = {}, logoMade = 0, lastKeyAt = 0;
-var AUTOTILE = 'sh ' + APP_DIR + 'autotile.sh ';
+var AUTOTILE = 'python3 ' + APP_DIR + 'autotile.py ';
+var LOGO_W = 480, LOGO_H = 200;   // about twice what a card shows of a logo
 
 // Called after every reload: adds what is new (the queue itself stays).
 function makeLogos() {
@@ -733,19 +734,28 @@ function nextLogo() {
     try { r = splashLogo(img); } catch (e) {}
     img.src = '';
     if (!r) { exec(AUTOTILE + 'none ' + base + ' ' + name + '.none', done); return; }
-    var b64 = r.url.split(',')[1], CH = 100000, parts = [];   // one exec argument < 128 KiB
-    for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+    // Raw pixels go to the TV, which writes the PNG: the TV browser's own PNG
+    // encoder (toDataURL) sometimes writes broken rows.
+    var k = Math.min(1, LOGO_W / r.width, LOGO_H / r.height);
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(r.width * k)); c.height = Math.max(1, Math.round(r.height * k));
+    var ctx = c.getContext('2d');
+    ctx.drawImage(r, 0, 0, c.width, c.height);
+    var px = ctx.getImageData(0, 0, c.width, c.height).data, bin = '';
+    for (var i = 0; i < px.length; i += 8192) bin += String.fromCharCode.apply(null, px.subarray(i, i + 8192));
+    var b64 = btoa(bin), CH = 100000, parts = [];   // one exec argument < 128 KiB
+    for (i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
     (function send(i) {
       if (i < parts.length) { exec(AUTOTILE + 'part ' + name + '.png ' + parts[i], function () { send(i + 1); }); return; }
-      exec(AUTOTILE + 'save ' + base + ' ' + name + '.png', function () { logoMade++; done(); });
+      exec(AUTOTILE + 'save ' + base + ' ' + name + '.png ' + c.width + ' ' + c.height, function () { logoMade++; done(); });
     })(0);
   };
   img.onerror = done;
   img.src = a.splash;
 }
 
-// The logo in an app's splash screen, cut out with a transparent background,
-// or null when there is none to find (a generic splash, a busy picture).
+// The logo in an app's splash screen, cut out with a transparent background
+// (a canvas), or null when there is none to find (a generic splash, a busy picture).
 // The background is modelled per row from the left and right edges, which
 // also covers vertical gradients; everything that differs from it is logo.
 function splashLogo(img) {
@@ -837,7 +847,7 @@ function splashLogo(img) {
     q[k + 3] = Math.round(a * 255);
   }
   octx.putImageData(out, 0, 0);
-  return { url: o.toDataURL('image/png'), w: ow, h: oh };
+  return o;
 }
 
 // ---------------------------------------------------------------- grid

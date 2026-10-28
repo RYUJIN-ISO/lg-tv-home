@@ -9,7 +9,7 @@
 //    (sharp 640x384 artwork replacing a low-res icon) -> `_tile`.
 //  - sharp logos: LG's icons are at most 192 px, but most apps' splash
 //    screens show the logo large. The page cuts it out once (splashLogo in
-//    app.js) and saves it as autotiles/<app>.<sig>.png in the data dir
+//    app.js) and autotile.py saves it as autotiles/<app>.<sig>.png in the data dir
 //    (<sig>: the splash's size and time, so a new splash is cut again; .none
 //    when there was no logo to find). Here: `_logo` when it exists, else the
 //    splash as `_splash` with `_sig` for the page to work on.
