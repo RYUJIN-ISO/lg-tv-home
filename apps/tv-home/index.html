@@ -58,6 +58,8 @@
     transform: translate(-50%, -50%); object-fit: contain;
   }
   .card.bleed > img { width: var(--tile-h); height: var(--tile-h); }
+  /* A sharp logo from the app's splash screen (makeLogos in app.js). */
+  .card.haslogo > img { width: 66%; height: 40%; }
   .card .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.18)); }
   .card .gloss {
     position: absolute; inset: 0; opacity: 0; transition: opacity 200ms; will-change: opacity;
@@ -244,6 +246,7 @@
   .row.focus { background: #fff; color: #111; transform: scale(1.02); }
   .row.focus .val, .row.focus .chev { color: rgba(0,0,0,.55); }
   .row.danger { color: #ff6b6b; }
+  .row.off { opacity: .35; }     /* a switched-off feature's settings */
   .row.focus.danger { color: #c00; }
 
   /* Hints: remote keys as small key caps, bright enough to read at a glance. */

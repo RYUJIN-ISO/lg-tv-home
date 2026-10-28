@@ -58,34 +58,29 @@
 
   function everyLabel(m) { return m < 60 ? t('minutes', m) : t('hour'); }
 
-  function openFrameSettings() {
+  // Its settings, under its switch in Settings > Features.
+  function frameRows() {
     function step(list, v, d) { var i = list.indexOf(v); return list[(i + d + list.length) % list.length]; }
-    menu({
-      title: function () { return t('frame'); },
-      info: 'frameSettings',
-      rows: function () {
-        var f = frameCfg(), n = framePictures().length;
-        var rows = [
-          { label: t('frameStart'), action: startFrame },
-          { label: t('framePictures'), value: pictureFolder(f.show) ? pictureFolder(f.show).name : t('allPictures'),
-            chevron: true, action: function () { openPictures(FRAME_USE); } }
-        ];
-        if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
-          adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
-          action: function () { f.every = step(FRAME_EVERY, f.every, 1); saveConfig(); refreshTop(); } });
-        function motion() { f.pan = f.pan === false; saveConfig(); refreshTop(); }
-        rows.push({ label: t('frameMotion'), value: f.pan === false ? t('still') : t('pan'),
-          action: motion, adjust: motion });
-        rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
-          adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
-          action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
-        rows.push({ label: t('frameSaver'), value: f.saver ? t('on') : t('off'), action: function () {
-          f.saver = !f.saver; saveConfig(); exec(SAVER_START); refreshTop();
-        } });
-        rows.push({ info: true, label: t('frameHow') });
-        return rows;
-      }
-    });
+    var f = frameCfg(), n = framePictures().length;
+    var rows = [
+      { label: t('frameStart'), action: startFrame },
+      { label: t('framePictures'), value: pictureFolder(f.show) ? pictureFolder(f.show).name : t('allPictures'),
+        chevron: true, action: function () { openPictures(FRAME_USE); } }
+    ];
+    if (n > 1) rows.push({ label: t('frameEvery'), value: '‹ ' + everyLabel(f.every) + ' ›',
+      adjust: function (d) { f.every = step(FRAME_EVERY, f.every, d); saveConfig(); refreshTop(); },
+      action: function () { f.every = step(FRAME_EVERY, f.every, 1); saveConfig(); refreshTop(); } });
+    function motion() { f.pan = f.pan === false; saveConfig(); refreshTop(); }
+    rows.push({ label: t('frameMotion'), value: f.pan === false ? t('still') : t('pan'),
+      action: motion, adjust: motion });
+    rows.push({ label: t('brightness'), value: '‹ ' + f.bri + '% ›',
+      adjust: function (d) { f.bri = Math.max(20, Math.min(100, f.bri + d * 10)); saveConfig(); refreshTop(); },
+      action: function () { f.bri = f.bri >= 100 ? 20 : f.bri + 10; saveConfig(); refreshTop(); } });
+    rows.push({ label: t('frameSaver'), value: f.saver ? t('on') : t('off'), action: function () {
+      f.saver = !f.saver; saveConfig(); exec(SAVER_START); refreshTop();
+    } });
+    rows.push({ info: true, label: t('frameHow') });
+    return rows;
   }
 
   // start: name of the picture to begin with (optional).
@@ -624,7 +619,10 @@
       closeAll(); frameBack = ''; startFrame();
       return true;
     },
-    lookPictures: function () { return [{ label: t('frame'), chevron: true, action: openFrameSettings }]; },
+    about: { en: 'Your pictures full screen, like a framed picture. Also a card on the home screen.',
+             de: 'Deine Bilder bildschirmfüllend wie ein gerahmtes Bild. Auch als Karte auf dem Startbildschirm.' },
+    legend: 'frameSettings',
+    settings: frameRows,
     remoteActions: function () { return [{ id: APP_ID, params: { frame: true }, title: t('frame') }]; },
     pictureFolderDeleted: function (id) { if (frameCfg().show === id) frameCfg().show = 'all'; },
     // While the frame runs, every key is its own: CH+/CH- and the arrows

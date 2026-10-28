@@ -25,6 +25,8 @@
       de: { avr: 'AV-Receiver', avrOn: 'Ton zum AV-Receiver (HDMI eARC)',
             avrFailed: 'Der TV hat den Tonausgang nicht umgeschaltet.' }
     },
+    about: { en: 'A button at the top left that sends the sound to the AV receiver on HDMI eARC (and wakes it).',
+             de: 'Eine Taste oben links, die den Ton zum AV-Receiver über HDMI eARC schickt (und ihn weckt).' },
     // Off until switched on in Settings > Features (it used to be a Look
     // setting, avrButton; that stays its switch).
     defaults: { avrButton: false },

@@ -303,44 +303,39 @@
     return t('plexUpdated', ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2));
   }
 
-  function openSettings() {
-    var view = menu({
-      title: t('plexTitle'),
-      rows: function () {
-        var p = plexCfg();
-        return [
-          { label: t('plexAccount'), chevron: true, action: openAccount,
-            value: account === null ? '…' : account ? account.user : t('plexSignedOut') },
-          { label: t('plexContinue'), value: p.continue ? t('on') : t('off'), action: function () {
-            setPlex('continue', !p.continue); view.refresh();
-          } },
-          stepRow(t('plexCwShow'), t({ always: 'plexAlways', plex: 'plexOnPlex', up: 'plexOnUp' }[p.cwShow]), function (d) {
-            var i = CW_SHOW.indexOf(p.cwShow) + d;
-            if (i < 0 || i >= CW_SHOW.length) return;
-            setPlex('cwShow', CW_SHOW[i]); view.refresh();
-          })
-        ].concat(p.cwShow === 'plex' && plexTile() < 0 ? [{ info: true, label: t('plexOnPlexHint') }] :
-                 p.cwShow === 'up' ? [{ info: true, label: t('plexOnUpHint') }] : []).concat([
-          { label: t('plexRecent'), value: p.recent ? t('on') : t('off'), action: function () {
-            setPlex('recent', !p.recent); view.refresh();
-            if (!p.recent) refreshRows(function () { view.refresh(); });   // posters are fetched when switched on
-          } },
-          { label: t('plexPreload'), value: p.preload ? t('on') : t('off'), action: function () {
-            setPlex('preload', !p.preload); view.refresh();
-            // Off also closes the hidden copy (TV Home is in front, so it isn't in use).
-            if (p.preload) exec('luna-send -n 1 luna://com.webos.applicationManager/closeByAppId \'{"id":"' + PLEX_LINK + '"}\'');
-            else preload();
-          } },
-          { label: t('plexLibraries'), chevron: true, action: openLibraries },
-          { label: t('plexRefresh'), action: function () {
-            status = { at: 0, error: '' }; view.refresh();
-            refreshRows(function () { view.refresh(); });
-          } },
-          { info: true, label: statusLine() }
-        ]);
-      }
-    });
-    loadAccount(function () { if (stack[stack.length - 1] === view) view.refresh(); });
+  // Its settings, under its switch in Settings > Features.
+  function plexRows() {
+    var p = plexCfg();
+    return [
+      { label: t('plexAccount'), chevron: true, action: openAccount,
+        value: account === null ? '…' : account ? account.user : t('plexSignedOut') },
+      { label: t('plexContinue'), value: p.continue ? t('on') : t('off'), action: function () {
+        setPlex('continue', !p.continue); refreshTop();
+      } },
+      stepRow(t('plexCwShow'), t({ always: 'plexAlways', plex: 'plexOnPlex', up: 'plexOnUp' }[p.cwShow]), function (d) {
+        var i = CW_SHOW.indexOf(p.cwShow) + d;
+        if (i < 0 || i >= CW_SHOW.length) return;
+        setPlex('cwShow', CW_SHOW[i]); refreshTop();
+      })
+    ].concat(p.cwShow === 'plex' && plexTile() < 0 ? [{ info: true, label: t('plexOnPlexHint') }] :
+             p.cwShow === 'up' ? [{ info: true, label: t('plexOnUpHint') }] : []).concat([
+      { label: t('plexRecent'), value: p.recent ? t('on') : t('off'), action: function () {
+        setPlex('recent', !p.recent); refreshTop();
+        if (!p.recent) refreshRows(function () { refreshTop(); });   // posters are fetched when switched on
+      } },
+      { label: t('plexPreload'), value: p.preload ? t('on') : t('off'), action: function () {
+        setPlex('preload', !p.preload); refreshTop();
+        // Off also closes the hidden copy (TV Home is in front, so it isn't in use).
+        if (p.preload) exec('luna-send -n 1 luna://com.webos.applicationManager/closeByAppId \'{"id":"' + PLEX_LINK + '"}\'');
+        else preload();
+      } },
+      { label: t('plexLibraries'), chevron: true, action: openLibraries },
+      { label: t('plexRefresh'), action: function () {
+        status = { at: 0, error: '' }; refreshTop();
+        refreshRows(function () { refreshTop(); });
+      } },
+      { info: true, label: statusLine() }
+    ]);
   }
 
   // The movie and show libraries with a check mark; at least one stays ticked.
@@ -535,7 +530,9 @@
       return true;
     },
     // The row in TV Home's Settings.
-    settingsRows: function () { return [{ label: t('plexTitle'), chevron: true, action: openSettings }]; },
+    about: { en: 'Continue Watching from your Plex server above the apps.', de: 'Weiterschauen von deinem Plex-Server über den Apps.' },
+    settings: plexRows,
+    featureOpen: function () { loadAccount(refreshTop); },
     start: function () { cw.style.display = recent.style.display = ''; Plex.refresh(); },
     // Switched off in Features: the rows go (Plex kept ready stays until
     // the TV closes it); on: they come back.

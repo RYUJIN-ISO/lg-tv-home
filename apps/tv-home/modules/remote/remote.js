@@ -6,7 +6,7 @@
   // The remote drawing and the info card next to it, added to the page once.
   var MARKUP = [
     '<div id="remoteInfo"><div class="name"></div><div class="act"></div><div class="tip"></div></div>',
-    '<div id="remotePills"><div class="pill" data-pill="power"></div><div class="pill" data-pill="other"></div><div class="pill" data-pill="reset"></div><div class="pill" data-pill="info"></div></div>',
+    '<div id="remotePills"><div class="pill" data-pill="other"></div><div class="pill" data-pill="reset"></div><div class="pill" data-pill="info"></div></div>',
     '<svg id="remoteArt" viewBox="0 0 360 1120">',
     '  <!-- Magic Remote (MR2x), front view; data-key = name in remap.js -->',
     '  <path class="body" d="M30 170 Q30 20 180 20 Q330 20 330 170 L330 1050 Q330 1100 280 1100 L80 1100 Q30 1100 30 1050 Z"/>',
@@ -174,10 +174,9 @@
     var key = remoteKeyOf(remoteFocus);
     paintRemote(key);
     var pills = document.querySelectorAll('#remotePills .pill');
-    pills[0].textContent = t('remoteOff') + ': ' + (remoteState.active ? t('on') : t('off'));
-    pills[1].textContent = t('otherButton');
-    pills[2].textContent = t('resetButtons');
-    pills[3].textContent = 'i';
+    pills[0].textContent = t('otherButton');
+    pills[1].textContent = t('resetButtons');
+    pills[2].textContent = 'i';
     var info = document.getElementById('remoteInfo');
     var a = key && remoteState.map.buttons[key];
     info.querySelector('.name').textContent = key ? buttonLabel(key) : (remoteFocus ? remoteFocus.textContent : '');
@@ -213,9 +212,7 @@
   function remoteActivate() {
     if (!remoteFocus || !once()) return;
     var pill = remoteFocus.getAttribute('data-pill');
-    if (pill === 'power') {
-      mapper(remoteState.active ? 'disable' : 'enable', function () { loadRemote(paintRemoteInfo); });
-    } else if (pill === 'other') {
+    if (pill === 'other') {
       learnButton();
     } else if (pill === 'info') {
       toggleLegend('remote', true);
@@ -243,7 +240,6 @@
   }
 
   function openRemote() {
-    closeAll();
     document.body.classList.add('remote');
     bindRemoteMouse();
     var el = layer('remoteLayer');
@@ -342,8 +338,8 @@
     title: { en: 'Remote Buttons', de: 'Fernbedienungstasten' },
     strings: {
       en: {
-        remoteButtons: 'Remote Buttons', remoteTip: '{arrows} {pointer} pick · {ok} change · {back} close', otherButton: 'Other button …',
-        remoteOff: 'Remote mapper', remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
+        remoteButtons: 'Remote Buttons', remoteSetup: 'Buttons', remoteTip: '{arrows} {pointer} pick · {ok} change · {back} close', otherButton: 'Other button …',
+        remoteMissing: 'The remote mapper is not installed on this TV (install.sh → remote buttons).',
         learnSub: 'Press any button on the remote now …', learnNone: 'No button pressed. Try again.',
         learnBlocked: 'This button can\'t be changed (needed to control the TV).',
         lgDefault: 'LG default', doNothing: 'Do nothing', actions: 'Actions', appsHead: 'Apps', appPick: 'App …',
@@ -354,8 +350,8 @@
         b_chup: 'Channel +', b_chdown: 'Channel −'
       },
       de: {
-        remoteButtons: 'Fernbedienungstasten', remoteTip: '{arrows} {pointer} wählen · {ok} ändern · {back} schließen', otherButton: 'Andere Taste …',
-        remoteOff: 'Tastenbelegung', remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
+        remoteButtons: 'Fernbedienungstasten', remoteSetup: 'Tasten', remoteTip: '{arrows} {pointer} wählen · {ok} ändern · {back} schließen', otherButton: 'Andere Taste …',
+        remoteMissing: 'Die Tastenbelegung ist auf diesem Fernseher nicht installiert (install.sh → Fernbedienung).',
         learnSub: 'Jetzt eine Taste auf der Fernbedienung drücken …', learnNone: 'Keine Taste gedrückt. Nochmal versuchen.',
         learnBlocked: 'Diese Taste kann nicht geändert werden (wird zur Bedienung gebraucht).',
         lgDefault: 'LG-Standard', doNothing: 'Nichts tun', actions: 'Aktionen', appsHead: 'Apps', appPick: 'App …',
@@ -373,12 +369,19 @@
         { en: 'Grey: fixed, needed by the TV', de: 'Grau: fest, braucht der Fernseher' }
       ] }
     },
-    settingsRows: function () { return [{ label: t('remoteButtons'), chevron: true, action: openRemote }]; },
+    about: { en: 'Give the remote\'s buttons (Netflix, Prime, Mic, colour keys …) any app or action. Off: they do what LG made them do.',
+             de: 'Gib den Tasten der Fernbedienung (Netflix, Prime, Mikrofon, Farbtasten …) eine App oder Aktion. Aus: Sie tun, was LG vorgesehen hat.' },
+    settings: function () { return [{ label: t('remoteSetup'), chevron: true, action: openRemote }]; },
+    // On / Off is the mapper on the TV itself (it survives reboots).
+    isOn: function () { return remoteState.active; },
+    setOn: function (on) {
+      remoteState.active = on;
+      mapper(on ? 'enable' : 'disable', function () { loadRemote(refreshTop); });
+    },
     // Hide the info card while one of its submenus is open.
     stack: function () {
       document.body.classList.toggle('remote-sub', !!remoteView && stack[stack.length - 1] !== remoteView);
     },
-    // Switched off in Features: the buttons do what LG made them do again.
-    toggled: function (on) { mapper(on ? 'enable' : 'disable'); }
   });
+  loadRemote();   // whether the mapper is on, before anyone opens Features
 })();
