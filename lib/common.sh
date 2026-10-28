@@ -58,6 +58,32 @@ EOF
     echo "$out/${id}_${ver}_all.ipk"
 }
 
+# TV Home's modules in the order they appear (Settings rows, top buttons).
+HOME_MODULES="remote plex hue store frame avr"
+
+# stage_home <out dir> <module...>: TV Home with only these modules, ready
+# for install_app. modules/<m>/<m>.js and <m>.css are joined into modules.js
+# and modules.css (always written, empty without modules); a module's other
+# files (Python helpers, the frame's worker) go next to app.js.
+stage_home() {
+    local out=$1 m f
+    shift
+    mkdir -p "$out"
+    (cd apps/tv-home && tar --exclude=./modules --exclude=./cache -cf - .) | (cd "$out" && tar -xf -)
+    : > "$out/modules.js"
+    : > "$out/modules.css"
+    for m in $HOME_MODULES; do
+        case " $* " in *" $m "*) ;; *) continue ;; esac
+        for f in apps/tv-home/modules/"$m"/*; do
+            case "$(basename "$f")" in
+                "$m.js")  { cat "$f"; echo; } >> "$out/modules.js" ;;
+                "$m.css") { cat "$f"; echo; } >> "$out/modules.css" ;;
+                *)        cp "$f" "$out/" ;;
+            esac
+        done
+    done
+}
+
 # install_app <app dir> <app id> <description>
 install_app() {
     ipk=$(build_ipk "$1" "$2" "$3")
@@ -77,8 +103,77 @@ install_app() {
     rm -rf "$(dirname "$ipk")"
 }
 
+# ------------------------------------------------------------ modules on the TV
+
+APPS_DIR=/media/developer/apps/usr/palm/applications
+
+# What is on the TV now: prints the setup.conf keys of the modules found.
+# (AVR lives inside TV Home and the prints are just pictures: not probed.)
+installed_modules() {
+    tv "t() { [ -e \"\$2\" ] && printf '%s ' \"\$1\"; }
+        t LAUNCHER $APPS_DIR/$HOME_APP; t FRAME $WB/init.d/87-frame-saver
+        t PLEX $APPS_DIR/$PLEX_LINK_APP; t LIGHT $APPS_DIR/$LIGHT_APP
+        t REMOTE $WB/init.d/86-remote-mapper; t ADBLOCK $WB/init.d/60-lg-ad-block
+        t DEBLOAT $WB/init.d/80-debloat; t APP_TRIM $WB/init.d/85-app-trim; true"
+}
+
+remove_app() {
+    case "$(luna luna://com.webos.appInstallService/dev/remove "{\"id\":\"$1\"}" 2>/dev/null)" in
+        *'"returnValue":true'*) echo "    removed $1" ;;
+    esac
+}
+
+# remove_<module>: takes one module off the TV. Settings and sign-ins stay
+# (config.json, Hue pairing, Plex sign-in, button map), so installing the
+# module again brings them back.
+remove_frame() {
+    tv "[ -f /tmp/atvhome-saver.pid ] && kill \$(cat /tmp/atvhome-saver.pid); rm -f $WB/init.d/87-frame-saver
+        # The frame's guard may have switched LG's screensaver off: switch it back on.
+        [ -f $DATA/screensaver-off-by-frame ] && luna-send -n 1 luna://com.webos.settingsservice/setSystemSettings '{\"category\":\"general\",\"settings\":{\"screenSaverEnabled\":\"on\"}}' > /dev/null
+        rm -f $DATA/screensaver-off-by-frame; true"
+}
+remove_plex()  { remove_app "$PLEX_LINK_APP"; }
+remove_light() { remove_app "$LIGHT_APP"; }
+remove_remote() {
+    tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-mapper.sh remove
+        rm -f $WB/init.d/86-remote-mapper $WB/remote-mapper/remap.js $WB/remote-mapper/remote-mapper.sh; true"
+}
+# The block list's lines leave /etc/hosts right away (store-mode off first, in
+# case the store is open and hosts is the stripped copy).
+remove_adblock() {
+    tv "[ -f $WB/store-mode.sh ] && sh $WB/store-mode.sh off > /dev/null 2>&1
+        L=$WB/lg-ad-block-hosts.txt
+        if [ -s \$L ]; then grep -v '^#' \$L | grep -v '^\$' > /tmp/adblock.lines
+            grep -vxFf /tmp/adblock.lines /etc/hosts > /tmp/hosts.new && cat /tmp/hosts.new > /etc/hosts
+            rm -f /tmp/adblock.lines /tmp/hosts.new; fi
+        rm -f $WB/init.d/60-lg-ad-block \$L $WB/store-mode.sh; true"
+    remove_app "$UPDATES_APP"
+}
+remove_debloat() {
+    tv "[ -f $WB/debloat.sh ] && sh $WB/debloat.sh lift > /dev/null 2>&1
+        rm -f $WB/init.d/80-debloat $WB/debloat.sh $WB/debloat.conf $WB/debloat-stub; true"
+}
+remove_app_trim() {
+    tv "[ -f /tmp/app-trim.pid ] && kill \$(cat /tmp/app-trim.pid); rm -f $WB/init.d/85-app-trim $WB/app-trim.sh; true"
+}
+# LG's home screen back (Home button, after power on), then TV Home goes.
+remove_launcher() {
+    tv "rm -f /var/webos-profile/override/atvhome_profile.json"
+    luna luna://com.webos.service.systemprofile/debug/rescan > /dev/null || true
+    local cur apps
+    cur=$(luna luna://com.webos.settingsservice/getSystemSettings '{"category":"general","keys":["defaultApps"]}' || echo '{}')
+    apps=$(echo "$cur" | python3 -c "
+import json,sys
+d=json.load(sys.stdin).get('settings',{}).get('defaultApps') or {}
+d.pop('home',None); print(json.dumps(d))")
+    luna luna://com.webos.settingsservice/setSystemSettings \
+        "{\"category\":\"general\",\"settings\":{\"defaultApps\":$apps}}" > /dev/null || warn "could not reset defaultApps"
+    remove_frame
+    remove_app "$HOME_APP"
+}
+
 # put <local file> <remote path> [mode]
 put() {
     scp -q -o BatchMode=yes "$1" "$TV:$2" 2>/dev/null || die "copying $1 failed"
-    [ -n "$3" ] && tv "chmod $3 '$2'"
+    if [ -n "$3" ]; then tv "chmod $3 '$2'"; fi   # (an && here would end set -e scripts without a mode)
 }
