@@ -2,8 +2,9 @@
 // "New in your libraries" row below them, from the Plex server of the account
 // signed in under Settings > Plex > Account. OK on a card opens Plex right at
 // that title (Continue Watching resumes it). Everything Plex lives in this
-// file, plex.css, plex.py, devtools.py and apps/plex-link; app.js only calls
-// window.Plex at a few places, so without this file TV Home is unchanged.
+// module (plex.js, plex.css, plex.py, devtools.py) and apps/plex-link;
+// install.sh copies the .py files next to app.js. Without it, TV Home is
+// unchanged.
 // How it works: docs/HOW-IT-WORKS.md, "Plex".
 //
 // plex.py (root, through exec) keeps cache/plex/rows.json and the pictures in
@@ -448,9 +449,12 @@
     start();
   }
 
-  // ---- what app.js calls (each call is guarded with window.Plex)
+  // ---- the module's hooks (see modules/README.md)
 
-  window.Plex = {
+  var Plex = {
+    id: 'plex',
+    title: { en: 'Plex', de: 'Plex' },
+    defaults: { plex: {} },   // its settings; empty = defaults (plexCfg)
     // TV Home (re)loads: rows from disk and plex.py, then keep Plex ready.
     load: function () { loadRows(); preload(); },
     // Before the app grid is rebuilt (that moves the focus to the grid) ...
@@ -531,14 +535,20 @@
       return true;
     },
     // The row in TV Home's Settings.
-    settingsRow: function () { return { label: t('plexTitle'), chevron: true, action: openSettings }; }
+    settingsRows: function () { return [{ label: t('plexTitle'), chevron: true, action: openSettings }]; },
+    start: function () { cw.style.display = recent.style.display = ''; Plex.refresh(); },
+    // Switched off in Features: the rows go (Plex kept ready stays until
+    // the TV closes it); on: they come back.
+    toggled: function (on) {
+      leaveCW();
+      leaveRecent();
+      cw.style.display = recent.style.display = on ? '' : 'none';
+      if (on) { Plex.refresh(); Plex.load(); }
+    },
+    strings: STRINGS_PLEX
   };
 
-  // Start: texts, the two rows' elements, then the rows themselves.
-  ['en', 'de'].forEach(function (l) {
-    if (!STRINGS[l]) return;
-    for (var key in STRINGS_PLEX[l]) STRINGS[l][key] = STRINGS_PLEX[l][key];
-  });
+  // Start: the two rows' elements; the rows themselves come with start and load.
   var page = document.getElementById('page');
   var cw = document.createElement('div');
   cw.id = 'cw';
@@ -548,6 +558,6 @@
   recent.id = 'recent';
   recent.innerHTML = '<div class="cwtitle"></div><div class="rtrack"></div>';
   page.appendChild(recent);
-  Plex.refresh();
-  Plex.load();
+  cw.style.display = recent.style.display = 'none';   // until start (not at all while switched off)
+  addModule(Plex);
 })();
