@@ -478,23 +478,26 @@ function iconInto(el, app) {
   el.insertBefore(img, el.firstChild);
   if (!app.logo) { logoInto(el, img, app.icon, app.color, true); return; }
   el.classList.add('haslogo');
-  var probe = new Image();
-  probe.onload = function () {
-    var c = cornerColor(probe);
+  function draw(c) {
     if (c) el.style.setProperty('--c', c);
     if (glassOn()) logoInto(el, img, app.logo, c || app.color, false);
     else readableOn(img, app.logo, hexRgb(c || app.color));
-  };
-  probe.onerror = function () { logoInto(el, img, app.logo, app.color, false); };
+  }
+  if (iconColors[app.icon] !== undefined) { draw(iconColors[app.icon]); return; }
+  var probe = new Image();
+  probe.onload = function () { draw(iconColors[app.icon] = cornerColor(probe)); };
+  probe.onerror = function () { draw(iconColors[app.icon] = null); };
   probe.src = app.icon;
 }
+var iconColors = {};   // icon -> its background colour, once per session
 
 // Colour cards: a logo in about the card's own colour (arte's red splash
 // logo on its red card) is drawn white instead, as the icon had it.
 var onCard = {};
 function readableOn(img, src, bg) {
   var key = src + '|' + bg;
-  if (onCard[key]) { img.src = onCard[key]; return; }
+  function use(cv) { onCard[key] = cv; if (cv) showCanvas(img, cv); else img.src = src; }
+  if (onCard[key] !== undefined) { use(onCard[key]); return; }
   if (!bg) { img.src = src; return; }
   var probe = new Image();
   probe.onload = function () {
@@ -503,14 +506,14 @@ function readableOn(img, src, bg) {
     var ctx = c.getContext('2d');
     ctx.drawImage(probe, 0, 0);
     var d, n = 0, sum = [0, 0, 0];
-    try { d = ctx.getImageData(0, 0, w, h); } catch (e) { img.src = onCard[key] = src; return; }
+    try { d = ctx.getImageData(0, 0, w, h); } catch (e) { use(null); return; }
     var px = d.data, i;
     for (i = 0; i < px.length; i += 4) if (px[i + 3] > 200) { n++; sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; }
     var near = n && Math.max(Math.abs(sum[0] / n - bg[0]), Math.abs(sum[1] / n - bg[1]), Math.abs(sum[2] / n - bg[2])) < 90;
-    if (!near) { img.src = onCard[key] = src; return; }
+    if (!near) { use(null); return; }
     for (i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = 255;
     ctx.putImageData(d, 0, 0);
-    img.src = onCard[key] = c.toDataURL('image/png');
+    use(c);
   };
   probe.onerror = function () { img.src = src; };
   probe.src = src;
@@ -532,7 +535,9 @@ function cornerColor(img) {
 // colour is keyed out, and a white logo takes that colour (the brand's), so
 // Prime Video's logo is blue on glass. Logos with their own colours keep
 // them; dark brand colours keep a white logo. Done once per icon on a canvas
-// (a few ms), then kept for the session.
+// (a few ms), then kept for the session; cards get a copy of that canvas
+// (no PNG encoding: cheap to redraw, and the TV's encoder writes broken rows
+// at times).
 var glassLogos = {};
 
 function glassOn() { return !!state.config && state.config.cards !== 'color'; }
@@ -547,13 +552,21 @@ function logoInto(card, img, src, color, withBleed) {
   }
   function use(r) {
     if (withBleed && r.bleed) card.classList.add('bleed');
-    img.src = r.url;
+    if (r.canvas) showCanvas(img, r.canvas); else img.src = src;
   }
   if (glassLogos[src]) { use(glassLogos[src]); return; }
   var probe = new Image();
   probe.onload = function () { use(glassLogos[src] = glassLogo(probe, color)); };
   probe.onerror = function () { img.src = src; };
   probe.src = src;
+}
+
+// Puts a copy of canvas src where img is (same place, same CSS as an img).
+function showCanvas(img, src) {
+  var cv = document.createElement('canvas');
+  cv.width = src.width; cv.height = src.height;
+  cv.getContext('2d').drawImage(src, 0, 0);
+  if (img.parentNode) img.parentNode.replaceChild(cv, img);
 }
 
 function hexRgb(c) {
@@ -588,7 +601,7 @@ function glassLogo(img, color) {
   var ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0, w, h);
   var d;
-  try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return { url: img.src, bleed: false }; }
+  try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return { bleed: false }; }
   var px = d.data;
   function at(x, y) { var i = (y * w + x) * 4; return [px[i], px[i + 1], px[i + 2], px[i + 3]]; }
   var corners = [at(1, 1), at(w - 2, 1), at(1, h - 2), at(w - 2, h - 2)], bg = corners[0];
@@ -619,7 +632,7 @@ function glassLogo(img, color) {
     for (i = 0; i < px.length; i += 4) { px[i] = brand[0]; px[i + 1] = brand[1]; px[i + 2] = brand[2]; }
   }
   ctx.putImageData(d, 0, 0);
-  return { url: c.toDataURL('image/png'), bleed: opaque };
+  return { canvas: c, bleed: opaque };
 }
 
 var ICONS = {
