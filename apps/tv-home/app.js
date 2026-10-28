@@ -350,7 +350,8 @@ function buildApps() {
     // installed apps without one: off the home screen until added.
     apps[key] = uninstallInfo({
       type: 'app', key: key, id: lp.id, params: lp.params || {}, lp: !lp.hidden,
-      title: lp.title || lp.id, icon: lp._icon || '', tile: lp._tile || '', color: cardColor(lp)
+      title: lp.title || lp.id, icon: lp._icon || '', tile: lp._tile || '', color: cardColor(lp),
+      logo: lp._logo || '', splash: lp._splash || '', sig: lp._sig || ''
     });
     appOrder.push(key);
   });
@@ -361,7 +362,8 @@ function buildApps() {
       if (apps[key]) return;
       apps[key] = uninstallInfo({
         type: 'app', key: key, id: a.id, params: {}, lp: false,
-        title: a.title, icon: a._icon || '', tile: a._tile || '', color: cardColor(a)
+        title: a.title, icon: a._icon || '', tile: a._tile || '', color: cardColor(a),
+        logo: a._logo || '', splash: a._splash || '', sig: a._sig || ''
       });
       appOrder.push(key);
     });
@@ -465,14 +467,64 @@ function bleed(card, img) {
   } catch (e) {}
 }
 
+// A sharp logo from the app's splash (see makeLogos) goes on the colour of
+// the icon's background; without one, the icon itself.
 function iconInto(el, app) {
   el.style.setProperty('--c', app.color);
-  if (!app.icon) return;
+  if (!app.icon && !app.logo) return;
   var img = document.createElement('img');
   img.alt = '';
   img.onerror = function () { img.style.display = 'none'; };
-  logoInto(el, img, app.icon, app.color, true);
   el.insertBefore(img, el.firstChild);
+  if (!app.logo) { logoInto(el, img, app.icon, app.color, true); return; }
+  el.classList.add('haslogo');
+  var probe = new Image();
+  probe.onload = function () {
+    var c = cornerColor(probe);
+    if (c) el.style.setProperty('--c', c);
+    if (glassOn()) logoInto(el, img, app.logo, c || app.color, false);
+    else readableOn(img, app.logo, hexRgb(c || app.color));
+  };
+  probe.onerror = function () { logoInto(el, img, app.logo, app.color, false); };
+  probe.src = app.icon;
+}
+
+// Colour cards: a logo in about the card's own colour (arte's red splash
+// logo on its red card) is drawn white instead, as the icon had it.
+var onCard = {};
+function readableOn(img, src, bg) {
+  var key = src + '|' + bg;
+  if (onCard[key]) { img.src = onCard[key]; return; }
+  if (!bg) { img.src = src; return; }
+  var probe = new Image();
+  probe.onload = function () {
+    var w = probe.naturalWidth, h = probe.naturalHeight, c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(probe, 0, 0);
+    var d, n = 0, sum = [0, 0, 0];
+    try { d = ctx.getImageData(0, 0, w, h); } catch (e) { img.src = onCard[key] = src; return; }
+    var px = d.data, i;
+    for (i = 0; i < px.length; i += 4) if (px[i + 3] > 200) { n++; sum[0] += px[i]; sum[1] += px[i + 1]; sum[2] += px[i + 2]; }
+    var near = n && Math.max(Math.abs(sum[0] / n - bg[0]), Math.abs(sum[1] / n - bg[1]), Math.abs(sum[2] / n - bg[2])) < 90;
+    if (!near) { img.src = onCard[key] = src; return; }
+    for (i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = 255;
+    ctx.putImageData(d, 0, 0);
+    img.src = onCard[key] = c.toDataURL('image/png');
+  };
+  probe.onerror = function () { img.src = src; };
+  probe.src = src;
+}
+
+// The colour of an opaque icon's corners ('rgb(...)'), or null.
+function cornerColor(img) {
+  try {
+    var ctx = sampler.getContext('2d');
+    ctx.clearRect(0, 0, 8, 8);
+    ctx.drawImage(img, 0, 0, 8, 8);
+    var c = ctx.getImageData(0, 0, 1, 1).data;
+    return c[3] >= 240 ? 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')' : null;
+  } catch (e) { return null; }
 }
 
 // Settings > Look > App cards: Glass. The card is dark glass (like the
@@ -505,6 +557,8 @@ function logoInto(card, img, src, color, withBleed) {
 }
 
 function hexRgb(c) {
+  var r = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(c || '');
+  if (r) return [+r[1], +r[2], +r[3]];
   var m = /^#?([0-9a-f]{6})$/i.exec(c || '');
   if (!m) return null;
   var n = parseInt(m[1], 16);
@@ -641,6 +695,148 @@ function renderTile(entry) {
   tile.appendChild(card);
   tile.appendChild(label);
   return tile;
+}
+
+
+// ---------------------------------------------------------------- sharp logos
+
+// LG's icons are at most 192 px, drawn at 384 on the 4K screen, so they look
+// soft. Most apps' splash screens (1920x1080) show the logo large: cut out
+// once here, saved on the TV by autotile.sh, it replaces the icon (cache.js
+// hands over `_logo` from then on). One app at a time while TV Home sits
+// still: about 100 ms each, a first run only.
+var logoQueue = [], logoBusy = false, logoTried = {}, lastKeyAt = 0;
+var AUTOTILE = 'sh ' + APP_DIR + 'autotile.sh ';
+
+function makeLogos() {
+  logoQueue = [];
+  appOrder.forEach(function (k) {
+    var a = apps[k];
+    if (a && a.splash && !a.logo && !logoTried[a.id]) { logoTried[a.id] = true; logoQueue.push(a); }
+  });
+  if (logoQueue.length && !logoBusy) setTimeout(nextLogo, 3000);
+}
+
+function nextLogo() {
+  if (logoBusy) return;
+  // Not while someone is moving around or a menu / the frame is open.
+  if (document.hidden || stack.length || Date.now() - lastKeyAt < 3000) { setTimeout(nextLogo, 3000); return; }
+  var a = logoQueue.shift();
+  if (!a) { load(); return; }       // all done: reload to show the new logos
+  logoBusy = true;
+  var base = a.id.replace(/[^A-Za-z0-9._-]/g, '_'), name = base + '.' + a.sig;
+  function done() { logoBusy = false; setTimeout(nextLogo, 800); }
+  var img = new Image();
+  img.onload = function () {
+    var r = null;
+    try { r = splashLogo(img); } catch (e) {}
+    img.src = '';
+    if (!r) { exec(AUTOTILE + 'none ' + base + ' ' + name + '.none', done); return; }
+    var b64 = r.url.split(',')[1], CH = 100000, parts = [];   // one exec argument < 128 KiB
+    for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+    (function send(i) {
+      if (i < parts.length) { exec(AUTOTILE + 'part ' + name + '.png ' + parts[i], function () { send(i + 1); }); return; }
+      exec(AUTOTILE + 'save ' + base + ' ' + name + '.png', done);
+    })(0);
+  };
+  img.onerror = done;
+  img.src = a.splash;
+}
+
+// The logo in an app's splash screen, cut out with a transparent background,
+// or null when there is none to find (a generic splash, a busy picture).
+// The background is modelled per row from the left and right edges, which
+// also covers vertical gradients; everything that differs from it is logo.
+function splashLogo(img) {
+  var W = img.naturalWidth, H = img.naturalHeight;
+  if (W < 640 || H < 360) return null;
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  var ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  var px;
+  try { px = ctx.getImageData(0, 0, W, H).data; } catch (e) { return null; }
+  var E = 8, x, y, i, j;
+  // Edge colours per row (average of E pixels on each side).
+  var L = new Float32Array(H * 3), R = new Float32Array(H * 3);
+  for (y = 0; y < H; y++) {
+    for (j = 0; j < 3; j++) {
+      var l = 0, r = 0;
+      for (x = 0; x < E; x++) { l += px[(y * W + x) * 4 + j]; r += px[(y * W + W - 1 - x) * 4 + j]; }
+      L[y * 3 + j] = l / E; R[y * 3 + j] = r / E;
+    }
+  }
+  function dist(x, y) {
+    var f = x / (W - 1), i = (y * W + x) * 4, m = 0;
+    for (var j = 0; j < 3; j++) {
+      var b = L[y * 3 + j] + (R[y * 3 + j] - L[y * 3 + j]) * f, d = Math.abs(px[i + j] - b);
+      if (d > m) m = d;
+    }
+    return m;
+  }
+  // Foreground: what differs from the background by more than T. The logo
+  // is the band of rows around the centre (gaps under 2% of the height),
+  // then the columns in that band; a glow at the bottom (Joyn) stays out.
+  // Too big (a light burst behind the logo, WOW): again with a higher T, so
+  // only the bright logo counts.
+  function band(a, len, from, gap) {
+    var lo = from, hi = from, g;
+    if (a[from] < 2) {             // the centre itself is empty: the nearest busy line
+      for (var d = 1; d < len / 4; d++) {
+        if (a[from - d] >= 2) { lo = hi = from - d; break; }
+        if (a[from + d] >= 2) { lo = hi = from + d; break; }
+      }
+      if (a[lo] < 2) return null;
+    }
+    for (g = 0; lo > 0 && g <= gap; ) { if (a[lo - 1] >= 2) { lo--; g = 0; } else if (g++ < gap) lo--; else break; }
+    for (g = 0; hi < len - 1 && g <= gap; ) { if (a[hi + 1] >= 2) { hi++; g = 0; } else if (g++ < gap) hi++; else break; }
+    while (a[lo] < 2) lo++;
+    while (a[hi] < 2) hi--;
+    return [lo, hi];
+  }
+  var T, sx, sy, n, bw, bh, why;
+  for (var pass = 0; pass < 2; pass++) {
+    T = pass ? 110 : 40;
+    var rows = new Uint32Array(H);
+    for (y = 0; y < H; y++) for (x = E; x < W - E; x++) if (dist(x, y) > T) rows[y]++;
+    sy = band(rows, H, H >> 1, Math.round(H * 0.02));
+    if (!sy) return null;
+    var cols = new Uint32Array(W);
+    n = 0;
+    for (y = sy[0]; y <= sy[1]; y++) for (x = E; x < W - E; x++) if (dist(x, y) > T) { cols[x]++; n++; }
+    sx = band(cols, W, W >> 1, Math.round(W * 0.03));
+    if (!sx) return null;
+    bw = sx[1] - sx[0] + 1; bh = sy[1] - sy[0] + 1;
+    var cx = (sx[0] + sx[1]) / 2 / W, cy = (sy[0] + sy[1]) / 2 / H;
+    // A logo: near the centre, not tiny, not most of the screen, not sparse.
+    why = Math.abs(cx - 0.5) > 0.12 || Math.abs(cy - 0.5) > 0.15 ? 'off centre' :
+      bw < W * 0.04 || bh < H * 0.03 ? 'too small' : bw > W * 0.6 || bh > H * 0.4 ? 'too big' :
+      n / (bw * bh) < 0.05 ? 'too sparse' : '';
+      if (why !== 'too big') break;
+  }
+  if (why) return null;
+  // Cut it out with a margin; alpha from the distance to the background,
+  // colours unmixed from it at the soft edges.
+  var pad = Math.round(Math.max(bw, bh) * 0.04);
+  var x0 = Math.max(0, sx[0] - pad), y0 = Math.max(0, sy[0] - pad);
+  var x1 = Math.min(W - 1, sx[1] + pad), y1 = Math.min(H - 1, sy[1] + pad);
+  var ow = x1 - x0 + 1, oh = y1 - y0 + 1;
+  var o = document.createElement('canvas');
+  o.width = ow; o.height = oh;
+  var octx = o.getContext('2d');
+  var out = octx.createImageData(ow, oh), q = out.data;
+  for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) {
+    // (The stricter pass also cuts harder, so the glow behind stays out.)
+    var a = Math.max(0, Math.min(1, (dist(x, y) - T * (pass ? 0.9 : 0.4)) / (T * 1.2)));
+    i = (y * W + x) * 4; var k = ((y - y0) * ow + x - x0) * 4, f = x / (W - 1);
+    for (j = 0; j < 3; j++) {
+      var b = L[y * 3 + j] + (R[y * 3 + j] - L[y * 3 + j]) * f;
+      q[k + j] = a > 0 ? Math.max(0, Math.min(255, b + (px[i + j] - b) / a)) : 0;
+    }
+    q[k + 3] = Math.round(a * 255);
+  }
+  octx.putImageData(out, 0, 0);
+  return { url: o.toDataURL('image/png'), w: ow, h: oh };
 }
 
 // ---------------------------------------------------------------- grid
@@ -861,8 +1057,8 @@ function barCfg() {
 
 // Settings > Look: how the home screen looks. "Selected app" is one setting
 // for the name and the focus bar (only one of them shows at a time); the
-// bar's colour and brightness appear with Bar. Modules add rows: lookPictures
-// (under Wallpaper: the Picture Frame) and lookRows (at the end).
+// bar's colour and brightness appear with Bar. Modules may add rows at the
+// end (lookRows); their own settings live under Settings > Features.
 var CARD_STYLES = ['color', 'glass'];
 function openLook() {
   var SEL = ['bar', 'name', 'none'];
@@ -874,7 +1070,7 @@ function openLook() {
       function setBar(key, value) { c.bar = barCfg(); c.bar[key] = value; saveConfig(); applyGrid(); refreshTop(); }
       var rows = [
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } }
-      ].concat(hook('lookPictures'), [
+      ].concat([
         stepRow(t('cards'), t(c.cards === 'glass' ? 'cardsGlass' : 'cardsColor'), function (d) {
           var i = CARD_STYLES.indexOf(c.cards === 'glass' ? 'glass' : 'color') + d;
           if (i < 0 || i >= CARD_STYLES.length) return;
@@ -1052,7 +1248,8 @@ function openFolder(id) {
 
 // Generic list menu (settings panel or centered sheet).
 // spec: { title, sub, sheet, info (INFO id for the small "i"), onFocus, onClose,
-//         rows: function () -> [{label, value, chevron, check, danger, info, action}] }
+//         rows: function () -> [{label, value, chevron, check, danger, info, off, action}] }
+// off: greyed out and skipped (a feature's settings while it is switched off).
 function menu(spec) {
   var el = layer();
   var panel = document.createElement('div');
@@ -1076,7 +1273,7 @@ function menu(spec) {
     var list = panel.querySelector('.rows');
     view.rows.forEach(function (r, i) {
       var row = document.createElement('div');
-      row.className = 'row' + (r.info ? ' info' : '') + (r.danger ? ' danger' : '');
+      row.className = 'row' + (r.info ? ' info' : '') + (r.danger ? ' danger' : '') + (r.off ? ' off' : '');
       var lab = document.createElement('span');
       if (r.info) lab.innerHTML = hintHTML(r.label);
       else lab.textContent = (r.check !== undefined ? (r.check ? '✓  ' : '     ') : '') + r.label;
@@ -1088,14 +1285,14 @@ function menu(spec) {
         row.appendChild(v);
       }
       if (r.chevron) row.insertAdjacentHTML('beforeend', '<span class="chev">›</span>');
-      if (!r.info) {
+      if (!r.info && !r.off) {
         row.addEventListener('mouseenter', function () { view.setFocus(i); });
         row.addEventListener('click', function () { view.setFocus(i); view.select(); });
       }
       list.appendChild(row);
     });
     var f = view.focus;
-    if (!view.rows[f] || view.rows[f].info) f = selectable(Math.min(f, view.rows.length - 1), -1);
+    if (!view.rows[f] || view.rows[f].info || view.rows[f].off) f = selectable(Math.min(f, view.rows.length - 1), -1);
     if (f < 0) f = selectable(0, 1);
     view.setFocus(f);
   };
@@ -1109,7 +1306,7 @@ function menu(spec) {
   }
 
   function selectable(from, dir) {
-    for (var i = from; i >= 0 && i < view.rows.length; i += dir) if (!view.rows[i].info) return i;
+    for (var i = from; i >= 0 && i < view.rows.length; i += dir) if (!view.rows[i].info && !view.rows[i].off) return i;
     return -1;
   }
   function wrapSel(from, dir) {
@@ -1595,30 +1792,56 @@ function openSettings() {
   });
 }
 
-// Settings > Features: every installed module with a title, on or off. Off
-// hides it and stops its hooks; toggled(on) lets it start or stop what runs
-// on the TV. (Without a title it is part of something else: the App Store
-// switch belongs to the privacy lock and only goes with it.)
+// Settings > Features: every installed module with a title, On or Off. Each
+// opens its own menu: the switch on top, the module's settings below it
+// (greyed out while off). Off hides the feature and stops its hooks;
+// setOn / toggled let it start or stop what runs on the TV. (Without a title
+// it is part of something else: the App Store switch belongs to the privacy
+// lock and only goes with it.)
+function featureModules() {
+  return MODULES.filter(function (m) { return m.title && (!m.available || m.available()); });
+}
+
 function openFeatures() {
   menu({
     title: function () { return t('features'); },
     sub: t('featuresSub'),
     rows: function () {
-      return MODULES.filter(function (m) { return m.title && (!m.available || m.available()); }).map(function (m) {
-        var on = moduleOn(m);
-        function toggle() {
-          var c = cfg();
-          c.modules = c.modules || {};
-          if (m.setOn) m.setOn(!on);
-          else if (on) c.modules[m.id] = false;
-          else delete c.modules[m.id];
-          saveConfig();
-          if (m.toggled) m.toggled(!on);
-          refreshMain();
-          refreshTop();
-        }
-        return { label: local(m.title), value: '‹ ' + (on ? t('on') : t('off')) + ' ›', action: toggle, adjust: toggle };
+      return featureModules().map(function (m) {
+        return { label: local(m.title), value: moduleOn(m) ? t('on') : t('off'), chevron: true,
+                 action: function () { openFeature(m); } };
       });
+    }
+  });
+}
+
+function setModule(m, on) {
+  var c = cfg();
+  c.modules = c.modules || {};
+  if (m.setOn) m.setOn(on);
+  else if (on) delete c.modules[m.id];
+  else c.modules[m.id] = false;
+  saveConfig();
+  if (m.toggled) m.toggled(on);
+  refreshMain();
+  refreshTop();
+}
+
+function openFeature(m) {
+  if (m.featureOpen) m.featureOpen();
+  menu({
+    title: function () { return local(m.title); },
+    info: m.legend,
+    rows: function () {
+      var on = moduleOn(m);
+      function flip() { setModule(m, !on); }
+      var rows = [{ label: local(m.title), value: '‹ ' + (on ? t('on') : t('off')) + ' ›', action: flip, adjust: flip }];
+      if (m.about) rows.push({ info: true, label: local(m.about) });
+      (m.settings ? m.settings() : []).forEach(function (r) {
+        if (!on) { r = Object.create(r); r.off = true; }
+        rows.push(r);
+      });
+      return rows;
     }
   });
 }
@@ -2210,6 +2433,7 @@ var mainView = {
 // OK is handled on keyup so a long hold can open the options instead.
 var okTimer = null, okLong = false, okDown = false;
 document.addEventListener('keydown', function (e) {
+  lastKeyAt = Date.now();
   if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
   var v = current();
   // A module that takes every key while its view is on top (the Picture Frame).
@@ -2301,6 +2525,7 @@ function load() {
     showMsg('');
     var changed = adopt(data, true);
     hook('loaded');
+    setTimeout(makeLogos, 0);
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
     persistLocal();

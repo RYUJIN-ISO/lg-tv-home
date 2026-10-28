@@ -73,8 +73,10 @@
     return n;
   }
 
-  function openHue() {
-    closeAll();
+  // keep: opened from Settings > Features (Back returns there); from the
+  // Light button, the home screen.
+  function openHue(keep) {
+    if (keep !== true) closeAll();
     showHint(t('hueConnecting'));
     loadHue(function () {
       showHint('');
@@ -256,7 +258,7 @@
     title: { en: 'Philips Hue', de: 'Philips Hue' },
     strings: {
       en: {
-        light: 'Light', hue: 'Hue', hueHint: '{ok} on / off · {hold} room', hueConnecting: 'Connecting to Hue …',
+        light: 'Light', hue: 'Hue', hueRooms: 'Rooms and lights', hueHint: '{ok} on / off · {hold} room', hueConnecting: 'Connecting to Hue …',
         hueFailed: 'The Hue bridge is not reachable.', hueIp: 'IP address of the Hue bridge',
         huePress: 'Press the button on the Hue bridge', huePressSub: 'Waiting up to 60 seconds.',
         huePaired: 'Hue connected.', lightButton: 'Light button', power: 'Power',
@@ -265,7 +267,7 @@
         notSet: 'Not set', unreachable: 'unreachable'
       },
       de: {
-        light: 'Licht', hue: 'Hue', hueHint: '{ok} an / aus · {hold} Raum', hueConnecting: 'Verbinde mit Hue …',
+        light: 'Licht', hue: 'Hue', hueRooms: 'Räume und Lampen', hueHint: '{ok} an / aus · {hold} Raum', hueConnecting: 'Verbinde mit Hue …',
         hueFailed: 'Die Hue Bridge ist nicht erreichbar.', hueIp: 'IP-Adresse der Hue Bridge',
         huePress: 'Den Knopf auf der Hue Bridge drücken', huePressSub: 'Wartet bis zu 60 Sekunden.',
         huePaired: 'Hue verbunden.', lightButton: 'Licht-Taste', power: 'Ein / Aus',
@@ -292,7 +294,16 @@
         return (lightFlash ? 'flash-' + lightFlash : '') + (lightCinema ? ' cinema' : '');
       } }];
     },
-    settingsRows: function () { return [{ label: t('hue'), chevron: true, action: openHue }]; },
+    about: { en: 'The Light button (hold OK: rooms and lights) switches between cinema and the lighting from before.',
+             de: 'Die Licht-Taste (OK halten: Räume und Lampen) wechselt zwischen Kino und dem Licht von vorher.' },
+    settings: function () {
+      return [
+        { label: t('hueRooms'), chevron: true, action: function () { openHue(true); } },
+        { label: t('lightButton'), chevron: true, action: function () {
+          loadHue(function () { if (hueData && hueData.paired) lightButtonMenu(); else openHue(true); });
+        } }
+      ];
+    },
     tile: function (entry, card, label) {
       if (entry.type !== 'room') return false;
       roomTile(entry, card, label);

@@ -7,6 +7,12 @@
 //    can be uninstalled), for adding apps LG never put on its home.
 //  - tile-art overrides: tiles/<appId>.png|jpg in this app or in the data dir
 //    (sharp 640x384 artwork replacing a low-res icon) -> `_tile`.
+//  - sharp logos: LG's icons are at most 192 px, but most apps' splash
+//    screens show the logo large. The page cuts it out once (splashLogo in
+//    app.js) and saves it as autotiles/<app>.<sig>.png in the data dir
+//    (<sig>: the splash's size and time, so a new splash is cut again; .none
+//    when there was no logo to find). Here: `_logo` when it exists, else the
+//    splash as `_splash` with `_sig` for the page to work on.
 // Prints {launchPoints, installed, wallpapers, config} as JSON.
 var fs = require('fs');
 var path = require('path');
@@ -52,26 +58,51 @@ list(path.join(DATA, 'tiles')).forEach(function (f) {
   try { tiles[f.replace(/\.[a-z]+$/i, '')] = copy(path.join(DATA, 'tiles', f), path.join(CACHE, 'tile-' + f)); } catch (e) {}
 });
 
+var appList = [];
+try { appList = JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).apps || []; } catch (e) {}
+
+var AUTO = path.join(DATA, 'autotiles');
+var logos = {};
+appList.forEach(function (a) {
+  if (!a.splashBackground || tiles[a.id]) return;
+  var src = a.splashBackground;
+  if (src.charAt(0) !== '/') src = path.join(a.folderPath || '', src);
+  var st;
+  try { st = fs.statSync(src); } catch (e) { return; }
+  var base = a.id.replace(/[^A-Za-z0-9._-]/g, '_'), sig = st.size + '-' + Math.floor(st.mtime.getTime() / 1000);
+  var done = path.join(AUTO, base + '.' + sig);
+  try {
+    if (fs.existsSync(done + '.png')) logos[a.id] = { _logo: copy(done + '.png', path.join(CACHE, 'logo-' + base + '.png')) };
+    else if (!fs.existsSync(done + '.none')) logos[a.id] = { _splash: cached(src, 'splash-' + base), _sig: sig };
+  } catch (e) {}
+});
+function withLogo(o, id) {
+  var l = logos[id] || {};
+  o._logo = l._logo || ''; o._splash = l._splash || ''; o._sig = l._sig || '';
+  return o;
+}
+
 (data.launchPoints || []).forEach(function (lp) {
   lp._tile = tiles[lp.id] || '';
+  withLogo(lp, lp.id);
   var key = (lp.launchPointId || lp.id).replace(/[^A-Za-z0-9._-]/g, '_');
   lp._icon = cached(lp.extraLargeIcon || lp.largeIcon || lp.icon, key + '.icon');
 });
 
 var installed = [];
 try {
-  JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).apps.forEach(function (a) {
+  appList.forEach(function (a) {
     if (!a.visible) return;
     var dir = a.folderPath || '';
     var icon = a.extraLargeIcon || a.largeIcon || a.icon || '';
     if (icon && icon.charAt(0) !== '/' && !/^[a-z]+:/i.test(icon)) icon = path.join(dir, icon);
-    installed.push({
+    installed.push(withLogo({
       id: a.id, title: a.title || a.id, iconColor: a.iconColor || '', bgColor: a.bgColor || '',
       removable: !!a.removable && !a.systemApp,
       dev: dir.indexOf('/media/developer/') === 0,
       _icon: cached(icon, a.id.replace(/[^A-Za-z0-9._-]/g, '_') + '.app'),
       _tile: tiles[a.id] || ''
-    });
+    }, a.id));
   });
 } catch (e) {}
 
