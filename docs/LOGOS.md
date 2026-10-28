@@ -12,8 +12,8 @@ screen. TV Home fixes that by itself:
   as an empty `<appId>.<size-time>.none`.
 - **Tile art** wins over everything: a 640x384 PNG named after the app
   (for example `netflix.png`) in `/var/lib/webosbrew/atvhome/tiles/`.
-  Netflix and YouTube (`youtube.leanback.v4`) come with one in the repo
-  (`apps/tv-home/tiles/`).
+  The repo ships no tile art: app logos belong to their owners, so you
+  make your own for your TV.
 
 ## A logo looks wrong
 
@@ -23,10 +23,9 @@ screen. TV Home fixes that by itself:
    then press Home and leave the remote alone for a few seconds. (An app
    tried in the last two minutes waits until those are over.)
 3. Still wrong, or the app has no logo in its splash: make a 640x384 PNG (the
-   logo centred on its brand colour or black, like `apps/tv-home/tiles/netflix.png`)
-   and copy it to `/var/lib/webosbrew/atvhome/tiles/<appId>.png`. Good ones
-   are welcome as a pull request into `apps/tv-home/tiles/`, so every TV gets
-   them.
+   logo centred on its brand colour or black) and copy it to
+   `/var/lib/webosbrew/atvhome/tiles/<appId>.png`. Keep it on your TV; please
+   don't send app logos as pull requests (they are the brands' property).
 
 ## How it works
 
