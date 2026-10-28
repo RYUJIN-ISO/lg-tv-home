@@ -137,6 +137,9 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(255,255,255,.09);
   }
   body.glass .card.app .shade { display: none; }
+  /* No focus shadow on Glass: its layer (narrower than the card, shifted
+     down) shows through the see-through card as a brighter, off-centre box. */
+  body.glass .tile::before { display: none; }
 
   /* Full-card tile art (tiles/<appId>.png). */
   .card.art > img, .card.art > canvas, .mini.art img, .mini.art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; left: 0; top: 0; }
