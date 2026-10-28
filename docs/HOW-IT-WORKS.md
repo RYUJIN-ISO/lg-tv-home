@@ -42,6 +42,12 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
 
 ## The launcher
 
+- **Modules**: everything beyond the home screen (Picture Frame, Plex, Hue,
+  Remote Buttons, AV receiver, App Store) lives in
+  `apps/tv-home/modules/<id>/`. `install.sh` joins the chosen ones into
+  `modules.js` / `modules.css` and copies their helper files next to
+  `app.js`; `app.js` calls their hooks at fixed points (`hook`, `claim`).
+  The hooks and how to write one: `apps/tv-home/modules/README.md`.
 - **Data**: `launchpoints.sh` runs as root through Homebrew Channel's `exec`
   service, because `listLaunchPoints` and `listApps` are private. It returns
   LG's launch points (order, HDMI device names) and the installed apps.
@@ -214,9 +220,10 @@ copy runs at a time (`/tmp/app-trim.pid`).
 
 ## Plex
 
-All of it is in `apps/tv-home/plex.js`, `plex.css`, `plex.py`, `devtools.py`
-and `apps/plex-link/`. `app.js` only calls `window.Plex` at a few places
-(each guarded), so without `plex.js` TV Home works as before.
+All of it is in the Plex module (`apps/tv-home/modules/plex/`: `plex.js`,
+`plex.css`, `plex.py`, `devtools.py`) and `apps/plex-link/`. On the TV the
+`.py` files sit next to `app.js`; without the module TV Home works as
+before.
 
 **Signing in.** `plex.py signin` asks plex.tv for a PIN (`POST
 /api/v2/pins`), the TV shows its code, and `plex.py signin-check` polls

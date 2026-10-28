@@ -34,25 +34,44 @@ words, run the installer and check the result.
 
 ## 3. The setup questions
 
-Ask them in a conversation; the defaults are what most people want. They map
-to the keys in `setup.conf`:
+Everything is a module; the person picks what they want. Ask in a
+conversation (the installer's checklist shows the same list); the defaults are
+the **recommended** preset. They map to the keys in `setup.conf`:
 
 | Ask | Key | Default |
 |---|---|---|
 | What is the TV's SSH name or IP? | `TV` | `lgtv` |
-| Do you want the Apple TV style home screen? | `LAUNCHER` | y |
-| Should it replace LG's home completely (Home button, after power on)? | `SET_HOME` | y |
-| English or German? | `LANGUAGE` | en |
-| **Light**: see below | `LIGHT` | n |
-| Should the remote's buttons be remappable (set up later in TV Home's Settings)? | `REMOTE` | y |
-| Add the 16 museum prints (public-domain paintings, about 49 MB) as wallpapers and for the picture frame? | `PRINTS` | y |
-| Block LG's ad, tracking and ACR servers? | `ADBLOCK` | y |
-| Only without TV Home: install the small App-Updates app to open the LG Store? | `APP_UPDATES` | y |
+| Do you want the Apple TV style home screen (TV Home)? | `LAUNCHER` | y |
+| ...the Picture Frame (wallpapers full screen, optionally instead of LG's screensaver)? | `FRAME` | y |
+| ...Plex rows (Continue Watching)? Only if they use Plex | `PLEX` | y |
+| ...**Light** (Philips Hue): see below | `LIGHT` | n |
+| ...a button that sends the sound to an AV receiver on HDMI eARC? | `AVR` | n |
+| ...remappable remote buttons (set up later in TV Home's Settings)? | `REMOTE` | y |
+| ...the 16 museum prints (public-domain paintings, about 49 MB) as wallpapers? | `PRINTS` | y |
+| **Privacy lock**: block LG's ad, tracking and ACR servers on the TV? See below | `ADBLOCK` | y |
 | Stop LG's tracking and profiling services on the TV? | `DEBLOAT` | y |
 | ...does anyone use **voice search** with the mic button? (y keeps it) | `KEEP_VOICE` | n |
 | ...do they use the **LG ThinQ app, Google Home or Alexa** with the TV? (y keeps it) | `KEEP_SMARTHOME` | n |
 | Keep only the current and previous app in memory (faster)? | `APP_TRIM` | y |
 | Turn off the passwordless root telnet? | `TELNET_OFF` | y |
+| With TV Home: should it replace LG's home completely (Home button, after power on)? | `SET_HOME` | y |
+| With TV Home: English or German? | `LANGUAGE` | en |
+
+The parts marked "..." under TV Home need it. Without TV Home but with the
+privacy lock, the installer adds the small App-Updates app to open the store.
+
+**Privacy lock and Pi-hole.** The lock writes LG's ad and tracking servers
+into the TV's `/etc/hosts`; LG's store shares servers with them, so the
+store is locked too (TV Home's Settings, App Store opens it for 10 minutes).
+Someone with a Pi-hole, AdGuard Home or a similar network-wide block doesn't
+need it: `ADBLOCK=n` (the installer's **p** preset) leaves the TV's hosts
+and the store alone. The tracking services block (`DEBLOAT`) is separate and
+still worth having.
+
+**Changing it later.** Run `./install.sh` again and change the checklist: an
+unticked module is taken off the TV (its settings, the Hue pairing and the
+Plex sign-in stay). On the TV, Settings, **Features** switches installed
+modules off and on without the installer.
 
 ### The Light (ask properly, it is the main optional feature)
 
@@ -75,11 +94,10 @@ has a Hue section to switch rooms and single lights and set brightness. Ask:
 4. *Should the second press bring back the lighting from before cinema
    (default), or always a particular scene?*
 
-### Plex (no setup question)
+### Plex (`PLEX`)
 
-The Plex rows are installed with TV Home and stay invisible until someone
-signs in. Ask: *Do you watch Plex on this TV?* If yes, after the install
-they open TV Home, Settings, Plex, **Account**, and enter the code shown on
+The Plex rows stay invisible until someone signs in. Ask: *Do you watch
+Plex on this TV?* If not, `PLEX=n`. If yes, after the install they open TV Home, Settings, Plex, **Account**, and enter the code shown on
 the TV at **plex.tv/link**. That works for their own server and for a
 server a friend shared with them; each person signs in with their own
 account and sees their own Continue Watching.
