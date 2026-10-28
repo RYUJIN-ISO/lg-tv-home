@@ -240,8 +240,11 @@ large in the middle.
    tiny, not most of the screen and not sparse. A light burst behind the
    logo makes the box too big; then it tries again with a higher threshold.
    The logo is cut out with soft, unmixed edges onto transparency.
-3. `autotile.sh` saves it (base64 in parts, each exec argument stays under
-   128 KiB) and removes older versions of the same app. Then TV Home reloads.
+3. The logo is scaled to at most 480x200 (about twice what a card shows)
+   and sent as raw RGBA pixels, base64 in parts (each exec argument stays
+   under 128 KiB). `autotile.py` writes the PNG with Python's zlib and
+   removes older versions of the same app. (Not the browser's own PNG: the
+   TV's `toDataURL` sometimes writes broken rows.) Then TV Home reloads.
 
 On a card the logo stands on the colour of the icon's background (Colour
 cards), drawn white if it has about the card's own colour; Glass cards tint
