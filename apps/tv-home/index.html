@@ -78,12 +78,13 @@
   .tile.focus .label { opacity: 1; transform: translateY(8px); }
   /* Settings > App names off: no names on the home screen and in folders (pickers keep them). */
   body:not(.names) #grid .label, body:not(.names) .folderView:not(.picker) .label { display: none; }
-  /* Settings > Focus bar (names off): a slim bar floating under the focused card,
-     fading out to both sides. Pre-promoted; only opacity animates. */
+  /* Settings > Look > Selected app: Bar. A slim bar floating under the focused card,
+     fading out to both sides. No layer of its own (no will-change): one per
+     card made the first moves stutter on the TV; repainting 4 px is cheap. */
   body.bar:not(.names):not(.editing) #grid .tile::after, body.bar:not(.names):not(.editing) .folderView:not(.picker) .tile::after {
     content: ""; position: absolute; left: 12%; right: 12%; top: 206px; height: 4px; border-radius: 2px;   /* ~6 px under the enlarged card */
     background: linear-gradient(90deg, transparent, var(--bar, #fff) 30%, var(--bar, #fff) 70%, transparent);
-    opacity: 0; transition: opacity 200ms; will-change: opacity;
+    opacity: 0; transition: opacity 200ms;
   }
   body.bar:not(.names):not(.editing) #grid .tile.focus::after, body.bar:not(.names):not(.editing) .folderView:not(.picker) .tile.focus::after { opacity: var(--bar-o, .8); }
   /* With the bar, the focused card keeps its own colours (no white shine). */
