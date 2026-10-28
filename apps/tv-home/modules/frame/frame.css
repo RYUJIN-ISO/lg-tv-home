@@ -1,0 +1,9 @@
+/* Picture frame: full screen, dimmed; two images crossfade and drift slowly. */
+.layer.frame { z-index: 40; background: #000; cursor: none; }
+.frame .fimg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0;
+  transition: opacity 2s ease, transform 30s linear; will-change: opacity, transform; }
+.frame .fimg.on { opacity: 1; }
+.frame .fdim { position: absolute; inset: 0; background: #000; }
+.frame .fgl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+/* The home screen is hidden under the frame, so it isn't composited every frame. */
+body.framing #clock, body.framing #topbar, body.framing #page, body.framing #wall, body.framing #wallDim { visibility: hidden; }
