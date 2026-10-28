@@ -8,19 +8,20 @@
 <body>
 <script>
 // Headless (appinfo "noWindow"): toggles store mode, reports it as a system
-// toast, then quits. 1st press lifts the block and opens the LG Store, 2nd press
-// restores it. store-mode.sh re-blocks on its own after 10 minutes anyway.
+// toast, then quits. 1st press lifts the block and opens the LG Store, store-mode.sh
+// restores it as soon as the Store is left (10 minutes at the latest); a 2nd
+// press restores it right away.
 // Language follows the TV Home launcher setting (English by default).
 var CONFIG = '/var/lib/webosbrew/atvhome/config.json';
 var STRINGS = {
   de: {
-    on: 'Schutz für App-Updates aus (max. 10 Min.). Der LG Store öffnet sich. Wenn fertig, nochmal drücken.',
+    on: 'Schutz für App-Updates aus. Der LG Store öffnet sich. Beim Verlassen ist der Schutz wieder an.',
     off: 'Schutz ist wieder an.',
     error: 'App-Updates: Fehler: ',
     unknown: 'unbekannter Fehler'
   },
   en: {
-    on: 'Protection off for app updates (max 10 min). Opening the LG Store. Press again when done.',
+    on: 'Protection off for app updates. Opening the LG Store. Protection comes back on when you leave it.',
     off: 'Protection is back on.',
     error: 'App-Updates: error: ',
     unknown: 'unknown error'

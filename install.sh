@@ -40,7 +40,7 @@ label() {
 # Second lines for the checklist (where one line isn't enough).
 label2() {
     case $1 in
-        ADBLOCK) echo "an App Store switch opens it for 10 minutes). Skip it with a Pi-hole or similar." ;;
+        ADBLOCK) echo "an App Store switch opens it until you leave it). Skip it with a Pi-hole or similar." ;;
     esac
 }
 

@@ -1,7 +1,7 @@
 // App Store switch for TV Home (part of the privacy lock, see install.sh):
 // the block list in /etc/hosts also locks the LG Content Store. Settings >
-// App Store opens it for 10 minutes through tv/store-mode.sh (it re-locks on
-// its own). Without the block on the TV the row doesn't appear.
+// App Store opens it through tv/store-mode.sh, which re-locks on its own as
+// soon as the Store is left (after 10 minutes at the latest). Without the block on the TV the row doesn't appear.
 (function () {
   var STORE_MODE = '/var/lib/webosbrew/store-mode.sh';
   var state_ = { available: false, open: false, left: 0 };
@@ -30,7 +30,7 @@
     });
   }
 
-  INFO.settings.lines.push({ en: 'App Store: open 10 min, then locked again', de: 'App Store: 10 Min. offen, dann wieder gesperrt' });
+  INFO.settings.lines.push({ en: 'App Store: open until you leave it (max 10 min)', de: 'App Store: offen, bis du ihn verlässt (max. 10 Min.)' });
 
   addModule({
     id: 'store',

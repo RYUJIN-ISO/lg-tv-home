@@ -63,7 +63,7 @@ privacy lock, the installer adds the small App-Updates app to open the store.
 
 **Privacy lock and Pi-hole.** The lock writes LG's ad and tracking servers
 into the TV's `/etc/hosts`; LG's store shares servers with them, so the
-store is locked too (TV Home's Settings, App Store opens it for 10 minutes).
+store is locked too (TV Home's Settings, App Store opens it until the Store is left).
 Someone with a Pi-hole, AdGuard Home or a similar network-wide block doesn't
 need it: `ADBLOCK=n` (the installer's **p** preset) leaves the TV's hosts
 and the store alone. The tracking services block (`DEBLOAT`) is separate and

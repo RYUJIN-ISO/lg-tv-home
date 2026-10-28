@@ -37,7 +37,7 @@ splash screens by itself: [Sharp logos](LOGOS.md).
 | **Language** | English or German |
 | **Look** | How the home screen looks (below) |
 | **Features** | Every module installed on this TV (below) |
-| **App Store** | Only with the [privacy lock](modules/privacy-lock.md): opens LG's store for 10 minutes |
+| **App Store** | Only with the [privacy lock](modules/privacy-lock.md): opens LG's store, locks again when you leave it |
 
 **Look.** Rows with arrows change with Left/Right:
 
