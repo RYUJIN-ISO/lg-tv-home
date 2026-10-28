@@ -72,7 +72,9 @@ appList.forEach(function (a) {
   var base = a.id.replace(/[^A-Za-z0-9._-]/g, '_'), sig = st.size + '-' + Math.floor(st.mtime.getTime() / 1000);
   var done = path.join(AUTO, base + '.' + sig);
   try {
-    if (fs.existsSync(done + '.png')) logos[a.id] = { _logo: copy(done + '.png', path.join(CACHE, 'logo-' + base + '.png')) };
+    var made = 0;
+    try { made = fs.statSync(done + '.png').size; } catch (e) {}
+    if (made > 0) logos[a.id] = { _logo: copy(done + '.png', path.join(CACHE, 'logo-' + base + '.png')) };
     else if (!fs.existsSync(done + '.none')) logos[a.id] = { _splash: cached(src, 'splash-' + base), _sig: sig };
   } catch (e) {}
 });
