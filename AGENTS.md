@@ -1,7 +1,8 @@
 # AGENTS.md: installing lg-tv-home for someone
 
 You are helping a person put lg-tv-home on their LG TV. Read README.md,
-docs/FEATURES.md and docs/HOW-IT-WORKS.md first. The installer does the
+docs/INSTALL.md and the module pages in docs/modules/ first (index:
+docs/README.md). The installer does the
 work. Your job: get the prerequisites right, ask the setup questions in plain
 words, run the installer and check the result.
 
@@ -88,8 +89,9 @@ has a Hue section to switch rooms and single lights and set brightness. Ask:
    watching?* If no scene fits, they should create one in the Hue app first
    (for example dim warm light behind the TV).
 3. *Can you get to the bridge?* Pairing happens on the TV: TV Home,
-   Settings, Hue finds the bridge and waits for its button (60 seconds), then
-   the Light button card sets the room, cinema scene and "back to" target.
+   Settings, Features, Philips Hue, **Rooms and lights** finds the bridge and
+   waits for its button (60 seconds); then **Light button** in the same menu
+   sets the room, cinema scene and "back to" target.
    (`tools/hue-setup.sh` does the same from a computer in the bridge's network.)
 4. *Should the second press bring back the lighting from before cinema
    (default), or always a particular scene?*
@@ -97,8 +99,9 @@ has a Hue section to switch rooms and single lights and set brightness. Ask:
 ### Plex (`PLEX`)
 
 The Plex rows stay invisible until someone signs in. Ask: *Do you watch
-Plex on this TV?* If not, `PLEX=n`. If yes, after the install they open TV Home, Settings, Plex, **Account**, and enter the code shown on
-the TV at **plex.tv/link**. That works for their own server and for a
+Plex on this TV?* If not, `PLEX=n`. If yes, after the install they open TV
+Home, Settings, Features, Plex, **Account**, and enter the code shown on the
+TV at **plex.tv/link**. That works for their own server and for a
 server a friend shared with them; each person signs in with their own
 account and sees their own Continue Watching.
 
@@ -111,8 +114,8 @@ account and sees their own Continue Watching.
   prints the account and server name, `... plex.py refresh` the rows.
 - OK on a card opens Plex through the hidden helper app `com.iso.plexlink`;
   `/var/lib/webosbrew/atvhome/plex-play.log` says what the last OK did. How
-  it works: docs/HOW-IT-WORKS.md, "Plex".
-- "Keep Plex ready" (Settings, Plex, on by default) keeps that helper
+  it works: docs/modules/plex.md.
+- "Keep Plex ready" (Settings, Features, Plex; on by default) keeps that helper
   started in the background, about 115 MB. On a TV that is short of memory,
   switch it off.
 
@@ -123,7 +126,7 @@ a few seconds after it is shown (only while nobody presses keys). Check:
 `ssh <tv> ls /var/lib/webosbrew/atvhome/autotiles` (`.png` = a logo, `.none` =
 the splash had none, the icon stays). If a logo looks wrong, delete that
 app's files there (they are cut again) or add tile art; the steps are in
-docs/FEATURES.md, "Sharp app logos". Don't edit the `.png` files by hand:
+docs/LOGOS.md. Don't edit the `.png` files by hand:
 they are replaced when the app's splash changes.
 
 ## 4. Install and check
