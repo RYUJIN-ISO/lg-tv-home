@@ -16,11 +16,11 @@ Groups, as set in `debloat.conf` (`1` = blocked):
 
 | Group | Blocked | When |
 |---|---|---|
-| `BLOCK_TRACKING` | systemd units `contentminer`, `user-context-manager`, `nudge`, `com.webos.service.pushclient`, `rdxd`, `remotelogger`, `service-logger`, `rec-info-adapter`, `rec-listmgr`; programs `/usr/sbin/uploadd`, `/usr/sbin/admanager` | always |
+| `BLOCK_TRACKING` | systemd units `contentminer`, `user-context-manager`, `nudge`, `com.webos.service.pushclient`, `rdxd`, `remotelogger`, `service-logger`, `rec-info-adapter`, `rec-listmgr`; programs `/usr/sbin/uploadd`, `/usr/sbin/admanager` | on a new install (kept as you set it) |
 | `BLOCK_PRELOAD` | `preload-manager` (LG starting apps at boot) | with [app trimming](app-trim.md) |
 | `BLOCK_VOICE` | `voiceinput`, `voiceconductor`; program `/usr/bin/com.webos.app.voice` | unless voice search is kept |
 | `BLOCK_SMARTHOME` | `google-home-controller`; programs `lg.thinqai.adapter`, `trigger_thinq`, `iot-client` | unless ThinQ / Google Home / Alexa is kept |
-| `BLOCK_MISC` | `com.webos.service.mycar` (car mode), `ftms` (fitness machine Bluetooth) | always |
+| `BLOCK_MISC` | `com.webos.service.mycar` (car mode), `ftms` (fitness machine Bluetooth) | on a new install (kept as you set it) |
 
 Kept on purpose: casting, `trigger_alexa` (the Alexa button needs it on some
 TVs) and `sdx` (part of the broadcast stack; its uploads are blocked by the
@@ -53,7 +53,11 @@ ssh <tv> sh /var/lib/webosbrew/debloat.sh lift
   [How it works](../HOW-IT-WORKS.md#boot-scripts)). When two runs overlap,
   the newest wins.
 
-Note: `install.sh` writes `debloat.conf` from the checklist answers on every
-install, so changes made by hand in that file are replaced.
+**Changing groups by hand.** `install.sh` sets `BLOCK_PRELOAD`,
+`BLOCK_VOICE` and `BLOCK_SMARTHOME` from your answers on every install;
+everything else in `debloat.conf` (`BLOCK_TRACKING`, `BLOCK_MISC`, any line
+you added) stays as you left it. A new file blocks tracking and misc too.
+After editing it, apply with `ssh <tv> sh /var/lib/webosbrew/debloat.sh apply`
+(or reboot).
 
 Code: `tv/debloat.sh`, `tv/init.d/80-debloat`.

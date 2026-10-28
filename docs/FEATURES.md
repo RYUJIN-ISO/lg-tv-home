@@ -1,5 +1,7 @@
 # Using TV Home
 
+![TV Home out of the box](screenshot.jpg)
+
 Everything works with the normal LG remote (arrows, OK, Back) and with the
 Magic Remote pointer (hover, click, click and hold, scroll wheel). Lists and
 menus wrap around: Up on the first entry jumps to the last one and back.

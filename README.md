@@ -4,7 +4,9 @@ A calmer, faster home screen for rooted LG webOS TVs, in the style of the
 Apple TV, plus switches for LG's tracking and bloat. Pick only the parts you
 want; everything can be undone.
 
-![TV Home](docs/screenshot.jpg)
+![TV Home with Glass cards](docs/screenshot-glass.jpg)
+
+<sub>With a wallpaper of your own. Out of the box it looks like [this](docs/screenshot.jpg).</sub>
 
 ## What you get
 
@@ -60,3 +62,9 @@ skipped when they are missing. Differences are welcome as an issue.
 - Block list: [hugobatista/lg-tv-ad-block](https://github.com/hugobatista/lg-tv-ad-block).
 - Museum prints: public-domain paintings from Wikimedia Commons,
   [prints/CREDITS.md](prints/CREDITS.md).
+
+## License
+
+[MIT](LICENSE). The museum prints are in the public domain
+([prints/CREDITS.md](prints/CREDITS.md)); the block list is downloaded from
+its own project at install time and keeps its own license.
