@@ -116,6 +116,16 @@ account and sees their own Continue Watching.
   started in the background, about 115 MB. On a TV that is short of memory,
   switch it off.
 
+### Logos (no setup question)
+
+Sharp logos are automatic: TV Home cuts them out of the apps' splash screens
+a few seconds after it is shown (only while nobody presses keys). Check:
+`ssh <tv> ls /var/lib/webosbrew/atvhome/autotiles` (`.png` = a logo, `.none` =
+the splash had none, the icon stays). If a logo looks wrong, delete that
+app's files there (they are cut again) or add tile art; the steps are in
+docs/FEATURES.md, "Sharp app logos". Don't edit the `.png` files by hand:
+they are replaced when the app's splash changes.
+
 ## 4. Install and check
 
 ```bash

@@ -27,7 +27,7 @@ Rows with arrows change with Left/Right:
 |---|---|
 | **Wallpaper** | The picture behind the home screen (see Pictures below) |
 | **Picture frame** | The picture frame's settings (see Picture Frame below) |
-| **App cards** | **Colour** (default): each card in the app's brand colour. **Glass**: dark glass cards like the top-left buttons, with the logo standing on it in the brand's colour (white logos take the brand colour, lightened to read well; logos with their own colours keep them) |
+| **App cards** | **Glass** (default): dark glass cards like the top-left buttons, with the logo standing on it in the brand's colour (white logos take the brand colour, lightened to read well; logos with their own colours keep them). **Colour**: each card in the app's brand colour |
 | **Row spacing** | Space between the rows of apps: **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide**. With names, rows get at least the room the name needs |
 | **Selected app** | What marks the focused app on the home screen and in folders: **Bar** (default), a slim bar floating under it, fading out to both sides; **Name**; **Nothing**. Pickers always show names; Organize Apps shows no bar (the outline marks the app) |
 | **Bar colour** / **Bar brightness** | With Bar: white, blue, green, yellow, orange, red, pink or purple; 20 to 100 % (white, 80 % by default) |
@@ -239,13 +239,36 @@ locked by default. Settings, **App Store** opens it for 10 minutes (the LG
 Store starts right away) and also restarts the stopped LG services for that
 time. Press it again when you are done, or wait; it locks itself again.
 
-## Sharper app logos
+## Sharp app logos
 
-LG's app icons are at most 192 px, so some logos look soft on a 4K screen. A
-640x384 PNG named after the app (for example `netflix.png`) in
-`/var/lib/webosbrew/atvhome/tiles/` replaces that app's tile. Netflix and
-YouTube (`youtube.leanback.v4`: the red play button on black) come with one. To list app IDs:
-`ssh <tv> "luna-send -n 1 luna://com.webos.applicationManager/listApps '{}' < /dev/null" | grep -o '"id":"[^"]*"'`
+LG gives the launcher app icons of at most 192 px, which look soft on a 4K
+screen. TV Home fixes that by itself:
+
+- **Automatic.** Most apps show their logo large on their splash screen (the
+  picture while they start, 1920x1080). TV Home cuts the logo out once, when
+  it has sat still for a few seconds, and uses it instead of the icon. The
+  result is kept in `/var/lib/webosbrew/atvhome/autotiles/<appId>.<size-time>.png`;
+  when an app update brings a new splash, it is cut again. Apps whose splash
+  has no logo (Prime Video, for example) keep their icon; that is remembered
+  as an empty `<appId>.<size-time>.none`.
+- **Tile art** wins over everything: a 640x384 PNG named after the app
+  (for example `netflix.png`) in `/var/lib/webosbrew/atvhome/tiles/`.
+  Netflix and YouTube (`youtube.leanback.v4`) come with one in the repo
+  (`apps/tv-home/tiles/`).
+
+**A logo looks wrong?**
+
+1. Find the app's ID:
+   `ssh <tv> "luna-send -n 1 luna://com.webos.applicationManager/listApps '{}' < /dev/null" | grep -o '"id":"[^"]*"'`
+2. Let TV Home cut it again: `ssh <tv> "rm /var/lib/webosbrew/atvhome/autotiles/<appId>.*"`,
+   then press Home.
+3. Still wrong, or the app has no logo in its splash: make a 640x384 PNG (the
+   logo centred on its brand colour or black, like `apps/tv-home/tiles/netflix.png`)
+   and copy it to `/var/lib/webosbrew/atvhome/tiles/<appId>.png`. Good ones
+   are welcome as a pull request into `apps/tv-home/tiles/`, so every TV gets
+   them.
+
+How the cutting works: [HOW-IT-WORKS.md](HOW-IT-WORKS.md#sharp-logos).
 
 ## What stays off
 

@@ -39,7 +39,7 @@ var DEFAULT_CONFIG = {
   wallpaper: 'default.jpg',
   clock: true,
   modules: {},    // Settings > Features: module id -> false while switched off
-  cards: 'color', // Settings > Look > App cards: 'color' (brand colour) or 'glass'
+  cards: 'glass', // Settings > Look > App cards: 'glass' (dark glass, the default) or 'color' (brand colour)
   order: [],      // top-level keys: app keys and folder ids, in display order
   folders: {},    // id -> { name, items: [app keys] }
   hidden: [],     // keys of LG launch points taken off the home screen
@@ -535,7 +535,7 @@ function cornerColor(img) {
 // (a few ms), then kept for the session.
 var glassLogos = {};
 
-function glassOn() { return !!state.config && state.config.cards === 'glass'; }
+function glassOn() { return !!state.config && state.config.cards !== 'color'; }
 
 // img shows src: as it is, or (Glass) as the keyed logo. withBleed: an icon
 // (not full-card art), which fills the card height when it is a full square.
@@ -705,16 +705,17 @@ function renderTile(entry) {
 // once here, saved on the TV by autotile.sh, it replaces the icon (cache.js
 // hands over `_logo` from then on). One app at a time while TV Home sits
 // still: about 100 ms each, a first run only.
-var logoQueue = [], logoBusy = false, logoTried = {}, lastKeyAt = 0;
+var logoQueue = [], logoBusy = false, logoTried = {}, logoMade = 0, lastKeyAt = 0;
 var AUTOTILE = 'sh ' + APP_DIR + 'autotile.sh ';
 
+// Called after every reload: adds what is new (the queue itself stays).
 function makeLogos() {
-  logoQueue = [];
+  var was = logoQueue.length;
   appOrder.forEach(function (k) {
     var a = apps[k];
     if (a && a.splash && !a.logo && !logoTried[a.id]) { logoTried[a.id] = true; logoQueue.push(a); }
   });
-  if (logoQueue.length && !logoBusy) setTimeout(nextLogo, 3000);
+  if (logoQueue.length && !was && !logoBusy) setTimeout(nextLogo, 3000);
 }
 
 function nextLogo() {
@@ -722,7 +723,7 @@ function nextLogo() {
   // Not while someone is moving around or a menu / the frame is open.
   if (document.hidden || stack.length || Date.now() - lastKeyAt < 3000) { setTimeout(nextLogo, 3000); return; }
   var a = logoQueue.shift();
-  if (!a) { load(); return; }       // all done: reload to show the new logos
+  if (!a) { if (logoMade) { logoMade = 0; load(); } return; }   // all done: reload to show them
   logoBusy = true;
   var base = a.id.replace(/[^A-Za-z0-9._-]/g, '_'), name = base + '.' + a.sig;
   function done() { logoBusy = false; setTimeout(nextLogo, 800); }
@@ -736,7 +737,7 @@ function nextLogo() {
     for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
     (function send(i) {
       if (i < parts.length) { exec(AUTOTILE + 'part ' + name + '.png ' + parts[i], function () { send(i + 1); }); return; }
-      exec(AUTOTILE + 'save ' + base + ' ' + name + '.png', done);
+      exec(AUTOTILE + 'save ' + base + ' ' + name + '.png', function () { logoMade++; done(); });
     })(0);
   };
   img.onerror = done;
@@ -1042,7 +1043,7 @@ function applyGrid() {
   ROW_H = TILE_H + Math.max(ROW_GAPS[c.rowGap] || ROW_GAPS.even, c.names ? NAME_GAP : 0);
   document.getElementById('grid').style.setProperty('--row-h', ROW_H + 'px');
   document.body.classList.toggle('names', !!c.names);
-  document.body.classList.toggle('glass', c.cards === 'glass');
+  document.body.classList.toggle('glass', c.cards !== 'color');
   var bar = barCfg();
   document.body.classList.toggle('bar', bar.on);
   document.body.style.setProperty('--bar', BAR_COLORS[bar.color]);
@@ -1059,7 +1060,7 @@ function barCfg() {
 // for the name and the focus bar (only one of them shows at a time); the
 // bar's colour and brightness appear with Bar. Modules may add rows at the
 // end (lookRows); their own settings live under Settings > Features.
-var CARD_STYLES = ['color', 'glass'];
+var CARD_STYLES = ['glass', 'color'];
 function openLook() {
   var SEL = ['bar', 'name', 'none'];
   menu({
@@ -1071,8 +1072,8 @@ function openLook() {
       var rows = [
         { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } }
       ].concat([
-        stepRow(t('cards'), t(c.cards === 'glass' ? 'cardsGlass' : 'cardsColor'), function (d) {
-          var i = CARD_STYLES.indexOf(c.cards === 'glass' ? 'glass' : 'color') + d;
+        stepRow(t('cards'), t(c.cards === 'color' ? 'cardsColor' : 'cardsGlass'), function (d) {
+          var i = CARD_STYLES.indexOf(c.cards === 'color' ? 'color' : 'glass') + d;
           if (i < 0 || i >= CARD_STYLES.length) return;
           c.cards = CARD_STYLES[i]; saveConfig(); refreshMain(); refreshTop();
         }),
