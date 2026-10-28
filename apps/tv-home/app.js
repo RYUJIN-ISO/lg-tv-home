@@ -1142,7 +1142,8 @@ function openLook() {
         }));
       rows.push(
         stepRow(t('showClock'), c.clock ? t('on') : t('off'), function () {
-          c.clock = !c.clock; saveConfig(); applyLook(); refreshTop();
+          c.clock = !c.clock; saveConfig(); refreshTop();
+          document.getElementById('clock').classList.toggle('off', !c.clock);
         }));
       return rows.concat(hook('lookRows'));
     }
