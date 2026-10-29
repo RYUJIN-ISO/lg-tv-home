@@ -39,6 +39,7 @@ script here returns at once and does its slow work in the background:
 
 | Script | Does | Module |
 |---|---|---|
+| `50-keep-web-apps` | stops LG restarting the web-app manager about 80 s after boot, which would close TV Home (runtime drop-in for `lsm-ready.service`) | TV Home |
 | `60-lg-ad-block` | adds the block list to `/etc/hosts` (instant) | privacy lock |
 | `80-debloat` | after 45 s, stops the selected LG services (`debloat.sh apply`) | tracking services |
 | `85-app-trim` | after 60 s, starts the app watcher (`app-trim.sh`) | app trimming |
