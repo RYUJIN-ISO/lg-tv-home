@@ -88,6 +88,10 @@ if cmd == "apply" or cmd == "reload":
         sys.exit("disabled (remove %s/disabled to enable)" % D)
     if not os.path.exists(D + "/remap.js"):
         sys.exit("remap.js missing")
+    # Learn mode never outlives a reboot or a fresh apply (it is left on when
+    # TV Home closes while learning).
+    if cmd == "apply" and read_map().get("learn"):
+        m = read_map(); m["learn"] = False; write_map(m)
     if active:          # change the value twice so surface-manager reloads the filters
         put(stock(chain)); time.sleep(1)
     put(with_filter(chain))
