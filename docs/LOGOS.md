@@ -60,4 +60,13 @@ cards), drawn white if it has about the card's own colour; Glass cards tint
 white logos in the brand colour like any icon. Tile art (`tiles/`) always
 wins.
 
+Glass cards key every logo once (`glassLogo`, about 0.5 s for a screen of
+cards on an idle TV, several seconds at boot) and save the result the same
+way, as `/var/lib/webosbrew/atvhome/glass/<key>.<b|n>.png` (`autotile.py
+glass`; at most 300, oldest go first). The key covers the picture's file
+(size and time), the colour and a version in `app.js` (`GLASS_V`), so a new
+icon or logo is keyed again by itself. Deleting the folder is harmless: the
+logos are made again. The icons' background colours are kept in the page's
+localStorage for the same reason.
+
 Code: `apps/tv-home/cache.js`, `makeLogos` / `splashLogo` / `glassLogo` in `apps/tv-home/app.js`, `apps/tv-home/autotile.py`.
