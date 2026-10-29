@@ -22,12 +22,22 @@
     background-position: center; background-size: cover; background-repeat: no-repeat;
   }
   #wall.none { background-image: radial-gradient(90% 80% at 50% 30%, #26262c, #0d0d0f 70%); }
+  #wall > img { position: absolute; left: 0; top: 0; }   /* the picture (showWallpaper in app.js) */
+  #wall:not(.none)::after { /* readability gradient over it */
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, transparent 18%, transparent 48%, rgba(0,0,0,.55) 75%, rgba(0,0,0,.75) 100%);
+  }
   /* Dim overlay: a plain solid-colour layer that stays promoted (never hidden),
      so scrolling never creates/uploads a full-screen texture mid-animation.
      Fading the wallpaper image itself was measured slower (4K blend). */
   #wallDim { position: fixed; inset: 0; background: #000; opacity: 0; transition: opacity 400ms; will-change: opacity; }
   body.scrolled #wallDim { opacity: .55; }
   body.overlay #wallDim { opacity: .6; }
+
+  /* Black until the first screen is complete (reveal() in app.js): at boot the
+     TV is busy and the wallpaper and cards would otherwise fill in visibly. */
+  #cover { position: fixed; inset: 0; z-index: 100; background: #000; transition: opacity 350ms; }
+  #cover.gone { opacity: 0; }
 
   #page { position: absolute; inset: 0; transition: transform 420ms cubic-bezier(.2,.8,.2,1), opacity 250ms; will-change: transform; }
   body.overlay #page { opacity: .08; }
@@ -287,6 +297,7 @@
 <div id="clock"></div>
 <div id="msg"></div>
 <div id="hint"></div>
+<div id="cover"></div>
 <script src="app.js"></script>
 <!-- The features chosen in install.sh, bundled from modules/<name>/ (see modules/README.md). -->
 <script src="modules.js"></script>
