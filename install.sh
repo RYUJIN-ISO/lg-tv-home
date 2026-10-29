@@ -236,6 +236,8 @@ if [ "$LAUNCHER" = y ]; then
     stage_home "$stage/tv-home" $mods
     install_app "$stage/tv-home" "$HOME_APP" "TV Home launcher"
     rm -rf "$stage"
+    # Keeps LG from restarting the web-app manager (and TV Home with it) ~80 s after boot.
+    put tv/init.d/50-keep-web-apps "$WB/init.d/50-keep-web-apps" 755
     # First install: start in the chosen language.
     tv "[ -f $DATA/config.json ] || echo '{\"language\":\"$LANGUAGE\"}' > $DATA/config.json"
     if [ "$SET_HOME" = y ]; then

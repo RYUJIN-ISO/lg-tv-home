@@ -1,0 +1,22 @@
+#!/bin/sh
+# Keeps TV Home on screen at boot. LG's lsm-ready.service restarts webapp-mgr
+# (plus booster and maliit-server), which kills every web app. lsm-ready.path
+# starts it again on every systemctl daemon-reload, and once the TV has set
+# /tmp/boot-done it really runs: the first `systemctl mask` of 80-debloat
+# (about 75 s after power-on) did that, so TV Home went black and started
+# again from scratch. A stock TV never reloads after boot, and LG's home is
+# Flutter anyway. A runtime drop-in (gone after a reboot, so this hook writes
+# it at every boot) keeps the other two restarts and leaves webapp-mgr running.
+D=/run/systemd/system/lsm-ready.service.d
+mkdir -p "$D"
+cat > "$D/50-keep-web-apps.conf" <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/bin/systemctl stop booster.service
+ExecStart=/bin/systemctl start booster.service
+ExecStart=/bin/systemctl stop maliit-server.service
+ExecStart=/bin/systemctl start maliit-server.service
+EOF
+# systemctl is slow on these TVs: in the background, so Homebrew's startup
+# (and its failsafe flag) isn't held up.
+setsid systemctl daemon-reload > /dev/null 2>&1 < /dev/null &

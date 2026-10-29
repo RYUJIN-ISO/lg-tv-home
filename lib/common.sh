@@ -169,6 +169,7 @@ d.pop('home',None); print(json.dumps(d))")
     luna luna://com.webos.settingsservice/setSystemSettings \
         "{\"category\":\"general\",\"settings\":{\"defaultApps\":$apps}}" > /dev/null || warn "could not reset defaultApps"
     remove_frame
+    tv "rm -f $WB/init.d/50-keep-web-apps"
     remove_app "$HOME_APP"
 }
 
