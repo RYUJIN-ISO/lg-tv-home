@@ -53,7 +53,10 @@ actually decides what a button does:
 6. **Other button** (learn mode): the filter publishes key presses into a
    custom configd value (`com.iso.remotemapper.learned`), because
    surface-manager may not call Homebrew's `exec`. Learn mode ends by itself
-   after 30 seconds and never swallows navigation keys.
+   after 30 seconds and never swallows navigation keys; a flag left on (TV Home
+   closed while learning) is cleared by the next `apply`, i.e. at boot. The
+   filter shows no toasts: a toast sent from inside surface-manager also
+   opened LG's quick settings.
 
 No LG file is changed. An error in the filter falls back to LG's handling,
 and a reboot restores LG's chain until `86-remote-mapper` adds the filter
