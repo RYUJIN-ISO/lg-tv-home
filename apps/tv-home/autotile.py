@@ -5,9 +5,12 @@
 #   autotile.py part <name> <base64>          append one part (an exec argument must stay < 128 KiB)
 #   autotile.py save <app> <name> <w> <h>     write autotiles/<name> as PNG, drop older ones of <app>
 #   autotile.py none <app> <name>             no logo in this splash: an empty marker, not tried again
+#   autotile.py glass <name> <w> <h>          write glass/<name> (a Glass card logo, see logoInto)
 import base64, glob, os, re, struct, sys, zlib
 
 DIR = '/var/lib/webosbrew/atvhome/autotiles'
+GLASS = '/var/lib/webosbrew/atvhome/glass'
+GLASS_MAX = 300                         # oldest go first
 NAME = re.compile(r'^[A-Za-z0-9._-]+$')
 
 
@@ -32,8 +35,20 @@ def replace(app, name, data):
     os.rename(out + '.tmp', out)
 
 
+def read_part(name, w, h):
+    try:
+        with open(tmp(name)) as f:
+            rgba = base64.b64decode(f.read())
+    finally:
+        if os.path.exists(tmp(name)):
+            os.remove(tmp(name))
+    if not (0 < w <= 2000 and 0 < h <= 2000) or len(rgba) != w * h * 4:
+        sys.exit('wrong size')
+    return rgba
+
+
 def main(cmd, *args):
-    names = args[:1] if cmd == 'part' else args[:2]   # (part's second argument is the data)
+    names = args[:1] if cmd in ('part', 'glass') else args[:2]   # (part's second argument is the data)
     if not names or not all(NAME.match(a) for a in names):
         sys.exit('bad name')
     os.makedirs(DIR, exist_ok=True)
@@ -42,20 +57,24 @@ def main(cmd, *args):
             f.write(args[1])
     elif cmd == 'save':
         app, name, w, h = args[0], args[1], int(args[2]), int(args[3])
-        try:
-            with open(tmp(name)) as f:
-                rgba = base64.b64decode(f.read())
-        finally:
-            if os.path.exists(tmp(name)):
-                os.remove(tmp(name))
-        if not (0 < w <= 2000 and 0 < h <= 2000) or len(rgba) != w * h * 4:
-            sys.exit('wrong size')
-        replace(app, name, png(w, h, rgba))
+        replace(app, name, png(w, h, read_part(name, w, h)))
+        print('saved')
+    elif cmd == 'glass':
+        name, w, h = args[0], int(args[1]), int(args[2])
+        data = png(w, h, read_part(name, w, h))
+        os.makedirs(GLASS, exist_ok=True)
+        out = os.path.join(GLASS, name)
+        with open(out + '.tmp', 'wb') as f:
+            f.write(data)
+        os.rename(out + '.tmp', out)
+        old = sorted(glob.glob(os.path.join(GLASS, '*.png')), key=os.path.getmtime)
+        for f in old[:max(0, len(old) - GLASS_MAX)]:
+            os.remove(f)
         print('saved')
     elif cmd == 'none':
         replace(args[0], args[1], b'')
     else:
-        sys.exit('usage: autotile.py part|save|none ...')
+        sys.exit('usage: autotile.py part|save|none|glass ...')
 
 
 main(*sys.argv[1:])

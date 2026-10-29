@@ -20,7 +20,7 @@ is in two places, plus `/tmp` for things that should vanish at reboot:
 | `.../com.iso.moviescene/` | the Light app (`hue.py`, `scene.sh`) | Philips Hue |
 | `.../com.iso.appupdates/` | App-Updates app | privacy lock without TV Home |
 | `/var/lib/webosbrew/init.d/` | boot hooks (below) | several |
-| `/var/lib/webosbrew/atvhome/` | `config.json`, your wallpapers, `tiles/`, `autotiles/`, Plex sign-in files | TV Home, Plex |
+| `/var/lib/webosbrew/atvhome/` | `config.json`, your wallpapers, `tiles/`, `autotiles/`, `glass/` (saved Glass card logos), Plex sign-in files | TV Home, Plex |
 | `/var/lib/webosbrew/remote-mapper/` | the key filter and your button map | Remote Buttons |
 | `/var/lib/webosbrew/hue-scene.conf`, `hue-scene.mode` | Hue pairing and button setup | Philips Hue |
 | `/var/lib/webosbrew/lg-ad-block-hosts.txt`, `store-mode.sh` | block list, store switch | privacy lock |

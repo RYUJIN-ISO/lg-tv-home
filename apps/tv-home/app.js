@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.32.5';
+var VERSION = '0.32.6';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -55,7 +55,7 @@ var DEFAULT_CONFIG = {
 // Never offered for uninstall: losing these loses root / the launcher itself.
 var PROTECTED = /^(com\.iso\.|org\.webosbrew\.)/;
 
-var state = { launchPoints: [], installed: [], wallpapers: [], config: null };
+var state = { launchPoints: [], installed: [], wallpapers: [], config: null, glass: {}, versions: {} };
 var editMode = false;
 var topFocus = -1;      // focused top-left button, -1 = focus is in the grid
 var apps = {};          // key -> app item
@@ -488,13 +488,28 @@ function iconInto(el, app) {
     if (glassOn()) logoInto(el, img, app.logo, c || app.color, false);
     else readableOn(img, app.logo, hexRgb(c || app.color));
   }
-  if (iconColors[app.icon] !== undefined) { draw(iconColors[app.icon]); return; }
+  if (iconColor(app.icon) !== undefined) { draw(iconColor(app.icon)); return; }
   var probe = new Image();
-  probe.onload = function () { draw(iconColors[app.icon] = cornerColor(probe)); };
-  probe.onerror = function () { draw(iconColors[app.icon] = null); };
+  probe.onload = function () { draw(rememberIconColor(app.icon, cornerColor(probe))); };
+  probe.onerror = function () { draw(rememberIconColor(app.icon, null)); };
   track(probe).src = app.icon;
 }
-var iconColors = {};   // icon -> its background colour, once per session
+// icon -> its background colour; kept in localStorage, so a start needs no
+// probe before the logo (a changed icon file has a new ?v= version key).
+var ICON_COLORS_KEY = 'atvhome.iconColors';
+var iconColors = {};
+try { iconColors = JSON.parse(localStorage.getItem(ICON_COLORS_KEY) || '{}') || {}; } catch (e) {}
+var iconColorsTimer = null;
+function rememberIconColor(icon, c) {
+  if (Object.keys(iconColors).length > 400) iconColors = {};   // old versions pile up otherwise
+  iconColors[icon + '|' + (state.versions[icon] || '')] = c;
+  clearTimeout(iconColorsTimer);
+  iconColorsTimer = setTimeout(function () {
+    try { localStorage.setItem(ICON_COLORS_KEY, JSON.stringify(iconColors)); } catch (e) {}
+  }, 2000);
+  return c;
+}
+function iconColor(icon) { return iconColors[icon + '|' + (state.versions[icon] || '')]; }
 
 // Colour cards: a logo in about the card's own colour (arte's red splash
 // logo on its red card) is drawn white instead, as the icon had it.
@@ -544,6 +559,48 @@ function cornerColor(img) {
 // (no PNG encoding: cheap to redraw, and the TV's encoder writes broken rows
 // at times).
 var glassLogos = {};
+// Made once, then saved on the TV (autotile.py glass, raw pixels like the
+// sharp logos) and handed over by cache.js as state.glass: later starts and
+// boots show the PNG at once instead of keying every logo again (0.5 s of
+// work on an idle TV, several seconds at boot). The key covers the picture
+// (its file's size and time), the colour and GLASS_V; change GLASS_V when
+// glassLogo() changes so all logos are made again.
+var GLASS_V = 'g1';
+var glassSaves = [], glassSaving = false;
+
+function glassKey(src, color) {
+  var str = src + '|' + (state.versions[src] || '') + '|' + color + '|' + GLASS_V, a = 0x811c9dc5, b = 0x01000193;
+  for (var i = 0; i < str.length; i++) {
+    var c = str.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193) >>> 0;
+    b = Math.imul(b ^ c, 0x811c9dc5) >>> 0;
+  }
+  return ('0000000' + a.toString(16)).slice(-8) + ('0000000' + b.toString(16)).slice(-8);
+}
+
+// One at a time, and only once the first screen is shown.
+function saveGlass(key, r) {
+  if (!r.canvas || glassSaves.some(function (q) { return q.key === key; })) return;
+  glassSaves.push({ key: key, r: r });
+  nextGlassSave();
+}
+
+function nextGlassSave() {
+  if (glassSaving || !glassSaves.length) return;
+  if (!revealed) { setTimeout(nextGlassSave, 1000); return; }
+  glassSaving = true;
+  var q = glassSaves.shift(), cv = q.r.canvas, w = cv.width, h = cv.height;
+  var name = q.key + (q.r.bleed ? '.b' : '.n') + '.png';
+  var px = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, bin = '';
+  for (var i = 0; i < px.length; i += 8192) bin += String.fromCharCode.apply(null, px.subarray(i, i + 8192));
+  var b64 = btoa(bin), CH = 100000, parts = [];   // one exec argument < 128 KiB
+  for (i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+  function done() { glassSaving = false; setTimeout(nextGlassSave, 300); }
+  (function send(i) {
+    if (i < parts.length) { exec(AUTOTILE + 'part ' + name + ' ' + parts[i], function () { send(i + 1); }); return; }
+    exec(AUTOTILE + 'glass ' + name + ' ' + w + ' ' + h, done);
+  })(0);
+}
 
 function glassOn() { return !!state.config && state.config.cards !== 'color'; }
 
@@ -560,8 +617,18 @@ function logoInto(card, img, src, color, withBleed) {
     if (r.canvas) showCanvas(img, r.canvas); else img.src = src;
   }
   if (glassLogos[src]) { use(glassLogos[src]); return; }
+  var key = glassKey(src, color), saved = state.glass[key];
+  if (saved) {
+    if (withBleed && saved.bleed) card.classList.add('bleed');
+    img.src = saved.url;
+    return;
+  }
   var probe = new Image();
-  probe.onload = function () { use(glassLogos[src] = glassLogo(probe, color)); };
+  probe.onload = function () {
+    var r = glassLogos[src] = glassLogo(probe, color);
+    use(r);
+    saveGlass(key, r);
+  };
   probe.onerror = function () { img.src = src; };
   track(probe).src = src;
 }
@@ -2593,6 +2660,8 @@ function adopt(data, fromDisk) {
   if (data.installed && JSON.stringify(data.installed) !== JSON.stringify(state.installed)) {
     state.installed = data.installed; changed = true;
   }
+  if (data.glass) state.glass = data.glass;
+  if (data.versions) state.versions = data.versions;
   if (JSON.stringify(data.wallpapers) !== JSON.stringify(state.wallpapers)) {
     state.wallpapers = data.wallpapers; changed = true;
   }
@@ -2748,6 +2817,8 @@ function start() {
       state.launchPoints = cached.launchPoints;
       state.wallpapers = cached.wallpapers || [];
       state.installed = cached.installed || [];
+      state.glass = cached.glass || {};
+      state.versions = cached.versions || {};
       state.config = normalizeConfig(cached.config);
       refreshMain();
       haveApps = true;

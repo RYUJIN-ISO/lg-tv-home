@@ -13,7 +13,7 @@
 //    (<sig>: the splash's size and time, so a new splash is cut again; .none
 //    when there was no logo to find). Here: `_logo` when it exists, else the
 //    splash as `_splash` with `_sig` for the page to work on.
-// Prints {launchPoints, installed, wallpapers, config} as JSON.
+// Prints {launchPoints, installed, wallpapers, config, glass, versions} as JSON.
 var fs = require('fs');
 var path = require('path');
 
@@ -24,6 +24,7 @@ var IMAGE = /\.(jpe?g|png|webp)$/i;
 
 var data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 var keep = {};
+var versions = {};   // copied file -> its source's size and time (keys the saved Glass logos)
 
 try { fs.mkdirSync(CACHE); } catch (e) {}
 
@@ -33,6 +34,7 @@ function copy(src, dst) {
   try { d = fs.statSync(dst); } catch (e) {}
   if (!d || d.size !== s.size || d.mtime < s.mtime) fs.writeFileSync(dst, fs.readFileSync(src));
   keep[path.basename(dst)] = true;
+  versions['cache/' + path.basename(dst)] = s.size + '-' + Math.floor(s.mtime.getTime() / 1000);
   return 'cache/' + path.basename(dst);
 }
 
@@ -138,11 +140,21 @@ list(path.join(DATA, 'wallpapers')).forEach(function (f) {
 var config = null;
 try { config = JSON.parse(fs.readFileSync(path.join(DATA, 'config.json'), 'utf8')); } catch (e) {}
 
+// Glass logos made before (logoInto in app.js, saved by autotile.py glass):
+// glass/<key>.<b|n>.png, b = the icon fills the card height.
+var glass = {};
+list(path.join(DATA, 'glass')).forEach(function (f) {
+  var m = /^([0-9a-f]+)\.([bn])\.png$/.exec(f);
+  if (!m) return;
+  try { glass[m[1]] = { url: copy(path.join(DATA, 'glass', f), path.join(CACHE, 'glass-' + f)), bleed: m[2] === 'b' }; } catch (e) {}
+});
+
 // Drop copies of apps / wallpapers that are gone.
 fs.readdirSync(CACHE).forEach(function (f) {
   if (!keep[f]) try { fs.unlinkSync(path.join(CACHE, f)); } catch (e) {}
 });
 
 process.stdout.write(JSON.stringify({
-  launchPoints: data.launchPoints || [], installed: installed, wallpapers: wallpapers, config: config
+  launchPoints: data.launchPoints || [], installed: installed, wallpapers: wallpapers, config: config,
+  glass: glass, versions: versions
 }));
