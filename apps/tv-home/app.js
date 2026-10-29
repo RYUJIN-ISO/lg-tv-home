@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.32.2';
+var VERSION = '0.32.5';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -460,7 +460,7 @@ var sampler = document.createElement('canvas');
 sampler.width = sampler.height = 8;
 function bleed(card, img) {
   try {
-    var ctx = sampler.getContext('2d');
+    var ctx = sampler.getContext('2d', { willReadFrequently: true });
     ctx.clearRect(0, 0, 8, 8);
     ctx.drawImage(img, 0, 0, 8, 8);
     var px = ctx.getImageData(0, 0, 8, 8).data;
@@ -492,7 +492,7 @@ function iconInto(el, app) {
   var probe = new Image();
   probe.onload = function () { draw(iconColors[app.icon] = cornerColor(probe)); };
   probe.onerror = function () { draw(iconColors[app.icon] = null); };
-  probe.src = app.icon;
+  track(probe).src = app.icon;
 }
 var iconColors = {};   // icon -> its background colour, once per session
 
@@ -508,7 +508,7 @@ function readableOn(img, src, bg) {
   probe.onload = function () {
     var w = probe.naturalWidth, h = probe.naturalHeight, c = document.createElement('canvas');
     c.width = w; c.height = h;
-    var ctx = c.getContext('2d');
+    var ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(probe, 0, 0);
     var d, n = 0, sum = [0, 0, 0];
     try { d = ctx.getImageData(0, 0, w, h); } catch (e) { use(null); return; }
@@ -521,13 +521,13 @@ function readableOn(img, src, bg) {
     use(c);
   };
   probe.onerror = function () { img.src = src; };
-  probe.src = src;
+  track(probe).src = src;
 }
 
 // The colour of an opaque icon's corners ('rgb(...)'), or null.
 function cornerColor(img) {
   try {
-    var ctx = sampler.getContext('2d');
+    var ctx = sampler.getContext('2d', { willReadFrequently: true });
     ctx.clearRect(0, 0, 8, 8);
     ctx.drawImage(img, 0, 0, 8, 8);
     var c = ctx.getImageData(0, 0, 1, 1).data;
@@ -563,7 +563,7 @@ function logoInto(card, img, src, color, withBleed) {
   var probe = new Image();
   probe.onload = function () { use(glassLogos[src] = glassLogo(probe, color)); };
   probe.onerror = function () { img.src = src; };
-  probe.src = src;
+  track(probe).src = src;
 }
 
 // Puts a copy of canvas src where img is (same place, same CSS as an img).
@@ -603,7 +603,7 @@ function glassLogo(img, color) {
   var w = Math.max(4, Math.round(W * k)), h = Math.max(4, Math.round(H * k));
   var c = document.createElement('canvas');
   c.width = w; c.height = h;
-  var ctx = c.getContext('2d');
+  var ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, w, h);
   var d;
   try { d = ctx.getImageData(0, 0, w, h); } catch (e) { return { bleed: false }; }
@@ -763,7 +763,7 @@ function nextLogo() {
     var k = Math.min(1, LOGO_W / r.width, LOGO_H / r.height);
     var c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(r.width * k)); c.height = Math.max(1, Math.round(r.height * k));
-    var ctx = c.getContext('2d');
+    var ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(r, 0, 0, c.width, c.height);
     var px = ctx.getImageData(0, 0, c.width, c.height).data, bin = '';
     for (var i = 0; i < px.length; i += 8192) bin += String.fromCharCode.apply(null, px.subarray(i, i + 8192));
@@ -1163,8 +1163,6 @@ function applyLook() {
   state.wallpapers.forEach(function (w) { if (w.name === c.wallpaper) wp = w; });
   if (!wp && c.wallpaper !== 'none' && state.wallpapers.length) wp = state.wallpapers[0];
   wall.classList.toggle('none', !wp);
-  var shade = 'linear-gradient(180deg, rgba(0,0,0,.25) 0%, transparent 18%, transparent 48%, rgba(0,0,0,.55) 75%, rgba(0,0,0,.75) 100%)';
-  wall.style.backgroundImage = wp ? shade + ', url("' + wp.url + '")' : '';
   // The picture's crop, if it has one (else cover, centred).
   var crop = wp && cropOf(wp.name);
   if (crop && !crop.r) {                // older crops: learn the picture's shape once
@@ -1172,13 +1170,37 @@ function applyLook() {
     probe.onload = function () { crop.r = probe.naturalWidth / probe.naturalHeight; saveConfig(); applyLook(); };
     probe.src = wp.url;
   }
-  if (crop && crop.r) {
-    var cw = 1920 / crop.w, chh = cw / crop.r;
-    wall.style.backgroundSize = '100% 100%, ' + cw + 'px ' + chh + 'px';
-    wall.style.backgroundPosition = '0 0, ' + (-crop.x * cw) + 'px ' + (-crop.y * chh) + 'px';
-  } else { wall.style.backgroundSize = ''; wall.style.backgroundPosition = ''; }
+  showWallpaper(wall, wp ? wp.url : '', function (img) {
+    if (crop && crop.r) {
+      var cw = 1920 / crop.w, chh = cw / crop.r;
+      img.style.cssText = 'width:' + cw + 'px;height:' + chh + 'px;left:' + (-crop.x * cw) + 'px;top:' + (-crop.y * chh) + 'px';
+    } else img.style.cssText = 'width:1920px;height:1080px;object-fit:cover';
+  });
   document.getElementById('clock').classList.toggle('off', !c.clock);
   document.documentElement.lang = lang();
+}
+
+// The wallpaper is an <img> in #wall, decoded before it is shown. As a CSS
+// background the TV decoded it while painting, on the page's own thread: a
+// 4K picture froze TV Home for 2-3 s. img.decode() works in the background,
+// and the old picture stays until the new one is ready. place(img) sizes it.
+function showWallpaper(wall, url, place) {
+  var img = wall.querySelector('img');
+  wall.wantUrl = url;
+  if (img && img.getAttribute('data-url') === url) { place(img); return; }
+  if (!url) { if (img) wall.removeChild(img); return; }
+  var next = new Image(), counted = !revealed;
+  if (counted) pendingImages++;          // the cover waits for it
+  next.setAttribute('data-url', url);
+  next.src = url;
+  function show() {
+    if (counted) { counted = false; pendingImages--; }
+    if (wall.wantUrl !== url) return;     // another wallpaper was chosen meanwhile
+    place(next);
+    var old = wall.querySelector('img');
+    if (old) wall.replaceChild(next, old); else wall.appendChild(next);
+  }
+  (next.decode ? next.decode() : Promise.resolve()).then(show, show);
 }
 
 function onMainActivate(entry, i) {
@@ -2587,6 +2609,7 @@ function load() {
   exec('sh ' + APP_DIR + 'launchpoints.sh', function (res) {
     var data = null;
     try { data = JSON.parse(res.stdoutString || ''); } catch (e) {}
+    haveApps = true;
     if (!data || !data.launchPoints) {
       if (!mainGrid.entries.length) showMsg(t('loadFailed'));
       return;
@@ -2670,6 +2693,49 @@ mainGrid = new Grid({
   onMove: function (entries) { saveOrderFrom(entries); }
 });
 
+// ---------------------------------------------------------------- first paint
+
+// The page starts under a black cover (#cover) that fades out once the first
+// screen is complete: the wallpaper loaded and every card's logo drawn. At
+// boot the TV is busy for a while, and without it the wallpaper and the cards
+// filled in one by one. Images TV Home draws from (probes, not in the page)
+// are counted with track(); <img> elements in the page are checked directly.
+var revealed = false, pendingImages = 0, haveApps = false;
+
+function track(img) {
+  if (revealed) return img;
+  pendingImages++;
+  var onload = img.onload, onerror = img.onerror, counted = true;
+  function done() { if (counted) { counted = false; pendingImages--; } }
+  img.onload = function () { done(); if (onload) return onload.apply(this, arguments); };
+  img.onerror = function () { done(); if (onerror) return onerror.apply(this, arguments); };
+  return img;
+}
+
+function reveal() {
+  var t0 = Date.now(), calm = 0;
+  function ready() {
+    if (!haveApps || pendingImages) return false;
+    var imgs = document.images;
+    for (var i = 0; i < imgs.length; i++) if (imgs[i].getAttribute('src') && !imgs[i].complete) return false;
+    return true;
+  }
+  (function check() {
+    // Two calm checks in a row: a loaded probe may start the next one.
+    calm = ready() ? calm + 1 : 0;
+    if (calm < 2 && Date.now() - t0 < 12000) { setTimeout(check, 100); return; }
+    // Two frames, so the decoded pictures are on screen before the fade.
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      revealed = true;
+      var cover = document.getElementById('cover');
+      cover.classList.add('gone');
+      setTimeout(function () { cover.style.display = 'none'; }, 400);
+      exec('echo "$(date +%T) up $(cut -d" " -f1 /proc/uptime)s: shown after ' + (Date.now() - t0) +
+           ' ms' + (calm < 2 ? ' (gave up waiting)' : '') + '" >> /tmp/atvhome-firstpaint.txt');
+    }); });
+  })();
+}
+
 // Called by index.html once app.js and modules.js are loaded, so the first
 // paint already has the modules' cards, buttons and texts.
 function start() {
@@ -2684,10 +2750,12 @@ function start() {
       state.installed = cached.installed || [];
       state.config = normalizeConfig(cached.config);
       refreshMain();
+      haveApps = true;
     }
   } catch (e) {}
   if (!state.config) state.config = normalizeConfig(null);
   applyLook();
   load();
   hook('start', launchParams());
+  reveal();
 }
