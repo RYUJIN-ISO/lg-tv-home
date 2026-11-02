@@ -21,10 +21,11 @@ D = "/var/lib/webosbrew/remote-mapper"
 KEY = "com.webos.surfacemanager.keyFilters"
 ENTRY = {"handler": "remapKeys", "file": D + "/remap.js"}
 
-def luna(method, params):
-    r = subprocess.run(["luna-send", "-n", "1", "-w", "8000", "luna://com.webos.service.config/" + method,
+def luna(method, params, service="com.webos.service.config", wait=8000):
+    r = subprocess.run(["luna-send", "-n", "1", "-w", str(wait), "luna://%s/%s" % (service, method),
                         json.dumps(params)], capture_output=True, text=True, stdin=subprocess.DEVNULL)
-    return json.loads(r.stdout or "{}")
+    try: return json.loads(r.stdout or "{}")
+    except ValueError: return {}
 
 def current():
     for _ in range(3):
@@ -36,6 +37,29 @@ def current():
 def put(chain):
     if not luna("setConfigs", {"configs": {KEY: chain}}).get("returnValue"):
         sys.exit("setConfigs failed")
+
+QS = "com.webos.app.quicksettings"
+SYSUI = "com.webos.service.systemUIManager"
+
+def qs_shown():
+    apps = luna("getForegroundAppInfo", {}, SYSUI, 1500).get("foregroundAppInfo", [])
+    return any(a.get("appId") == QS for a in apps)
+
+def changed(was_shown):
+    # Any change of the chain makes surface-manager re-run LG's appLaunch.js
+    # init(), which "preloads" quick settings again - and that often shows the
+    # already running panel (~2 s later; at boot every time). Close it if it
+    # was not open before the change. Runs in a child so callers don't wait.
+    sys.stdout.flush()
+    if was_shown or os.fork(): return
+    os.setsid()
+    devnull = os.open(os.devnull, os.O_RDWR)
+    for fd in (0, 1, 2): os.dup2(devnull, fd)
+    end = time.time() + 8
+    while time.time() < end:
+        if qs_shown():
+            luna("closeByAppId", {"appId": QS}, SYSUI, 1500)
+        time.sleep(0.3)
 
 def stock(chain):
     return [e for e in chain if "remote-mapper" not in e.get("file", "")]
@@ -92,13 +116,18 @@ if cmd == "apply" or cmd == "reload":
     # TV Home closes while learning).
     if cmd == "apply" and read_map().get("learn"):
         m = read_map(); m["learn"] = False; write_map(m)
+    was_shown = qs_shown()
     if active:          # change the value twice so surface-manager reloads the filters
         put(stock(chain)); time.sleep(1)
     put(with_filter(chain))
     print("active")
+    changed(was_shown)
 elif cmd == "remove":
-    if active: put(stock(chain))
+    if active:
+        was_shown = qs_shown()
+        put(stock(chain))
     print("inactive")
+    if active: changed(was_shown)
 elif cmd == "learned":
     v = luna("getConfigs", {"configNames": ["com.iso.remotemapper.learned"]}).get("configs", {})
     print(json.dumps(v.get("com.iso.remotemapper.learned", [])))
