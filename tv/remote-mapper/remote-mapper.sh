@@ -16,16 +16,15 @@
 # Failsafe: touch /var/lib/webosbrew/remote-mapper/disabled to keep it off.
 D=/var/lib/webosbrew/remote-mapper
 exec python3 - "$@" <<'EOF'
-import base64, json, os, subprocess, sys, time
+import base64, json, os, select, subprocess, sys, time
 D = "/var/lib/webosbrew/remote-mapper"
 KEY = "com.webos.surfacemanager.keyFilters"
 ENTRY = {"handler": "remapKeys", "file": D + "/remap.js"}
 
-def luna(method, params, service="com.webos.service.config", wait=8000):
-    r = subprocess.run(["luna-send", "-n", "1", "-w", str(wait), "luna://%s/%s" % (service, method),
+def luna(method, params):
+    r = subprocess.run(["luna-send", "-n", "1", "-w", "8000", "luna://com.webos.service.config/" + method,
                         json.dumps(params)], capture_output=True, text=True, stdin=subprocess.DEVNULL)
-    try: return json.loads(r.stdout or "{}")
-    except ValueError: return {}
+    return json.loads(r.stdout or "{}")
 
 def current():
     for _ in range(3):
@@ -39,35 +38,64 @@ def put(chain):
         sys.exit("setConfigs failed")
 
 QS = "com.webos.app.quicksettings"
-SYSUI = "com.webos.service.systemUIManager"
 
-def qs_shown():
-    apps = luna("getForegroundAppInfo", {}, SYSUI, 1500).get("foregroundAppInfo", [])
-    return any(a.get("appId") == QS for a in apps)
-
-def changed(was_shown):
+def guard_quick_settings():
     # Any change of the chain makes surface-manager re-run LG's appLaunch.js
     # init(), which "preloads" quick settings again - and that often shows the
-    # already running panel (~2 s later; at boot every time). Close it if it
-    # was not open before the change. Runs in a child so callers don't wait.
+    # already running panel (~2 s later; at boot every time). Call this right
+    # before the change: a child subscribes to the system UI foreground, closes
+    # the panel the first time it appears and exits (after 8 s at the latest).
+    # A panel that was already open is left alone.
     sys.stdout.flush()
-    if was_shown or os.fork(): return
+    ready_r, ready_w = os.pipe()
+    if os.fork():
+        os.close(ready_w)
+        select.select([ready_r], [], [], 3)   # child subscribed (or gave up)
+        os.close(ready_r)
+        return
+    os.close(ready_r)
     os.setsid()
     devnull = os.open(os.devnull, os.O_RDWR)
     for fd in (0, 1, 2): os.dup2(devnull, fd)
-    end = time.time() + 8
-    while time.time() < end:
-        if qs_shown():
-            luna("closeByAppId", {"appId": QS}, SYSUI, 1500)
-        time.sleep(0.3)
+    sysui = "luna://com.webos.service.systemUIManager/"
+    p = subprocess.Popen(["luna-send", "-i", sysui + "getForegroundAppInfo", '{"subscribe":true}'],
+                         stdout=subprocess.PIPE, stdin=devnull, stderr=devnull)
+    buf, first, end = "", True, time.time() + 8
+    dec = json.JSONDecoder()
+    try:
+        while time.time() < end:
+            if not select.select([p.stdout], [], [], end - time.time())[0]: break
+            chunk = os.read(p.stdout.fileno(), 4096)
+            if not chunk: break
+            buf += chunk.decode("utf-8", "replace")
+            while True:
+                buf = buf.lstrip()
+                try: msg, n = dec.raw_decode(buf)
+                except ValueError: break
+                buf = buf[n:]
+                shown = any(a.get("appId") == QS for a in msg.get("foregroundAppInfo", []))
+                if first:
+                    first = False
+                    os.close(ready_w)
+                    if shown: raise StopIteration      # user's own panel
+                elif shown:
+                    subprocess.run(["luna-send", "-n", "1", "-w", "1500", sysui + "closeByAppId",
+                                    json.dumps({"appId": QS})], stdout=devnull, stdin=devnull, stderr=devnull)
+                    raise StopIteration
+    except StopIteration:
+        pass
+    p.kill()
+    os._exit(0)
 
 def stock(chain):
     return [e for e in chain if "remote-mapper" not in e.get("file", "")]
 
 def with_filter(chain):
+    # "rev" makes every apply/reload a single change that surface-manager sees
+    # (it only reads handler + file), so LG's quick settings preload runs once.
     s = stock(chain)
     i = next((n + 1 for n, e in enumerate(s) if e.get("handler") == "handleScreenSaver"), 0)
-    return s[:i] + [ENTRY] + s[i:]
+    return s[:i] + [dict(ENTRY, rev=int(time.time() * 1000))] + s[i:]
 
 cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
 MAP = D + "/map.json"
@@ -116,18 +144,14 @@ if cmd == "apply" or cmd == "reload":
     # TV Home closes while learning).
     if cmd == "apply" and read_map().get("learn"):
         m = read_map(); m["learn"] = False; write_map(m)
-    was_shown = qs_shown()
-    if active:          # change the value twice so surface-manager reloads the filters
-        put(stock(chain)); time.sleep(1)
+    guard_quick_settings()
     put(with_filter(chain))
     print("active")
-    changed(was_shown)
 elif cmd == "remove":
     if active:
-        was_shown = qs_shown()
+        guard_quick_settings()
         put(stock(chain))
     print("inactive")
-    if active: changed(was_shown)
 elif cmd == "learned":
     v = luna("getConfigs", {"configNames": ["com.iso.remotemapper.learned"]}).get("configs", {})
     print(json.dumps(v.get("com.iso.remotemapper.learned", [])))
