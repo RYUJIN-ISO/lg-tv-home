@@ -54,9 +54,14 @@ actually decides what a button does:
    custom configd value (`com.iso.remotemapper.learned`), because
    surface-manager may not call Homebrew's `exec`. Learn mode ends by itself
    after 30 seconds and never swallows navigation keys; a flag left on (TV Home
-   closed while learning) is cleared by the next `apply`, i.e. at boot. The
-   filter shows no toasts: a toast sent from inside surface-manager also
-   opened LG's quick settings.
+   closed while learning) is cleared by the next `apply`, i.e. at boot.
+7. **Quick settings:** every change of the chain makes surface-manager re-run
+   LG's own `appLaunch.js` `init()`, which "preloads" quick settings again, and
+   that often shows the panel (at boot every time). `remote-mapper.sh` makes
+   each command a single change (a `rev` field on its entry instead of
+   remove + add) and, just before it, starts a watcher subscribed to the system
+   UI foreground: it closes the panel the moment it appears (~0.3 s) and exits;
+   a panel that was already open is left alone; it gives up after 8 s.
 
 No LG file is changed. An error in the filter falls back to LG's handling,
 and a reboot restores LG's chain until `86-remote-mapper` adds the filter

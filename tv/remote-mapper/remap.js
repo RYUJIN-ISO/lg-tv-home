@@ -82,9 +82,9 @@ var learn = false;
 var learnUntil = 0;
 var keyNames = null;
 
-// No toast here: a toast sent from inside surface-manager also opened LG's
-// quick settings (at every boot while learn mode was left on). The Remote
-// Buttons menu shows its own hint while learning.
+// No toast here: the Remote Buttons menu shows its own hint while learning.
+// (Quick settings popping up after a load is LG's own appLaunch.js preload,
+// re-run on every chain change; remote-mapper.sh closes it.)
 function init() {
     reloadMap();
 }
