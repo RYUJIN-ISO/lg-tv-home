@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.35.0';
+var VERSION = '0.37.0';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -30,6 +30,7 @@ var BAR_ORDER = ['white', 'blue', 'green', 'yellow', 'orange', 'red', 'pink', 'p
 var ROW_H = TILE_H + ROW_GAPS.even;
 var GRID_TOP = 640;
 var LONG_PRESS_MS = 600;
+var ROTATE_MS = 15 * 60 * 1000;
 var CACHE_KEY = 'atvhome.state';
 var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461 };
 var NEVER_SHOW = [APP_ID, 'com.webos.app.home'];
@@ -49,7 +50,9 @@ var DEFAULT_CONFIG = {
   bar: { on: true, color: 'white', bri: 80 },   // Settings > Focus bar (under the focused card while names are off)
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
-  favourites: []       // picture names; the built-in Favourites folder (id 'fav')
+  favourites: [],      // picture names; the built-in Favourites folder (id 'fav')
+  rotate: false,       // Settings > Look > Rotate wallpaper: a new one every ROTATE_MS
+  rotatedAt: 0         // when the wallpaper last changed (rotation or by hand), ms
 };
 // Modules add their own defaults (addModule).
 // Never offered for uninstall: losing these loses root / the launcher itself.
@@ -209,7 +212,7 @@ var STRINGS = {
     uninstallWarn: 'The app and its data are removed. To reinstall it, unlock App-Updates and use the LG Content Store.',
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
-    showClock: 'Show Clock', on: 'On', off: 'Off',
+    showClock: 'Show Clock', rotateWp: 'Rotate Wallpaper', on: 'On', off: 'Off',
     features: 'Features', featuresSub: 'Switched off, a feature is hidden and does nothing. To remove one from the TV, run install.sh again.',
     cards: 'App cards', cardsColor: 'Colour', cardsGlass: 'Glass',
     rowSpacing: 'Row spacing',
@@ -235,6 +238,8 @@ var STRINGS = {
     cropKeysBar: '{up} crop · {back} close', save: 'Save', saving: 'Saving wallpaper …', saveFailed: 'Could not save the wallpaper.',
     libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} ★, crop, folders',
     usbHint: '{ok} crop and add',
+    fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
+    phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there. They appear here; OK crops and adds them.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
@@ -255,7 +260,7 @@ var STRINGS = {
     uninstallWarn: 'Die App und ihre Daten werden entfernt. Zum Neu-Installieren App-Updates entsperren und den LG Content Store nutzen.',
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
-    showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
+    showClock: 'Uhr anzeigen', rotateWp: 'Hintergrund wechseln', on: 'An', off: 'Aus',
     features: 'Funktionen', featuresSub: 'Ausgeschaltet ist eine Funktion versteckt und tut nichts. Um eine vom Fernseher zu entfernen, install.sh nochmal ausführen.',
     cards: 'App-Karten', cardsColor: 'Farbe', cardsGlass: 'Glas',
     rowSpacing: 'Reihenabstand',
@@ -281,6 +286,8 @@ var STRINGS = {
     cropKeysBar: '{up} zuschneiden · {back} schließen', save: 'Speichern', saving: 'Hintergrund wird gespeichert …', saveFailed: 'Hintergrund konnte nicht gespeichert werden.',
     libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} ★, Ausschnitt, Ordner',
     usbHint: '{ok} zuschneiden und hinzufügen',
+    fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
+    phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen. Sie erscheinen hier; OK schneidet zu und fügt hinzu.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
@@ -715,6 +722,7 @@ var ICONS = {
   trash: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   reset: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>',
   none: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M16 1H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3zm-4 20.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM17 17H7V4h10v13z"/></svg>',
   usb: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07A1.98 1.98 0 0 0 9 9.2 2 2 0 1 0 6 11v2a2 2 0 0 0 2 2h3v3.05a2.5 2.5 0 1 0 2 0V15h3a2 2 0 0 0 2-2v-2h1V7h-4z"/></svg>',
   apps: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>',
   info: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
@@ -1178,7 +1186,10 @@ function openLook() {
       var sel = c.names ? 'name' : b.on ? 'bar' : 'none';
       function setBar(key, value) { c.bar = barCfg(); c.bar[key] = value; saveConfig(); applyGrid(); refreshTop(); }
       var rows = [
-        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } }
+        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } },
+        stepRow(t('rotateWp'), c.rotate ? t('on') : t('off'), function () {
+          c.rotate = !c.rotate; c.rotatedAt = Date.now(); saveConfig(); refreshTop();
+        })
       ].concat([
         stepRow(t('cards'), t(c.cards === 'color' ? 'cardsColor' : 'cardsGlass'), function (d) {
           var i = CARD_STYLES.indexOf(c.cards === 'color' ? 'color' : 'glass') + d;
@@ -1220,6 +1231,26 @@ function openLook() {
 // Settings rows changed with Left/Right between small arrows.
 function stepRow(label, value, adjust) {
   return { label: label, value: '‹ ' + value + ' ›', adjust: adjust };
+}
+
+// Rotate wallpaper (Settings > Look): every 15 minutes the next picture, from
+// Favourites when it holds two or more, else from all pictures. Checked by the
+// clock tick and when TV Home is shown again, so after an app it comes back
+// with a new picture if its time is up. Not while a menu is open (the
+// picture library would change under the person) and not with None chosen.
+// The change is a plain swap: fading a 4K picture costs too much on the TV.
+function rotateWallpaper() {
+  var c = cfg();
+  if (!c || !c.rotate || c.wallpaper === 'none' || stack.length || editMode) return;
+  if (Date.now() - (c.rotatedAt || 0) < ROTATE_MS) return;
+  var names = state.wallpapers.map(function (w) { return w.name; });
+  var fav = (c.favourites || []).filter(function (n) { return names.indexOf(n) >= 0; });
+  var list = fav.length >= 2 ? fav : names;
+  c.rotatedAt = Date.now();
+  if (list.length < 2) { saveConfig(); return; }
+  c.wallpaper = list[(list.indexOf(c.wallpaper) + 1) % list.length];   // not in the list: the first
+  saveConfig();
+  applyLook();
 }
 
 function applyLook() {
@@ -2088,6 +2119,7 @@ var WALLPAPER = {
   picOn: function (name) { return name === cfg().wallpaper; },
   pick: function (fo, e, grid) {
     cfg().wallpaper = e.key;
+    cfg().rotatedAt = Date.now();   // a picture chosen by hand stays a full round
     saveConfig();
     applyLook();
     var tiles = grid.tiles();
@@ -2106,6 +2138,7 @@ function openPictures(mode) {
     pictureFolders().forEach(function (fo) { list.push({ type: 'album', key: fo.id, title: fo.name, pics: folderPics(fo) }); });
     list.push({ type: 'special', key: '__new', icon: 'plus', title: t('newFolder') });
     list.push({ type: 'special', key: '__usb', icon: 'usb', title: t('fromUsb') });
+    list.push({ type: 'special', key: '__phone', icon: 'phone', title: t('fromPhone') });
     if (mode.none) list.push({ type: 'special', key: 'none', icon: 'none', title: t('none') });
     return list;
   }
@@ -2121,7 +2154,8 @@ function openPictures(mode) {
       if (e.type === 'album') { openPictureFolder(pictureFolder(e.key), mode); return; }
       if (e.key === '__new') { newPictureFolder(); return; }
       if (e.key === '__usb') { chooseUsbPicture(mode); return; }
-      if (e.key === 'none') { cfg().wallpaper = 'none'; saveConfig(); applyLook(); view.refresh(); }
+      if (e.key === '__phone') { choosePhonePicture(mode); return; }
+      if (e.key === 'none') { cfg().wallpaper = 'none'; cfg().rotatedAt = Date.now(); saveConfig(); applyLook(); view.refresh(); }
     },
     onLongPress: function (e) { var fo = pictureFolder(e.key); if (fo) folderOptions_(fo); }
   });
@@ -2366,6 +2400,61 @@ function chooseUsbPicture(mode) {
   });
 }
 
+// ---------------------------------------------------------------- phone pictures
+
+// From Phone: phone.py starts a small upload server on the TV (or reuses the
+// running one) and draws its address as a QR code. Pictures sent from the
+// phone show up in the grid (checked every 2 s), like a USB stick: OK crops
+// and adds one, then the view comes back for the next. The server stops by
+// itself after 15 minutes without a request, so pictures still waiting are
+// there when the view is opened again.
+var PHONE_PY = 'python3 ' + APP_DIR + 'phone.py';
+
+function choosePhonePicture(mode) {
+  showHint(t('phoneStarting'));
+  exec(PHONE_PY + ' start ' + lang(), function (res) {
+    showHint('');
+    var info = {};
+    try { info = JSON.parse(res.stdoutString || '{}'); } catch (e) {}
+    if (!info.url) { showHint(t('phoneFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    var el = pickerLayer(t('fromPhone'), t('usbHint'));
+    el.classList.add('side', 'phone');
+    el.querySelector('.inner').insertAdjacentHTML('beforeend',
+      '<div class="phonePanel"><img class="qr" alt=""><div class="scan"></div><div class="url"></div>' +
+      '<div class="steps"></div></div><div class="phoneEmpty"></div>');
+    el.querySelector('.qr').src = info.qr + '?v=' + Date.now();
+    el.querySelector('.scan').textContent = t('phoneScan');
+    el.querySelector('.url').textContent = info.url.replace(/^http:\/\//, '');
+    el.querySelector('.steps').textContent = t('phoneSteps');
+    el.querySelector('.phoneEmpty').textContent = t('phoneWaiting');
+    var grid = new Grid({
+      container: el.querySelector('.grid'), cols: 3,
+      onActivate: function (e) {
+        if (e) cropPicture({ url: e.pic.url, name: e.pic.name, mode: mode, onSave: null, phone: true });
+      }
+    });
+    var view = pickerView(el, grid), seen = '';
+    function poll() {
+      exec(PHONE_PY + ' list', function (r) {
+        var out = r.stdoutString || '[]';
+        if (out === seen || stack.indexOf(view) < 0) return;
+        seen = out;
+        var list = [];
+        try { list = JSON.parse(out); } catch (e) {}
+        el.classList.toggle('waiting', !list.length);
+        grid.set(list.map(function (p) { return { type: 'image', key: p.url, title: p.name, url: p.url, pic: p }; }));
+      });
+    }
+    var timer = setInterval(poll, 2000);
+    view.onClose = function () { clearInterval(timer); };
+    view.refresh = function () { seen = ''; poll(); };
+    el.classList.add('waiting');
+    push(view);
+    grid.set([]);
+    poll();
+  });
+}
+
 // Import: the whole picture (scaled down to IMPORT_MAX) plus its crop and a
 // preview of the crop go to the TV; a wallpaper import becomes the wallpaper.
 function importPicture(pic, img, rect) {
@@ -2390,8 +2479,12 @@ function importPicture(pic, img, rect) {
       exec(USB_PY + ' thumb ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
         showHint('');
         library().crops[file] = rect;
-        if (pic.mode.wallpaper) cfg().wallpaper = file;
+        if (pic.mode.wallpaper) { cfg().wallpaper = file; cfg().rotatedAt = Date.now(); }
         saveConfig();
+        if (pic.phone) {   // back to the phone's pictures for the next one
+          exec(PHONE_PY + " remove '" + pic.url.split('/').pop().replace(/'/g, '') + "'", function () { pop(); load(); });
+          return;
+        }
         closeAll();
         load();
       });
@@ -2647,7 +2740,7 @@ document.addEventListener('webOSRelaunch', function () {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) flushConfig();
   hook('visibility', !document.hidden);
-  if (!document.hidden) load();
+  if (!document.hidden) { rotateWallpaper(); load(); }
 });
 
 // ---------------------------------------------------------------- loading
@@ -2767,6 +2860,7 @@ function bench() {
 }
 
 function tick() {
+  if (!document.hidden) rotateWallpaper();
   var d = new Date();
   document.getElementById('clock').textContent =
     ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
@@ -2851,6 +2945,7 @@ function start() {
     }
   } catch (e) {}
   if (!state.config) state.config = normalizeConfig(null);
+  rotateWallpaper();   // at start already, so the first paint has the new picture
   applyLook();
   load();
   watchInputs();

@@ -61,6 +61,8 @@ skipped when they are missing. Differences are welcome as an issue.
   and [dangbro-autoroot](https://azoffshowy.github.io/dangbro); see
   [webosbrew.org](https://www.webosbrew.org).
 - Block list: [hugobatista/lg-tv-ad-block](https://github.com/hugobatista/lg-tv-ad-block).
+- QR codes: [Nayuki's QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) (MIT), `apps/tv-home/qrcodegen.py`.
+- Ideas for phone upload and wallpaper rotation: [ecklf/lg-luma](https://github.com/ecklf/lg-luma).
 - Museum prints: public-domain paintings from Wikimedia Commons,
   [prints/CREDITS.md](prints/CREDITS.md).
 

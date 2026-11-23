@@ -148,11 +148,20 @@ function show() {
   document.body.classList.add('shown');
 }
 
+// window.close() alone sometimes leaves the (now empty) overlay window on
+// top after a relaunch - invisible, but over the picture and taking the
+// keys. If the app is still alive shortly after, close it by id.
 function close() {
   if (closing) return;
   closing = true;
   document.body.classList.remove('shown');
   setTimeout(function () { window.close(); }, 160);
+  setTimeout(function () {
+    luna('luna://com.webos.applicationManager/closeByAppId', { id: 'com.iso.inputs' }, function (res) {
+      if (res.returnValue === false)
+        exec("luna-send -n 1 luna://com.webos.applicationManager/closeByAppId '{\"id\":\"com.iso.inputs\"}'");
+    });
+  }, 600);
 }
 
 document.addEventListener('keydown', function (e) {

@@ -44,6 +44,7 @@ splash screens by itself: [Sharp logos](LOGOS.md).
 | Setting | What it does |
 |---|---|
 | **Wallpaper** | The picture behind the home screen ([Pictures](#pictures)) |
+| **Rotate Wallpaper** | **Off** (default) or **On**: a new wallpaper every 15 minutes, from Favourites when it holds two or more pictures, otherwise from all pictures. It changes while the home screen is on, or when it comes back after an app; never while a menu is open. Choosing a wallpaper by hand starts the 15 minutes again |
 | **App cards** | **Glass** (default): dark glass cards like the top-left buttons, the logo on it in the brand's colour (white logos take the brand colour, lightened to read well; logos with their own colours keep them). **Colour**: each card in the app's brand colour |
 | **Row spacing** | **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide** |
 | **Selected app** | What marks the focused app: **Bar** (default), a slim bar under it; **Name**; **Nothing** |
@@ -114,6 +115,14 @@ same picture library: the same folders, the same crops, the same screens.
   only the crop is worth keeping; it can't be undone. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
+- **From Phone** shows a QR code. Scan it with the phone's camera (phone and
+  TV in the same network) and choose pictures on the phone; the phone sends
+  them already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. They appear
+  next to the code a moment later: **OK** opens the crop screen, **OK** in
+  the frame adds the picture and comes back for the next one. The phone's
+  page only opens with the code's random address, and the TV stops listening
+  15 minutes after the last picture (pictures not yet added are kept until
+  then). Refused when less than 150 MB would be left on the TV.
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
   screen; **OK** in the frame adds the whole picture (scaled down to about 18 megapixels
   when it is bigger) with its crop and a preview. From Wallpaper it also
