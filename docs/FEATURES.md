@@ -44,6 +44,7 @@ splash screens by itself: [Sharp logos](LOGOS.md).
 | Setting | What it does |
 |---|---|
 | **Wallpaper** | The picture behind the home screen ([Pictures](#pictures)) |
+| **Rotate Wallpaper** | **Off** (default) or **On**: a new wallpaper every 15 minutes, from Favourites when it holds two or more pictures, otherwise from all pictures. It changes while the home screen is on, or when it comes back after an app; never while a menu is open. Choosing a wallpaper by hand starts the 15 minutes again |
 | **App cards** | **Glass** (default): dark glass cards like the top-left buttons, the logo on it in the brand's colour (white logos take the brand colour, lightened to read well; logos with their own colours keep them). **Colour**: each card in the app's brand colour |
 | **Row spacing** | **Compact**, **Even** (default, the same as between the columns), **Roomy**, **Wide** |
 | **Selected app** | What marks the focused app: **Bar** (default), a slim bar under it; **Name**; **Nothing** |

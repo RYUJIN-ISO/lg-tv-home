@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.35.0';
+var VERSION = '0.36.0';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -30,6 +30,7 @@ var BAR_ORDER = ['white', 'blue', 'green', 'yellow', 'orange', 'red', 'pink', 'p
 var ROW_H = TILE_H + ROW_GAPS.even;
 var GRID_TOP = 640;
 var LONG_PRESS_MS = 600;
+var ROTATE_MS = 15 * 60 * 1000;
 var CACHE_KEY = 'atvhome.state';
 var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461 };
 var NEVER_SHOW = [APP_ID, 'com.webos.app.home'];
@@ -49,7 +50,9 @@ var DEFAULT_CONFIG = {
   bar: { on: true, color: 'white', bri: 80 },   // Settings > Focus bar (under the focused card while names are off)
   crops: {},           // picture name -> 16:9 crop {x, y, w, r} (see library())
   pictureFolders: [],  // [{id, name, items: [picture names]}]
-  favourites: []       // picture names; the built-in Favourites folder (id 'fav')
+  favourites: [],      // picture names; the built-in Favourites folder (id 'fav')
+  rotate: false,       // Settings > Look > Rotate wallpaper: a new one every ROTATE_MS
+  rotatedAt: 0         // when the wallpaper last changed (rotation or by hand), ms
 };
 // Modules add their own defaults (addModule).
 // Never offered for uninstall: losing these loses root / the launcher itself.
@@ -209,7 +212,7 @@ var STRINGS = {
     uninstallWarn: 'The app and its data are removed. To reinstall it, unlock App-Updates and use the LG Content Store.',
     uninstalling: 'Uninstalling {0} …', uninstalled: '{0} was uninstalled.', uninstallFailed: 'Could not uninstall {0}.',
     noUninstall: 'No apps can be uninstalled.',
-    showClock: 'Show Clock', on: 'On', off: 'Off',
+    showClock: 'Show Clock', rotateWp: 'Rotate Wallpaper', on: 'On', off: 'Off',
     features: 'Features', featuresSub: 'Switched off, a feature is hidden and does nothing. To remove one from the TV, run install.sh again.',
     cards: 'App cards', cardsColor: 'Colour', cardsGlass: 'Glass',
     rowSpacing: 'Row spacing',
@@ -255,7 +258,7 @@ var STRINGS = {
     uninstallWarn: 'Die App und ihre Daten werden entfernt. Zum Neu-Installieren App-Updates entsperren und den LG Content Store nutzen.',
     uninstalling: '{0} wird deinstalliert …', uninstalled: '{0} wurde deinstalliert.', uninstallFailed: '{0} konnte nicht deinstalliert werden.',
     noUninstall: 'Keine Apps können deinstalliert werden.',
-    showClock: 'Uhr anzeigen', on: 'An', off: 'Aus',
+    showClock: 'Uhr anzeigen', rotateWp: 'Hintergrund wechseln', on: 'An', off: 'Aus',
     features: 'Funktionen', featuresSub: 'Ausgeschaltet ist eine Funktion versteckt und tut nichts. Um eine vom Fernseher zu entfernen, install.sh nochmal ausführen.',
     cards: 'App-Karten', cardsColor: 'Farbe', cardsGlass: 'Glas',
     rowSpacing: 'Reihenabstand',
@@ -1178,7 +1181,10 @@ function openLook() {
       var sel = c.names ? 'name' : b.on ? 'bar' : 'none';
       function setBar(key, value) { c.bar = barCfg(); c.bar[key] = value; saveConfig(); applyGrid(); refreshTop(); }
       var rows = [
-        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } }
+        { label: t('wallpaper'), value: wallpaperLabel(), chevron: true, action: function () { openPictures(WALLPAPER); } },
+        stepRow(t('rotateWp'), c.rotate ? t('on') : t('off'), function () {
+          c.rotate = !c.rotate; c.rotatedAt = Date.now(); saveConfig(); refreshTop();
+        })
       ].concat([
         stepRow(t('cards'), t(c.cards === 'color' ? 'cardsColor' : 'cardsGlass'), function (d) {
           var i = CARD_STYLES.indexOf(c.cards === 'color' ? 'color' : 'glass') + d;
@@ -1220,6 +1226,26 @@ function openLook() {
 // Settings rows changed with Left/Right between small arrows.
 function stepRow(label, value, adjust) {
   return { label: label, value: '‹ ' + value + ' ›', adjust: adjust };
+}
+
+// Rotate wallpaper (Settings > Look): every 15 minutes the next picture, from
+// Favourites when it holds two or more, else from all pictures. Checked by the
+// clock tick and when TV Home is shown again, so after an app it comes back
+// with a new picture if its time is up. Not while a menu is open (the
+// picture library would change under the person) and not with None chosen.
+// The change is a plain swap: fading a 4K picture costs too much on the TV.
+function rotateWallpaper() {
+  var c = cfg();
+  if (!c || !c.rotate || c.wallpaper === 'none' || stack.length || editMode) return;
+  if (Date.now() - (c.rotatedAt || 0) < ROTATE_MS) return;
+  var names = state.wallpapers.map(function (w) { return w.name; });
+  var fav = (c.favourites || []).filter(function (n) { return names.indexOf(n) >= 0; });
+  var list = fav.length >= 2 ? fav : names;
+  c.rotatedAt = Date.now();
+  if (list.length < 2) { saveConfig(); return; }
+  c.wallpaper = list[(list.indexOf(c.wallpaper) + 1) % list.length];   // not in the list: the first
+  saveConfig();
+  applyLook();
 }
 
 function applyLook() {
@@ -2088,6 +2114,7 @@ var WALLPAPER = {
   picOn: function (name) { return name === cfg().wallpaper; },
   pick: function (fo, e, grid) {
     cfg().wallpaper = e.key;
+    cfg().rotatedAt = Date.now();   // a picture chosen by hand stays a full round
     saveConfig();
     applyLook();
     var tiles = grid.tiles();
@@ -2121,7 +2148,7 @@ function openPictures(mode) {
       if (e.type === 'album') { openPictureFolder(pictureFolder(e.key), mode); return; }
       if (e.key === '__new') { newPictureFolder(); return; }
       if (e.key === '__usb') { chooseUsbPicture(mode); return; }
-      if (e.key === 'none') { cfg().wallpaper = 'none'; saveConfig(); applyLook(); view.refresh(); }
+      if (e.key === 'none') { cfg().wallpaper = 'none'; cfg().rotatedAt = Date.now(); saveConfig(); applyLook(); view.refresh(); }
     },
     onLongPress: function (e) { var fo = pictureFolder(e.key); if (fo) folderOptions_(fo); }
   });
@@ -2647,7 +2674,7 @@ document.addEventListener('webOSRelaunch', function () {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) flushConfig();
   hook('visibility', !document.hidden);
-  if (!document.hidden) load();
+  if (!document.hidden) { rotateWallpaper(); load(); }
 });
 
 // ---------------------------------------------------------------- loading
@@ -2767,6 +2794,7 @@ function bench() {
 }
 
 function tick() {
+  if (!document.hidden) rotateWallpaper();
   var d = new Date();
   document.getElementById('clock').textContent =
     ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
@@ -2851,6 +2879,7 @@ function start() {
     }
   } catch (e) {}
   if (!state.config) state.config = normalizeConfig(null);
+  rotateWallpaper();   // at start already, so the first paint has the new picture
   applyLook();
   load();
   watchInputs();
