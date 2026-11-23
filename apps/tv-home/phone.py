@@ -103,9 +103,11 @@ def qr_svg(text):
 
 TEXT = {
     "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They appear on the TV, where you crop and add them.",
-           "sending": "Sending …", "sent": "On the TV", "failed": "Failed", "full": "The TV is full", "many": "Too many pictures waiting on the TV"},
+           "sending": "Sending …", "sent": "On the TV", "failed": "Failed", "full": "The TV is full", "many": "Too many pictures waiting on the TV",
+           "format": "This phone can't open this format (RAW?). Save it as JPEG first."},
     "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie erscheinen am Fernseher, dort zuschneiden und hinzufügen.",
-           "sending": "Wird gesendet …", "sent": "Am Fernseher", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Zu viele Bilder warten am Fernseher"},
+           "sending": "Wird gesendet …", "sent": "Am Fernseher", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Zu viele Bilder warten am Fernseher",
+           "format": "Dieses Format kann das Handy nicht öffnen (RAW?). Erst als JPEG speichern."},
 }
 
 PAGE = """<!doctype html><html lang="%(lang)s"><head><meta charset="utf-8">
@@ -138,14 +140,14 @@ function send(f,url,li){
     var img=new Image();
     img.onload=function(){
       var W=img.naturalWidth,H=img.naturalHeight,s=Math.min(1,Math.sqrt(MAX/(W*H))),c=document.createElement('canvas');
-      c.width=Math.round(W*s);c.height=Math.round(H*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      c.width=Math.round(W*s);c.height=Math.round(H*s);var g=c.getContext('2d');g.fillStyle='#0d0d0f';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
       c.toBlob(function(b){
         fetch(location.pathname.replace(/\\/$/,'')+'/upload?name='+encodeURIComponent(f.name.replace(/\\.[^.]+$/,'')),{method:'POST',body:b,headers:{'Content-Type':'image/jpeg'}})
           .then(function(r){return r.text().then(function(t){mark(li,r.ok?'ok':'err',r.ok?T.sent:(T[t]||T.failed));});},
                 function(){mark(li,'err',T.failed);}).then(done);
       },'image/jpeg',0.9);
     };
-    img.onerror=function(){mark(li,'err',T.failed);done();};
+    img.onerror=function(){mark(li,'err',T.format);done();};
     img.src=url;
   });
 }

@@ -117,7 +117,7 @@ same picture library: the same folders, the same crops, the same screens.
   (Still) or glides towards it (Pan).
 - **From Phone** shows a QR code. Scan it with the phone's camera (phone and
   TV in the same network) and choose pictures on the phone; the phone sends
-  them already turned upright and scaled to about 18 megapixels. They appear
+  them already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. They appear
   next to the code a moment later: **OK** opens the crop screen, **OK** in
   the frame adds the picture and comes back for the next one. The phone's
   page only opens with the code's random address, and the TV stops listening
