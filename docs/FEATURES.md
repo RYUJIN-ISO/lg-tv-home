@@ -115,6 +115,14 @@ same picture library: the same folders, the same crops, the same screens.
   only the crop is worth keeping; it can't be undone. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
+- **From Phone** shows a QR code. Scan it with the phone's camera (phone and
+  TV in the same network) and choose pictures on the phone; the phone sends
+  them already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. They appear
+  next to the code a moment later: **OK** opens the crop screen, **OK** in
+  the frame adds the picture and comes back for the next one. The phone's
+  page only opens with the code's random address, and the TV stops listening
+  15 minutes after the last picture (pictures not yet added are kept until
+  then). Refused when less than 150 MB would be left on the TV.
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
   screen; **OK** in the frame adds the whole picture (scaled down to about 18 megapixels
   when it is bigger) with its crop and a preview. From Wallpaper it also

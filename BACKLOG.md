@@ -37,7 +37,7 @@ could check the folder and do that itself.
 ## Free space guard for imports
 
 Imports go to `/var` (about 966 MB, shared with webOS's own settings and
-logs) and don't check free space. Refuse an import when less than about
+logs) and don't check free space. (From Phone already refuses below 150 MB; USB imports still don't.) Refuse an import when less than about
 150 MB would be left, with a short message.
 
 ## Instead of Screensaver: settings

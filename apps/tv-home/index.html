@@ -230,6 +230,16 @@
   .picker.side .grid { left: 700px; width: 1160px; justify-content: start; grid-template-columns: repeat(3, var(--tile-w)); }
   .picker.side .title { left: 700px; right: auto; width: 1048px; }
   body.editing .picker .tile .card { outline: none; }
+  /* From Phone: QR code and address on the left, the received pictures right. */
+  .picker.phone .pickhint { left: 700px; width: 1048px; }
+  .phonePanel { position: absolute; top: 210px; left: 110px; width: 480px; text-align: center; }
+  .phonePanel .qr { width: 360px; height: 360px; border-radius: 22px; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .phonePanel .scan { margin-top: 30px; font-size: 24px; color: rgba(255,255,255,.75); }
+  .phonePanel .url { margin-top: 8px; font-size: 30px; font-weight: 600; }
+  .phonePanel .steps { margin-top: 26px; font-size: 24px; line-height: 1.4; color: rgba(255,255,255,.75); }
+  .phoneEmpty { display: none; position: absolute; top: 420px; left: 700px; width: 1048px; text-align: center; font-size: 30px; color: rgba(255,255,255,.75); }
+  .picker.phone.waiting .phoneEmpty { display: block; }
+  .picker.phone.waiting .pickhint { visibility: hidden; }
   .picker .tile.picked .badge { display: flex; }
   /* ★ on favourite pictures (top left, the ✓ badge is top right) */
   .picker .tile .fav { position: absolute; top: 8px; left: 12px; z-index: 4; font-size: 34px; color: #ffd60a;
