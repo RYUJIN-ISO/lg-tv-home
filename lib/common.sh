@@ -5,6 +5,7 @@ HOME_APP=com.iso.atvhome
 LIGHT_APP=com.iso.moviescene
 UPDATES_APP=com.iso.appupdates
 PLEX_LINK_APP=com.iso.plexlink    # apps/plex-link: opens Plex at a title for TV Home's Plex rows
+INPUTS_APP=com.iso.inputs         # apps/inputs-overlay: the Inputs menu as an overlay window
 WB=/var/lib/webosbrew
 DATA=$WB/atvhome
 
@@ -59,7 +60,7 @@ EOF
 }
 
 # TV Home's modules in the order they appear (Settings rows, top buttons).
-HOME_MODULES="remote plex hue store frame avr"
+HOME_MODULES="remote plex hue store frame avr inputs"
 
 # stage_home <out dir> <module...>: TV Home with only these modules, ready
 # for install_app. modules/<m>/<m>.js and <m>.css are joined into modules.js
@@ -113,6 +114,7 @@ installed_modules() {
     tv "t() { [ -e \"\$2\" ] && printf '%s ' \"\$1\"; }
         t LAUNCHER $APPS_DIR/$HOME_APP; t FRAME $WB/init.d/87-frame-saver
         t PLEX $APPS_DIR/$PLEX_LINK_APP; t LIGHT $APPS_DIR/$LIGHT_APP
+        t INPUTS $APPS_DIR/$INPUTS_APP
         t REMOTE $WB/init.d/86-remote-mapper; t ADBLOCK $WB/init.d/60-lg-ad-block
         t DEBLOAT $WB/init.d/80-debloat; t APP_TRIM $WB/init.d/85-app-trim; true"
 }
@@ -134,6 +136,22 @@ remove_frame() {
 }
 remove_plex()  { remove_app "$PLEX_LINK_APP"; }
 remove_light() { remove_app "$LIGHT_APP"; }
+# The overlay app, and remote buttons that opened it (they would do nothing).
+remove_inputs() {
+    remove_app "$INPUTS_APP"
+    tv "M=$WB/remote-mapper; [ -f \$M/map.json ] || exit 0
+        python3 -c \"
+import json
+p = '\$M/map.json'
+m = json.load(open(p))
+b = m.get('buttons', {})
+keep = {k: v for k, v in b.items() if v.get('app') != '$INPUTS_APP'}
+if keep != b:
+    m['buttons'] = keep
+    json.dump(m, open(p, 'w'))
+    print('changed')
+\" | grep -q changed && [ -f \$M/remote-mapper.sh ] && sh \$M/remote-mapper.sh reload; true"
+}
 remove_remote() {
     tv "[ -f $WB/remote-mapper/remote-mapper.sh ] && sh $WB/remote-mapper/remote-mapper.sh remove
         rm -f $WB/init.d/86-remote-mapper $WB/remote-mapper/remap.js $WB/remote-mapper/remote-mapper.sh; true"

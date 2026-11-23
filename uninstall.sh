@@ -19,9 +19,10 @@ say "removing the privacy lock, background service block and app trimming"
 remove_adblock
 remove_debloat
 remove_app_trim
-say "removing Plex and Hue helpers"
+say "removing Plex and Hue helpers and the Inputs menu"
 remove_plex
 remove_light
+remove_inputs
 say "restoring LG's home screen and removing TV Home"
 remove_launcher
 

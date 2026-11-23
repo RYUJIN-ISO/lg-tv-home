@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.32.6';
+var VERSION = '0.35.0';
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -2693,6 +2693,32 @@ function load() {
   });
 }
 
+// Inputs changing while TV Home is on screen: LG adds or renames an input's
+// card (a PC on HDMI 4 becomes "PC") when a device is plugged in, and that
+// only reached the home screen the next time TV Home was shown.
+// listLaunchPoints can't be subscribed to from here, the input status can:
+// a new device, name or plug state -> load again (twice: LG writes the card
+// a moment after the input changed). Every update goes to modules too
+// (hook 'inputs').
+var inputBridge = null, inputSig = null, inputTimers = [];
+function watchInputs() {
+  inputBridge = new PalmServiceBridge();
+  inputBridge.onservicecallback = function (raw) {
+    var res;
+    try { res = JSON.parse(raw); } catch (e) { return; }
+    if (!res.devices) return;
+    hook('inputs', res.devices);
+    var sig = JSON.stringify(res.devices.map(function (d) { return [d.id, d.label, !!d.hdmiPlugIn, !!d.connected]; }));
+    var first = inputSig === null;
+    if (sig === inputSig) return;
+    inputSig = sig;
+    if (first || document.hidden) return;
+    inputTimers.forEach(clearTimeout);
+    inputTimers = [setTimeout(load, 2000), setTimeout(load, 8000)];
+  };
+  inputBridge.call('luna://com.webos.service.eim/getAllInputStatus', JSON.stringify({ subscribe: true }));
+}
+
 // ---------------------------------------------------------------- bench
 
 // Launched with {"bench": true}: scripted navigation while recording frame
@@ -2827,6 +2853,7 @@ function start() {
   if (!state.config) state.config = normalizeConfig(null);
   applyLook();
   load();
+  watchInputs();
   hook('start', launchParams());
   reveal();
 }

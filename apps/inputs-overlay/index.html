@@ -1,0 +1,178 @@
+<!doctype html>
+<!-- Inputs: the TV's inputs as a glass menu in an overlay window, over
+     whatever is on screen (an HDMI device keeps playing behind it). Opened
+     by a remote button (TV Home > Features > Inputs menu); the same button
+     again, Back or choosing an input closes it. See docs/modules/inputs.md. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent;
+    font-family: 'LG Smart UI', 'Museo Sans', sans-serif; color: #fff; }
+  /* Soft dimming of the picture behind, strongest around the panel. */
+  #dim { position: absolute; inset: 0; opacity: 0; transition: opacity 180ms;
+    background: radial-gradient(ellipse 1100px 800px at 1500px 300px, rgba(0,0,0,.38), rgba(0,0,0,.12)); }
+  /* Glass like TV Home's Glass cards: translucent surface, thin light edge,
+     highlight on top. No backdrop blur: webOS composites each app's window
+     (and HDMI video) separately, so a page can't blur what's behind.
+     Top right, so the middle of the picture stays visible. */
+  #panel {
+    position: absolute; top: 64px; right: 64px; width: 720px; box-sizing: border-box; padding: 46px 40px 38px;
+    border-radius: 34px; opacity: 0; transform: translateX(28px) scale(.98); transform-origin: top right;
+    transition: opacity 180ms, transform 220ms cubic-bezier(.2,.8,.2,1);
+    background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05)), rgba(18,18,22,.42);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 0 0 0 1px rgba(255,255,255,.10), 0 30px 80px rgba(0,0,0,.45);
+  }
+  body.shown #dim { opacity: 1; }
+  body.shown #panel { opacity: 1; transform: none; }
+  h1 { font-size: 46px; font-weight: 600; margin: 0 14px 28px; text-shadow: 0 2px 10px rgba(0,0,0,.35); }
+  .row {
+    display: flex; align-items: center; height: 78px; padding: 0 26px; margin-bottom: 8px;
+    border-radius: 16px; font-size: 30px; transition: transform 150ms, background 150ms, color 150ms;
+    text-shadow: 0 1px 6px rgba(0,0,0,.35);
+  }
+  .row .tick { width: 40px; flex: none; font-weight: 700; }
+  .row .val { margin-left: auto; color: rgba(255,255,255,.62); font-size: 26px; padding-left: 20px; white-space: nowrap; }
+  .row .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; vertical-align: 2px; background: #30d158; }
+  .row.empty { color: rgba(255,255,255,.5); }
+  .row.focus { background: #fff; color: #111; text-shadow: none; transform: scale(1.02); }
+  .row.focus .val { color: rgba(0,0,0,.55); }
+  .msg { font-size: 26px; color: rgba(255,255,255,.75); margin: 0 14px 10px; }
+</style>
+</head>
+<body>
+<div id="dim"></div>
+<div id="panel"><h1></h1><div id="rows"></div></div>
+<script>
+var STR = {
+  en: { title: 'Inputs', signal: 'Signal', noSignal: 'No signal', none: 'No inputs found.', loading: '…' },
+  de: { title: 'Eingänge', signal: 'Signal', noSignal: 'Kein Signal', none: 'Keine Eingänge gefunden.', loading: '…' }
+};
+var KEY = { UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39, OK: 13, BACK: 461 };
+var lang = 'en';
+var devices = null;     // eim/getAllInputStatus devices
+var current = '';       // the input on screen behind the menu (gets the tick)
+var focus = -1;
+var closing = false;
+var inputBridge = null;
+
+function t(k) { return (STR[lang] || STR.en)[k]; }
+
+function luna(uri, params, cb) {
+  var b = new PalmServiceBridge();
+  b.onservicecallback = function (raw) {
+    var res;
+    try { res = JSON.parse(raw); } catch (e) { res = { returnValue: false }; }
+    if (cb) cb(res);
+  };
+  b.call(uri, JSON.stringify(params));
+  return b;
+}
+function exec(command, cb) { luna('luna://org.webosbrew.hbchannel.service/exec', { command: command }, cb); }
+
+// TV Home's language, and the app on screen behind this overlay.
+function loadContext() {
+  exec("cat /var/lib/webosbrew/atvhome/config.json 2>/dev/null; echo '@@';" +
+       " luna-send -n 1 -w 4000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' < /dev/null", function (res) {
+    var parts = (res.stdoutString || '').split('@@');
+    try { var l = JSON.parse(parts[0]).language; if (STR[l]) lang = l; } catch (e) {}
+    var m = /"appId"\s*:\s*"([^"]+)"/.exec(parts[1] || '');
+    current = m && m[1] !== 'com.iso.inputs' ? m[1] : '';
+    render();
+  });
+}
+
+function watchInputs() {
+  if (inputBridge) return;
+  inputBridge = luna('luna://com.webos.service.eim/getAllInputStatus', { subscribe: true }, function (res) {
+    if (!res.devices) return;
+    devices = res.devices;
+    render();
+  });
+}
+
+function render() {
+  document.querySelector('h1').textContent = t('title');
+  var box = document.getElementById('rows');
+  box.innerHTML = '';
+  if (!devices) { box.innerHTML = '<div class="msg"></div>'; box.firstChild.textContent = t('loading'); return; }
+  if (!devices.length) { box.innerHTML = '<div class="msg"></div>'; box.firstChild.textContent = t('none'); return; }
+  devices.forEach(function (d, i) {
+    var row = document.createElement('div');
+    row.className = 'row' + (d.hdmiPlugIn || d.hdmiSignalExist ? '' : ' empty');
+    var tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.textContent = d.appId === current ? '✓' : '';
+    var label = document.createElement('span');
+    label.textContent = d.label || d.id;
+    var val = document.createElement('span');
+    val.className = 'val';
+    if (d.hdmiSignalExist) { val.innerHTML = '<span class="dot"></span>'; val.appendChild(document.createTextNode(t('signal'))); }
+    else val.textContent = d.hdmiPlugIn ? t('noSignal') : '–';
+    row.appendChild(tick); row.appendChild(label); row.appendChild(val);
+    row.addEventListener('mouseenter', function () { setFocus(i); });
+    row.addEventListener('click', function () { setFocus(i); choose(); });
+    box.appendChild(row);
+  });
+  // First focus: the input on screen, else the first one with a signal.
+  if (focus < 0 || focus >= devices.length) {
+    focus = 0;
+    for (var i = 0; i < devices.length; i++) if (devices[i].appId === current) { focus = i; break; }
+    if (!current) for (var j = 0; j < devices.length; j++) if (devices[j].hdmiSignalExist) { focus = j; break; }
+  }
+  setFocus(focus);
+}
+
+function setFocus(i) {
+  var rows = document.querySelectorAll('.row');
+  if (!rows.length) return;
+  i = (i + rows.length) % rows.length;
+  if (rows[focus]) rows[focus].classList.remove('focus');
+  focus = i;
+  rows[i].classList.add('focus');
+}
+
+function choose() {
+  var d = devices && devices[focus];
+  if (!d) return;
+  if (d.appId !== current) luna('luna://com.webos.applicationManager/launch', { id: d.appId, params: {} });
+  close();
+}
+
+function show() {
+  closing = false;
+  focus = -1;
+  watchInputs();
+  loadContext();
+  render();
+  document.body.classList.add('shown');
+}
+
+function close() {
+  if (closing) return;
+  closing = true;
+  document.body.classList.remove('shown');
+  setTimeout(function () { window.close(); }, 160);
+}
+
+document.addEventListener('keydown', function (e) {
+  if (closing) return;
+  if (e.keyCode === KEY.UP) setFocus(focus - 1);
+  else if (e.keyCode === KEY.DOWN) setFocus(focus + 1);
+  else if (e.keyCode === KEY.OK) choose();
+  else if (e.keyCode === KEY.BACK || e.keyCode === KEY.LEFT) close();
+  else return;
+  e.preventDefault();
+});
+document.addEventListener('wheel', function (e) { setFocus(focus + (e.deltaY > 0 ? 1 : -1)); });
+
+// The same button again while the menu is open closes it.
+document.addEventListener('webOSRelaunch', function () {
+  if (document.body.classList.contains('shown') && !closing) close();
+  else show();
+});
+
+show();
+</script>
+</body>
+</html>

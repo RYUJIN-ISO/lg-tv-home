@@ -19,8 +19,8 @@ REUSE=0
 
 # Everything that can be chosen, in the order of the checklist. The ones
 # after LAUNCHER up to PRINTS are parts of TV Home and need it.
-MODULES="LAUNCHER FRAME PLEX LIGHT AVR REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
-PART_OF_HOME="FRAME PLEX LIGHT AVR REMOTE PRINTS"
+MODULES="LAUNCHER FRAME PLEX LIGHT AVR INPUTS REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
+PART_OF_HOME="FRAME PLEX LIGHT AVR INPUTS REMOTE PRINTS"
 
 label() {
     case $1 in
@@ -29,6 +29,7 @@ label() {
         PLEX)       echo "  Plex: Continue Watching above the apps (each person signs in on the TV)" ;;
         LIGHT)      echo "  Philips Hue: Light button (cinema scene) and rooms in Settings (needs a Hue bridge)" ;;
         AVR)        echo "  AV receiver button: sound to the receiver on HDMI eARC with one press" ;;
+        INPUTS)     echo "  Inputs menu: all inputs (HDMI) with their names and signal, on a remote button" ;;
         REMOTE)     echo "  Remote buttons: give Netflix, Prime, Mic, colour keys ... any app or action" ;;
         PRINTS)     echo "  Museum prints: 16 public-domain paintings as wallpapers (about 49 MB)" ;;
         ADBLOCK)    echo "Privacy lock: block LG's ad, tracking and ACR servers on the TV (locks the LG Store;" ;;
@@ -49,9 +50,9 @@ preset() {
     for m in $MODULES; do printf -v "$m" n; done
     for m in $on; do printf -v "$m" y; done
 }
-PRESET_RECOMMENDED="LAUNCHER FRAME PLEX REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
+PRESET_RECOMMENDED="LAUNCHER FRAME PLEX INPUTS REMOTE PRINTS ADBLOCK DEBLOAT APP_TRIM TELNET_OFF"
 PRESET_EVERYTHING=$MODULES
-PRESET_PIHOLE="LAUNCHER FRAME PLEX REMOTE PRINTS DEBLOAT APP_TRIM TELNET_OFF"
+PRESET_PIHOLE="LAUNCHER FRAME PLEX INPUTS REMOTE PRINTS DEBLOAT APP_TRIM TELNET_OFF"
 PRESET_MINIMAL="LAUNCHER TELNET_OFF"
 
 part_of_home() { case " $PART_OF_HOME " in *" $1 "*) return 0 ;; esac; return 1; }
@@ -170,6 +171,7 @@ FRAME=$FRAME
 PLEX=$PLEX
 LIGHT=$LIGHT
 AVR=$AVR
+INPUTS=$INPUTS
 REMOTE=$REMOTE
 PRINTS=$PRINTS
 ADBLOCK=$ADBLOCK
@@ -210,6 +212,7 @@ for m in $REMOVE; do
         FRAME)    remove_frame ;;
         PLEX)     remove_plex ;;
         LIGHT)    remove_light ;;
+        INPUTS)   remove_inputs ;;
         REMOTE)   remove_remote ;;
         ADBLOCK)  remove_adblock ;;
         DEBLOAT)  remove_debloat ;;
@@ -232,6 +235,7 @@ if [ "$LAUNCHER" = y ]; then
     [ "$ADBLOCK" = y ] && mods="$mods store"
     [ "$FRAME" = y ]  && mods="$mods frame"
     [ "$AVR" = y ]    && mods="$mods avr"
+    [ "$INPUTS" = y ] && mods="$mods inputs"
     stage=$(mktemp -d)
     stage_home "$stage/tv-home" $mods
     install_app "$stage/tv-home" "$HOME_APP" "TV Home launcher"
@@ -293,6 +297,12 @@ if [ "$LIGHT" = y ]; then
     if ! tv "test -f $WB/hue-scene.conf"; then
         say "Pair the Hue bridge on the TV: TV Home, Settings, Hue (or run tools/hue-setup.sh)"
     fi
+fi
+
+if [ "$INPUTS" = y ]; then
+    say "Inputs menu"
+    install_app apps/inputs-overlay "$INPUTS_APP" "Inputs menu"
+    [ "$REMOTE" = y ] && say "Put it on a button: TV Home, Settings, Features, Inputs menu (AI button) or Remote Buttons"
 fi
 
 if [ "$REMOTE" = y ]; then

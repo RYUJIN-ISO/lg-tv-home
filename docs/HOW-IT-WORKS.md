@@ -78,7 +78,10 @@ in the read only `keepAliveApps` list, ignores `closeByAppId` and shares its
   service, because `listLaunchPoints` and `listApps` are private. It returns
   LG's launch points (order, HDMI device names) and the installed apps.
   `cache.js` copies icons and wallpapers into the app folder, because the web
-  runtime can't load files from other folders.
+  runtime can't load files from other folders. It runs at start, whenever
+  TV Home comes back on screen, and when the inputs change while it is on
+  screen (TV Home subscribes to `eim/getAllInputStatus`; LG adds or renames
+  an input's card when a device is plugged in).
 - **Previews**: `wallpapers/thumbs/<name>` (640x360) is used on picture
   cards when it exists, so a grid never decodes every full-size picture.
 - **Config**: `/var/lib/webosbrew/atvhome/config.json`, written by `config.sh`
