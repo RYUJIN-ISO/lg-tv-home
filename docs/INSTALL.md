@@ -35,14 +35,15 @@ Nothing on the TV changes until you confirm the summary at the end.
 | 3 | Plex | `PLEX` | Plex code in TV Home, helper app `com.iso.plexlink` | [page](modules/plex.md) |
 | 4 | Philips Hue | `LIGHT` | Hue code in TV Home, the Light app `com.iso.moviescene` | [page](modules/hue.md) |
 | 5 | AV receiver button | `AVR` | a button in TV Home | [page](modules/av-receiver.md) |
-| 6 | Remote buttons | `REMOTE` | the key filter in `/var/lib/webosbrew/remote-mapper/`, boot hook `86-remote-mapper` | [page](modules/remote-buttons.md) |
-| 7 | Museum prints | `PRINTS` | 16 public-domain paintings as wallpapers (about 49 MB) | [credits](../prints/CREDITS.md) |
-| 8 | Privacy lock | `ADBLOCK` | block list in `/etc/hosts` at every boot, the App Store switch | [page](modules/privacy-lock.md) |
-| 9 | Tracking services | `DEBLOAT` | `debloat.sh`, boot hook `80-debloat` | [page](modules/tracking-services.md) |
-| 10 | App trimming | `APP_TRIM` | `app-trim.sh`, boot hook `85-app-trim` | [page](modules/app-trim.md) |
-| 11 | Telnet off | `TELNET_OFF` | Homebrew's telnet switch | [page](modules/telnet-off.md) |
+| 6 | Inputs menu | `INPUTS` | the overlay app `com.iso.inputs`, its switch in TV Home | [page](modules/inputs.md) |
+| 7 | Remote buttons | `REMOTE` | the key filter in `/var/lib/webosbrew/remote-mapper/`, boot hook `86-remote-mapper` | [page](modules/remote-buttons.md) |
+| 8 | Museum prints | `PRINTS` | 16 public-domain paintings as wallpapers (about 49 MB) | [credits](../prints/CREDITS.md) |
+| 9 | Privacy lock | `ADBLOCK` | block list in `/etc/hosts` at every boot, the App Store switch | [page](modules/privacy-lock.md) |
+| 10 | Tracking services | `DEBLOAT` | `debloat.sh`, boot hook `80-debloat` | [page](modules/tracking-services.md) |
+| 11 | App trimming | `APP_TRIM` | `app-trim.sh`, boot hook `85-app-trim` | [page](modules/app-trim.md) |
+| 12 | Telnet off | `TELNET_OFF` | Homebrew's telnet switch | [page](modules/telnet-off.md) |
 
-Items 2 to 7 are parts of TV Home and need it. Without TV Home but with the
+Items 2 to 8 are parts of TV Home and need it. Without TV Home but with the
 privacy lock, the small App-Updates app is installed to open the store.
 
 **Presets:**

@@ -17,8 +17,8 @@ the Magic Remote. Move over it with the arrows or point at a button; the
 card next to it shows what the button does now. **OK** opens its choices:
 
 - **LG default** or **Do nothing**
-- **Home screen**, **Picture Frame**, **Light**, **Live TV**, **HDMI 1** to **4**
-  (Picture Frame and Light when those modules are on)
+- **Home screen**, **Picture Frame**, **Light**, **Inputs menu**, **Live TV**, **HDMI 1** to **4**
+  (Picture Frame, Light and Inputs menu when those modules are on)
 - **App ...**: every installed app as a card
 
 Remapped buttons get a green ring. Power, volume, mute, home, back, settings,

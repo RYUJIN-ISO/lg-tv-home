@@ -23,6 +23,7 @@ config either way; the core keeps config keys it doesn't know.
 | `store` | Settings, App Store (part of the privacy lock, not in Features) | `tv/store-mode.sh` |
 | `frame` | Picture Frame card and settings, screensaver guard | `tv/init.d/87-frame-saver` |
 | `avr` | AV receiver button (its switch is `config.avrButton`) | – |
+| `inputs` | Inputs menu: AI button switch, Remote Buttons action | `apps/inputs-overlay` |
 
 The order of `HOME_MODULES` in `lib/common.sh` is the order of their rows in
 Settings and of their top buttons.
@@ -67,6 +68,7 @@ when they handled it):
 | `keep()` / `refresh(kept)` | around rebuilding the grid | its own focus survives |
 | `leave()` | focus moved to the grid or the buttons | |
 | `load()` / `loaded()` | TV Home reloads / got new data | |
+| `inputs(devices)` | the TV's inputs changed (eim/getAllInputStatus, live) | |
 | `reset()` | Home pressed again | |
 | `relaunch(params)` | launched again with params | claim |
 | `visibility(shown)` | TV Home shown or hidden | |

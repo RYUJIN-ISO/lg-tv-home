@@ -18,6 +18,7 @@ want; everything can be undone.
 | [Philips Hue](docs/modules/hue.md) | A Light button for a cinema scene, rooms and lights on the TV |
 | [Remote Buttons](docs/modules/remote-buttons.md) | Netflix, Prime, Mic, colour keys ... open any app you choose |
 | [AV receiver button](docs/modules/av-receiver.md) | Sound to the receiver on HDMI eARC with one press |
+| [Inputs menu](docs/modules/inputs.md) | All inputs with their names and signal, over whatever is on screen, on a remote button |
 | [Privacy lock](docs/modules/privacy-lock.md) | LG's ad, tracking and ACR servers blocked on the TV (skip it with a Pi-hole) |
 | [Tracking services](docs/modules/tracking-services.md) | LG's tracking and profiling services stopped |
 | [App trimming](docs/modules/app-trim.md) | Two apps in memory instead of LG's five or six preloads |
