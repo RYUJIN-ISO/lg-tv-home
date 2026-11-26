@@ -26,6 +26,8 @@ APPS = "luna://com.webos.applicationManager/"
 SAVER_APP = "com.webos.app.screensaver"
 SETTINGS = "luna://com.webos.settingsservice/"
 MEDIA = "luna://com.webos.media/"
+OVERLAY = "com.iso.frameoverlay"        # apps/frame-overlay: the frame over playing music
+OVERLAY_DIR = "/media/developer/apps/usr/palm/applications/" + OVERLAY
 OFF_MARK = "/var/lib/webosbrew/atvhome/screensaver-off-by-frame"
 
 try:                                    # one copy only
@@ -103,10 +105,11 @@ def frame_running():
 
 
 # Music (Spotify and the like) does not keep the TV awake, so LG's screensaver
-# asks while it plays. Launching the frame would push the music app into the
-# background, where it stops. So while something plays, LG's screensaver (an
-# overlay, the music goes on under it) is left alone. Video apps keep the TV
-# awake themselves and never get here.
+# asks while it plays. Launching TV Home's frame would push the music app into
+# the background, where it stops. So while something plays the frame runs in
+# the Frame Overlay app instead (an overlay window: the music app stays in
+# front and keeps playing). Without that app, LG's screensaver (an overlay
+# too) is left alone. Video apps keep the TV awake themselves and never get here.
 def media_playing():
     out = subprocess.run(["luna-send", "-n", "1", "-w", "3000", MEDIA + "getForegroundAppInfo", "{}"],
                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, text=True).stdout
@@ -129,17 +132,23 @@ def saver_on():
 # The app on screen (not TV Home, not the screensaver): ending a frame that
 # replaced the screensaver goes back to it.
 current_app = ""
-OWN = ("com.iso.atvhome", SAVER_APP, "")
+OWN = ("com.iso.atvhome", OVERLAY, SAVER_APP, "")
 
 
 last_start = 0
 last_back = ""                          # the app the running frame returns to
-def start_frame(why, back=""):
-    global last_start, last_back
+over_music = False                      # the running frame is the Frame Overlay
+def start_frame(why, back="", overlay=False):
+    global last_start, last_back, over_music
     if time.time() - last_start < 20:  # one launch per idle period
         return
     last_start = time.time()
     last_back = back
+    over_music = overlay
+    if overlay:
+        luna(APPS + "launch", {"id": OVERLAY, "params": {"frame": True}})
+        log("frame overlay started (" + why + ", over " + back + ")")
+        return
     params = {"frame": True}
     if back:
         params["back"] = back
@@ -217,7 +226,9 @@ def power_state():
                 log("handoff: LG screensaver went when the frame started, frame showing")
                 continue
             # woken by a key during LG's screensaver: undo the hidden frame
-            if last_back:
+            if over_music:
+                luna(APPS + "closeByAppId", {"id": OVERLAY})
+            elif last_back:
                 luna(APPS + "launch", {"id": last_back})
             else:
                 luna(APPS + "launch", {"id": "com.iso.atvhome"})
@@ -230,16 +241,19 @@ def power_state():
             log("LG screensaver came up over the frame, closed it")
             time.sleep(1.5)             # until tvpowerd is back to Active
             last_start_reset()
-            start_frame("screensaver closed", last_back)
+            start_frame("screensaver closed", last_back, over_music)
         elif saver_on() and not handoff:
             playing = media_playing()
-            if playing:
-                log("screensaver: " + ", ".join(playing) + " is playing, LG's screensaver stays (no frame)")
+            if playing and not os.path.isdir(OVERLAY_DIR):
+                log("screensaver: " + ", ".join(playing) + " is playing, LG's screensaver stays (no Frame Overlay app)")
                 continue
             last_start_reset()
-            start_frame("behind LG's screensaver", handoff_back)
+            start_frame("behind LG's screensaver" + (", " + ", ".join(playing) + " playing" if playing else ""),
+                        handoff_back or (playing[0] if playing else ""), bool(playing))
             handoff_start = time.time()
-            handoff = threading.Timer(LG_FIRST, close_lg_saver)
+            # The overlay shows only once LG's screensaver is gone (hidden
+            # for 5 s, the frame would end itself), so no LG_FIRST wait.
+            handoff = threading.Timer(2 if playing else LG_FIRST, close_lg_saver)
             handoff.start()
 
 

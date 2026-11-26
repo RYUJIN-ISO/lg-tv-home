@@ -1,0 +1,19 @@
+{
+  "id": "com.iso.frameoverlay",
+  "version": "1.0.0",
+  "vendor": "Iso",
+  "type": "web",
+  "main": "index.html",
+  "title": "Picture Frame Overlay",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#1e1e22",
+  "resolution": "1920x1080",
+  "visible": false,
+  "defaultWindowType": "overlay",
+  "transparent": true,
+  "disableBackHistoryAPI": true,
+  "spinnerOnLaunch": false,
+  "noSplashOnLaunch": true,
+  "splashBackground": ""
+}

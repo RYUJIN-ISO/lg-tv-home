@@ -13,7 +13,11 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.37.0';
+var VERSION = '0.38.0';
+// The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
+// apps/frame-overlay): only the Picture Frame, in an overlay window over the
+// app on screen (music keeps playing under it). No home screen at all.
+var FRAME_ONLY = window.FRAME_ONLY === true;
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -2740,7 +2744,7 @@ document.addEventListener('webOSRelaunch', function () {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) flushConfig();
   hook('visibility', !document.hidden);
-  if (!document.hidden) { rotateWallpaper(); load(); }
+  if (!document.hidden && !FRAME_ONLY) { rotateWallpaper(); load(); }
 });
 
 // ---------------------------------------------------------------- loading
@@ -2779,6 +2783,7 @@ function load() {
     showMsg('');
     var changed = adopt(data, true);
     hook('loaded');
+    if (FRAME_ONLY) return;
     setTimeout(makeLogos, 0);
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
@@ -2928,6 +2933,15 @@ function reveal() {
 // Called by index.html once app.js and modules.js are loaded, so the first
 // paint already has the modules' cards, buttons and texts.
 function start() {
+  if (FRAME_ONLY) {
+    // Pictures and config come from launchpoints.sh; the frame module starts
+    // the frame once they are in (hook 'loaded'). The cover stays black.
+    document.body.classList.add('frameonly');
+    state.config = normalizeConfig(null);
+    load();
+    hook('start', launchParams());
+    return;
+  }
   tick();
   setInterval(tick, 10000);
 

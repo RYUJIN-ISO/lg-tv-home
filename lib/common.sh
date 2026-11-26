@@ -6,6 +6,7 @@ LIGHT_APP=com.iso.moviescene
 UPDATES_APP=com.iso.appupdates
 PLEX_LINK_APP=com.iso.plexlink    # apps/plex-link: opens Plex at a title for TV Home's Plex rows
 INPUTS_APP=com.iso.inputs         # apps/inputs-overlay: the Inputs menu as an overlay window
+FRAME_OVERLAY_APP=com.iso.frameoverlay   # apps/frame-overlay: the Picture Frame over playing music
 WB=/var/lib/webosbrew
 DATA=$WB/atvhome
 
@@ -85,6 +86,25 @@ stage_home() {
     done
 }
 
+# stage_frame_overlay <out dir> <staged TV Home>: the Frame Overlay app
+# (apps/frame-overlay/README.md): the staged TV Home with its own appinfo and
+# FRAME_ONLY set in the page. (A web app can't load files from another app's
+# folder, so the files are copied; the pictures come through a link to TV
+# Home's cache, see link_frame_overlay.)
+stage_frame_overlay() {
+    local out=$1 home=$2
+    mkdir -p "$out"
+    (cd "$home" && tar --exclude=./cache -cf - .) | (cd "$out" && tar -xf -)
+    cp apps/frame-overlay/appinfo.json apps/frame-overlay/*.png "$out/"
+    sed '0,/<head>/s##<head>\n<script>var FRAME_ONLY = true;</script>#' "$home/index.html" > "$out/index.html"
+    grep -q 'FRAME_ONLY = true' "$out/index.html" || die "building the Frame Overlay page failed"
+}
+
+# After installing the Frame Overlay: its cache/ is TV Home's (pictures, thumbs).
+link_frame_overlay() {
+    tv "ln -sfn $APPS_DIR/$HOME_APP/cache $APPS_DIR/$FRAME_OVERLAY_APP/cache"
+}
+
 # install_app <app dir> <app id> <description>
 install_app() {
     ipk=$(build_ipk "$1" "$2" "$3")
@@ -129,6 +149,7 @@ remove_app() {
 # (config.json, Hue pairing, Plex sign-in, button map), so installing the
 # module again brings them back.
 remove_frame() {
+    remove_app "$FRAME_OVERLAY_APP"
     tv "[ -f /tmp/atvhome-saver.pid ] && kill \$(cat /tmp/atvhome-saver.pid); rm -f $WB/init.d/87-frame-saver
         # The frame's guard may have switched LG's screensaver off: switch it back on.
         [ -f $DATA/screensaver-off-by-frame ] && luna-send -n 1 luna://com.webos.settingsservice/setSystemSettings '{\"category\":\"general\",\"settings\":{\"screenSaverEnabled\":\"on\"}}' > /dev/null
