@@ -33,7 +33,7 @@ Settings, **Features**, **Picture Frame** (below its On / Off switch):
 | **Change every** | 1, 5, 15, 30 or 60 minutes (when more than one picture). Shuffled; pictures fade into each other |
 | **Motion** | **Pan** (default) glides across large pictures, see below. **Still** fills the screen with the picture's crop, or its centre |
 | **Brightness** | 20 to 100 % (default 60 %). Dims the picture, not the TV |
-| **Instead of Screensaver** | Off by default. When LG's screensaver starts (nothing playing, no key for 3 minutes), LG's shows for about 10 seconds, then the frame takes over. A key ends it and returns to the app you were in |
+| **Instead of Screensaver** | Off by default. When LG's screensaver starts (nothing playing, no key for 3 minutes), LG's shows for about 10 seconds, then the frame takes over. A key ends it and returns to the app you were in. While music plays (Spotify and the like) the frame stays away and LG's screensaver shows over the music, which keeps playing |
 
 While a frame runs, LG's screensaver never takes over, with this switch on
 or off. LG's own auto power off (if it is on in the TV's settings) still

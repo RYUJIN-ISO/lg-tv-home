@@ -25,6 +25,7 @@ POWER = "luna://com.webos.service.tvpower/power/"
 APPS = "luna://com.webos.applicationManager/"
 SAVER_APP = "com.webos.app.screensaver"
 SETTINGS = "luna://com.webos.settingsservice/"
+MEDIA = "luna://com.webos.media/"
 OFF_MARK = "/var/lib/webosbrew/atvhome/screensaver-off-by-frame"
 
 try:                                    # one copy only
@@ -99,6 +100,21 @@ def watch_beat():
 
 def frame_running():
     return beat_fresh() or time.time() - seen_running < 10
+
+
+# Music (Spotify and the like) does not keep the TV awake, so LG's screensaver
+# asks while it plays. Launching the frame would push the music app into the
+# background, where it stops. So while something plays, LG's screensaver (an
+# overlay, the music goes on under it) is left alone. Video apps keep the TV
+# awake themselves and never get here.
+def media_playing():
+    out = subprocess.run(["luna-send", "-n", "1", "-w", "3000", MEDIA + "getForegroundAppInfo", "{}"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, text=True).stdout
+    try:
+        return [a.get("appId", "") for a in json.loads(out).get("foregroundAppInfo", [])
+                if a.get("playState") == "playing"]
+    except (ValueError, AttributeError):
+        return []                       # unknown: the frame as usual
 
 
 # Off too while the Picture Frame is switched off in Settings > Features.
@@ -216,6 +232,10 @@ def power_state():
             last_start_reset()
             start_frame("screensaver closed", last_back)
         elif saver_on() and not handoff:
+            playing = media_playing()
+            if playing:
+                log("screensaver: " + ", ".join(playing) + " is playing, LG's screensaver stays (no frame)")
+                continue
             last_start_reset()
             start_frame("behind LG's screensaver", handoff_back)
             handoff_start = time.time()
