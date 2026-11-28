@@ -18,6 +18,9 @@ The features that are modules have their own pages: [Picture Frame](modules/pict
 - **Back** jumps to the first row. **Home** always brings you back here.
 - **Hold OK** on an app (about half a second) for quick options: move it, put
   it in a folder, remove it from the home screen.
+
+  <img src="images/app-options.jpg" alt="Hold OK on an app: Move, Add to Folder, Remove from Home Screen" width="720">
+
 - **Up** from the first row reaches the buttons at the top left:
 
 | Button | What it does |
@@ -38,6 +41,8 @@ splash screens by itself: [Sharp logos](LOGOS.md).
 | **Look** | How the home screen looks (below) |
 | **Features** | Every module installed on this TV (below) |
 | **App Store** | Only with the [privacy lock](modules/privacy-lock.md): opens LG's store, locks again when you leave it |
+
+<img src="images/settings.jpg" alt="Settings" width="720">
 
 **Look.** Rows with arrows change with Left/Right:
 
@@ -65,9 +70,15 @@ legend in a corner: the remote keys drawn as key caps and a few words. It
 doesn't block anything; **i** again or leaving the screen closes it. The home
 screen's keys are in Settings' **i**.
 
+<img src="images/look.jpg" alt="Settings, Look" width="720">
+
+<img src="images/features.jpg" alt="Settings, Features" width="720">
+
 ## Organize Apps
 
 Every tile gets a dashed outline and **OK opens its options directly**:
+
+<img src="images/organize.jpg" alt="Organize Apps: edit mode" width="720">
 
 | On an app | On a folder |
 |---|---|
@@ -92,6 +103,8 @@ every change is already saved.
 Settings, **Look**, **Wallpaper** and the Picture Frame's **Pictures** open the
 same picture library: the same folders, the same crops, the same screens.
 
+<img src="images/pictures.jpg" alt="The picture library" width="720">
+
 - **Folders** as cards with a mosaic of their pictures: **All pictures**, your
   folders, **New Folder**, **From USB** (and **None** for the wallpaper).
   **Favourites** (right after All pictures) is built in: it holds the
@@ -103,6 +116,9 @@ same picture library: the same folders, the same crops, the same screens.
 - **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
+
+  <img src="images/all-pictures.jpg" alt="All pictures with the sort button" width="720">
+
 - **⇅ in All pictures** (Up from the top row, left of the i): sort by
   **Name** (A–Z), **Uploaded** (when it came to the TV, newest first) or
   **Date taken** (from the photo's EXIF or a date in its file name, newest
@@ -111,15 +127,24 @@ same picture library: the same folders, the same crops, the same screens.
   Under **Filter**, **Duplicates only** shows just the pictures that look
   like another one in the library (the same test as From Phone, below), each
   group side by side, so you can delete the extra copy (hold OK).
+
+  <img src="images/sort-menu.jpg" alt="Sort and filter menu" width="350"> <img src="images/duplicates.jpg" alt="Duplicates only" width="350">
+
 - **Hold OK on a picture**: **View in Gallery**, **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).
+
+  <img src="images/picture-options.jpg" alt="Hold OK on a picture" width="720">
+
 - **View in Gallery**: the picture fullscreen with the pictures of the grid
   you came from (same order) as a row of previews at the bottom. **Left** /
   **Right** go through them, **Down** slides the row out of sight and **Up**
   brings it back (OK toggles it too), **hold OK** opens
   the picture's options (crop, delete, favourite …), **Back** closes. The
   preview shows at once; the full picture follows when you rest on one.
+
+  <img src="images/gallery.jpg" alt="Gallery" width="720">
+
 - **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
   **Reset**. **Up** moves to the frame: the arrows move it (or drag it with
@@ -131,6 +156,9 @@ same picture library: the same folders, the same crops, the same screens.
   only the crop is worth keeping; it can't be undone. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
+
+  <img src="images/crop.jpg" alt="Crop screen" width="720">
+
 - **From Phone** shows a QR code. Scan it with the phone's camera (phone and
   TV in the same network) and choose pictures on the phone. The phone's page
   shows them under **New**. A picture that looks like one already on the TV
@@ -146,6 +174,9 @@ same picture library: the same folders, the same crops, the same screens.
   already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. The phone's
   page only opens with the code's random address, and the TV stops listening
   15 minutes after the last request. Refused when less than 150 MB would be left on the TV.
+
+  <img src="images/from-phone.jpg" alt="From Phone (QR code and address blurred here)" width="720">
+
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
   screen; **OK** in the frame adds the whole picture (scaled down to about 18 megapixels
   when it is bigger) with its crop and a preview. From Wallpaper it also

@@ -8,9 +8,9 @@ want; everything can be undone.
 
 <sub>With a wallpaper of your own. Out of the box it looks like [this](docs/screenshot.jpg).</sub>
 
-### Compared with LG's home screen
+### LG's own home screen, for comparison
 
-![LG's webOS home screen next to TV Home on the same TV](docs/comparison.jpg)
+![LG's webOS home screen on the same TV](docs/images/lg-home.jpg)
 
 <sub>The same TV (LG OLED G4, webOS 25), the same apps.</sub>
 
