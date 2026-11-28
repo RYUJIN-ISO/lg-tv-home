@@ -8,13 +8,19 @@ want; everything can be undone.
 
 <sub>With a wallpaper of your own. Out of the box it looks like [this](docs/screenshot.jpg).</sub>
 
+### Compared with LG's home screen
+
+![LG's webOS home screen next to TV Home on the same TV](docs/comparison.jpg)
+
+<sub>The same TV (LG OLED G4, webOS 25), the same apps.</sub>
+
 ## What you get
 
 | | |
 |---|---|
-| **TV Home** | Large app cards with sharp logos, on dark glass or in brand colours; folders; your own wallpapers; a smooth 60 fps |
+| **TV Home** | Large app cards with sharp logos, on dark glass or in brand colours; folders; your own wallpapers, a new one every 15 minutes if you like; a smooth 60 fps |
 | [Pictures](docs/FEATURES.md#pictures) | Your own pictures from a phone (QR code, duplicates spotted) or USB; crop, turn, sort, a fullscreen gallery |
-| [Picture Frame](docs/modules/picture-frame.md) | Your pictures full screen like a framed picture, optionally instead of LG's screensaver |
+| [Picture Frame](docs/modules/picture-frame.md) | Your pictures full screen like a framed picture, optionally instead of LG's screensaver; music keeps playing underneath |
 | [Plex](docs/modules/plex.md) | Continue Watching above the apps; OK resumes at once |
 | [Philips Hue](docs/modules/hue.md) | A Light button for a cinema scene, rooms and lights on the TV |
 | [Remote Buttons](docs/modules/remote-buttons.md) | Netflix, Prime, Mic, colour keys ... open any app you choose |
