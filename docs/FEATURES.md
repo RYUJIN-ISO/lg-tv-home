@@ -111,9 +111,15 @@ same picture library: the same folders, the same crops, the same screens.
   Under **Filter**, **Duplicates only** shows just the pictures that look
   like another one in the library (the same test as From Phone, below), each
   group side by side, so you can delete the extra copy (hold OK).
-- **Hold OK on a picture**: **Favourite** (☆/★), **Crop**, which **folders** it is in, and
+- **Hold OK on a picture**: **View in Gallery**, **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).
+- **View in Gallery**: the picture fullscreen with the pictures of the grid
+  you came from (same order) as a row of previews at the bottom. **Left** /
+  **Right** go through them, **Down** slides the row out of sight and **Up**
+  brings it back (OK toggles it too), **hold OK** opens
+  the picture's options (crop, delete, favourite …), **Back** closes. The
+  preview shows at once; the full picture follows when you rest on one.
 - **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
   **Reset**. **Up** moves to the frame: the arrows move it (or drag it with
