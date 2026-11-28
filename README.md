@@ -13,6 +13,7 @@ want; everything can be undone.
 | | |
 |---|---|
 | **TV Home** | Large app cards with sharp logos, on dark glass or in brand colours; folders; your own wallpapers; a smooth 60 fps |
+| [Pictures](docs/FEATURES.md#pictures) | Your own pictures from a phone (QR code, duplicates spotted) or USB; crop, turn, sort, a fullscreen gallery |
 | [Picture Frame](docs/modules/picture-frame.md) | Your pictures full screen like a framed picture, optionally instead of LG's screensaver |
 | [Plex](docs/modules/plex.md) | Continue Watching above the apps; OK resumes at once |
 | [Philips Hue](docs/modules/hue.md) | A Light button for a cinema scene, rooms and lights on the TV |

@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.39.0';
+var VERSION = '0.40.1';
 // The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
 // apps/frame-overlay): only the Picture Frame, in an overlay window over the
 // app on screen (music keeps playing under it). No home screen at all.
@@ -245,7 +245,7 @@ var STRINGS = {
     fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
     phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there and add them. They go straight into All Pictures and show up here.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
-    allPictures: 'All pictures', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', filterBy: 'Filter', dupesOnly: 'Duplicates only', noDupes: 'No duplicates found', selection: 'Selection', choosePictures: 'Choose Pictures',
+    allPictures: 'All pictures', viewGallery: 'View in Gallery', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', filterBy: 'Filter', dupesOnly: 'Duplicates only', noDupes: 'No duplicates found', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     framePickHint: '{ok} in / out · {hold} crop',
@@ -293,7 +293,7 @@ var STRINGS = {
     fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
     phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen und hinzufügen. Sie kommen direkt in Alle Bilder und erscheinen hier.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
-    allPictures: 'Alle Bilder', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', filterBy: 'Filter', dupesOnly: 'Nur Duplikate', noDupes: 'Keine Duplikate gefunden', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
+    allPictures: 'Alle Bilder', viewGallery: 'In Galerie ansehen', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', filterBy: 'Filter', dupesOnly: 'Nur Duplikate', noDupes: 'Keine Duplikate gefunden', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
@@ -2297,7 +2297,7 @@ function openPictureFolder(fo, mode) {
       tile.classList.toggle('picked', mode.picOn(e.key));
     },
     onActivate: function (e) { mode.pick(fo, e, grid); },
-    onLongPress: function (e) { if (e.wp) pictureOptions(e.wp); }
+    onLongPress: function (e) { if (e.wp) pictureOptions(e.wp, { gallery: function () { return grid.entries.map(function (x) { return x.key; }); } }); }
   });
   var view = pickerView(el, grid);
   view.refresh = function () {
@@ -2332,11 +2332,15 @@ function openPictureFolder(fo, mode) {
   if (mode.picOn) for (var i = 0; i < list.length; i++) if (mode.picOn(list[i].key)) grid.setFocus(i, true);
 }
 
-function pictureOptions(w) {
+// opts.gallery (optional): the names of the grid the picture is in, for
+// View in Gallery (not offered from inside the gallery itself).
+function pictureOptions(w, opts) {
   menu({ title: w.name.replace(/\.[a-z]+$/i, ''), rows: function () {
-    var rows = [{ label: t('favourite'), value: isFav(w.name) ? '★' : '☆', action: function () { toggleFav(w.name); refreshTop(); } },
-                { label: t('crop'), value: cropOf(w.name) ? t('cropSet') : '', chevron: true, action: function () { pop(); editCrop(w); } },
-                { info: true, label: t('inFolders') }];
+    var rows = [];
+    if (opts && opts.gallery) rows.push({ label: t('viewGallery'), chevron: true, action: function () { pop(); openGallery(opts.gallery(), w.name); } });
+    rows.push({ label: t('favourite'), value: isFav(w.name) ? '★' : '☆', action: function () { toggleFav(w.name); refreshTop(); } },
+              { label: t('crop'), value: cropOf(w.name) ? t('cropSet') : '', chevron: true, action: function () { pop(); editCrop(w); } },
+              { info: true, label: t('inFolders') });
     pictureFolders().forEach(function (fo) {
       rows.push({ label: fo.name, check: fo.items.indexOf(w.name) >= 0, action: function () {
         var at = fo.items.indexOf(w.name);
@@ -2351,6 +2355,95 @@ function pictureOptions(w) {
     } });
     return rows;
   } });
+}
+
+// ---------------------------------------------------------------- gallery
+
+// Gallery (hold OK on a picture > View in Gallery): the picture fullscreen
+// (its preview first, the full picture over it once loaded), the pictures of the grid it came from
+// as a row of previews at the bottom. Left / Right: the next picture, Down /
+// Up: slide the row out of sight and back (OK toggles it too), hold OK: the picture's options, Back: close. The
+// full picture loads only when the choice rests for a moment (holding Right
+// runs through the row without decoding every 18 MP picture) and is
+// decoded off the main thread (img.decode); the decoded element itself goes
+// on screen, so it isn't decoded a second time.
+var GAL_W = 240, GAL_GAP = 16;
+function openGallery(names, start) {
+  var el = layer('gallery');
+  el.innerHTML = '<div class="gview"><img class="gprev" alt=""><img class="gfull" alt=""></div>' +
+    '<div class="gbar"><div class="gcap"><span class="gname"></span><span class="gpos"></span></div><div class="gstrip"></div></div>';
+  var prev = el.querySelector('.gprev'), full = el.querySelector('.gfull'), strip = el.querySelector('.gstrip');
+  var list = [], at = 0, timer = null, want = '';
+  var view = { el: el };
+
+  // The grid's pictures that are still in the library (one may just have
+  // been deleted from the options), the row rebuilt.
+  function build(focusName) {
+    var byName = {};
+    state.wallpapers.forEach(function (w) { byName[w.name] = w; });
+    list = names.map(function (n) { return byName[n]; }).filter(Boolean);
+    names = list.map(function (w) { return w.name; });
+    if (!list.length) { pop(); return; }
+    var i = names.indexOf(focusName);
+    at = i >= 0 ? i : Math.min(at, list.length - 1);
+    strip.innerHTML = '';
+    list.forEach(function (w, k) {
+      var d = document.createElement('div');
+      d.className = 'gthumb';
+      d.innerHTML = '<img alt="">';
+      d.firstChild.src = picThumb(w);
+      if (isFav(w.name)) d.insertAdjacentHTML('beforeend', '<div class="gfav">★</div>');
+      d.addEventListener('click', function () { show(k); });
+      strip.appendChild(d);
+    });
+    show(at, true);
+  }
+  function show(i, force) {
+    i = Math.max(0, Math.min(list.length - 1, i));
+    if (i === at && !force) return;
+    var tiles = strip.children;
+    if (tiles[at]) tiles[at].classList.remove('sel');
+    at = i;
+    tiles[at].classList.add('sel');
+    strip.style.transform = 'translateX(' + (960 - GAL_W / 2 - at * (GAL_W + GAL_GAP)) + 'px)';
+    var w = list[at];
+    el.querySelector('.gname').textContent = (isFav(w.name) ? '★ ' : '') + w.name.replace(/\.[a-z]+$/i, '');
+    el.querySelector('.gpos').textContent = (at + 1) + ' / ' + list.length;
+    prev.src = picThumb(w);
+    full.classList.remove('on');
+    want = '';
+    clearTimeout(timer);
+    timer = setTimeout(function () { loadFull(w); }, 350);
+  }
+  function loadFull(w) {
+    want = w.url;
+    var img = new Image();
+    var ready = img.decode ? null : new Promise(function (ok, no) { img.onload = ok; img.onerror = no; });
+    img.src = w.url;
+    (ready || img.decode()).then(function () {
+      if (want !== w.url || stack.indexOf(view) < 0) return;
+      img.className = 'gfull';
+      full.parentNode.replaceChild(img, full);   // the old picture goes with its element
+      full = img;
+      requestAnimationFrame(function () { img.classList.add('on'); });
+    }, function () {});
+  }
+
+  view.key = function (e) {
+    var c = e.keyCode;
+    if (c === KEY.LEFT) show(at - 1);
+    else if (c === KEY.RIGHT) show(at + 1);
+    else if (c === KEY.DOWN) el.classList.add('bare');      // the row slides out of sight
+    else if (c === KEY.UP) el.classList.remove('bare');     // and back
+    else if (c === KEY.BACK) pop();
+  };
+  view.ok = function () { if (once()) el.classList.toggle('bare'); };
+  view.longOk = function () { if (list[at]) pictureOptions(list[at]); };
+  view.refresh = function () { build(list[at] && list[at].name); };   // back from the options
+  view.onClose = function () { clearTimeout(timer); want = ''; };
+  el.addEventListener('wheel', function (e) { e.stopPropagation(); show(at + (e.deltaY > 0 ? 1 : -1)); });
+  push(view);
+  build(start);
 }
 
 // Delete Picture (picture options, asks first): the file, its preview, its
@@ -2660,7 +2753,7 @@ function choosePhonePicture(mode) {
         tile.classList.toggle('picked', mode.picOn(e.key));
       },
       onActivate: function (e) { if (e) mode.pick(null, e, grid); },
-      onLongPress: function (e) { if (e) pictureOptions(e.wp); }
+      onLongPress: function (e) { if (e) pictureOptions(e.wp, { gallery: function () { return grid.entries.map(function (x) { return x.key; }); } }); }
     });
     var view = pickerView(el, grid), names = [], shown = '', loadedAt = 0;
     function show() {
