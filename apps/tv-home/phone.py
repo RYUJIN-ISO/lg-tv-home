@@ -21,6 +21,7 @@ WALLS = "/var/lib/webosbrew/atvhome/wallpapers"      # the library, as in usb.py
 THUMBS = os.path.join(WALLS, "thumbs")
 BUNDLED = os.path.join(APP, "wallpapers")
 ADDED = os.path.join(STAGE, "added.json")
+TAKEN = os.path.join(WALLS, "taken.json")   # {file: ms} the phone read from EXIF (cache.js sorts by it)
 PIC = re.compile(r"^[^./][^/]*\.(jpe?g|png|webp)$", re.I)
 STATE = "/tmp/atvhome-phone.json"
 PORTS = range(8765, 8776)
@@ -213,6 +214,52 @@ $('#send').onclick=function(){
     label(todo[i],'busy',T.sending);send(todo[i]).then(function(){next(i+1);});
   })(0);
 };
+// When a photo was taken, as ms (EXIF time read as UTC; only for sorting),
+// from the start of a JPEG (b: bytes, 128 KB are plenty), or 0.
+function exifDate(b) {
+  if (b[0] !== 0xFF || b[1] !== 0xD8) return 0;
+  for (var p = 2; p + 4 < b.length && b[p] === 0xFF;) {
+    var m = b[p + 1], len = b[p + 2] << 8 | b[p + 3];
+    if (m === 0xE1 && b[p + 4] === 0x45 && b[p + 5] === 0x78 && b[p + 6] === 0x69 && b[p + 7] === 0x66) return tiffDate(b, p + 10);
+    if (m === 0xDA) return 0;
+    p += 2 + len;
+  }
+  return 0;
+}
+function tiffDate(b, t) {
+  var le = b[t] === 0x49;
+  function u16(o) { o += t; return le ? b[o] | b[o + 1] << 8 : b[o] << 8 | b[o + 1]; }
+  function u32(o) { return le ? u16(o) + u16(o + 2) * 65536 : u16(o) * 65536 + u16(o + 2); }
+  function tags(ifd) {   // {tag: value offset}
+    var out = {}, n = u16(ifd);
+    if (t + ifd + 2 + n * 12 > b.length) return out;
+    for (var i = 0; i < n; i++) { var e = ifd + 2 + i * 12; out[u16(e)] = u32(e + 8); }
+    return out;
+  }
+  function date(o) {
+    if (!o || t + o + 19 > b.length) return 0;
+    var s = '';
+    for (var i = 0; i < 19; i++) s += String.fromCharCode(b[t + o + i]);
+    var d = /^(\\d{4}):(\\d\\d):(\\d\\d) (\\d\\d):(\\d\\d):(\\d\\d)$/.exec(s);
+    return d && +d[1] > 1900 ? Date.UTC(+d[1], d[2] - 1, +d[3], +d[4], +d[5], +d[6]) : 0;
+  }
+  var ifd0 = tags(u32(4)), ex = ifd0[0x8769] ? tags(ifd0[0x8769]) : {};
+  return date(ex[0x9003]) || date(ex[0x9004]) || date(ifd0[0x0132]);
+}
+// A date in a file name (20230222_212654, IMG-20230222-WA0001, 2023-02-22 …), or 0.
+function nameDate(n) {
+  var d = /(?:^|[^0-9])((?:19|20)\\d\\d)[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\\d|3[01])(?:[-_ T.]?([01]\\d|2[0-3])[-_.]?([0-5]\\d)[-_.]?([0-5]\\d))?/.exec(n);
+  return d ? Date.UTC(+d[1], d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0), +(d[6] || 0)) : 0;
+}
+// The date the photo was taken, read before the canvas drops the EXIF.
+function takenOf(f){
+  return new Promise(function(ok){
+    var r=new FileReader();
+    r.onload=function(){var t=0;try{t=exifDate(new Uint8Array(r.result));}catch(e){}ok(t||nameDate(f.name));};
+    r.onerror=function(){ok(nameDate(f.name));};
+    r.readAsArrayBuffer(f.slice(0,131072));
+  });
+}
 function blob(c,q){return new Promise(function(ok){c.toBlob(ok,'image/jpeg',q);});}
 function post(path,b){return fetch(BASE+path,{method:'POST',body:b,headers:{'Content-Type':'image/jpeg'}})
   .then(function(r){return r.text().then(function(t){if(!r.ok)throw new Error(t);return t;});});}
@@ -225,8 +272,8 @@ function send(it){
       // the preview: the centre 16:9, like an uncropped picture on the TV
       var fw=Math.min(W,H*16/9),fh=fw*9/16,th=document.createElement('canvas');th.width=640;th.height=360;
       var tg=th.getContext('2d');tg.fillStyle='#0d0d0f';tg.fillRect(0,0,640,360);tg.drawImage(img,(W-fw)/2,(H-fh)/2,fw,fh,0,0,640,360);
-      Promise.all([blob(c,0.9),blob(th,0.85)]).then(function(b){
-        return post('/upload?name='+encodeURIComponent(it.name),b[0]).then(function(file){return post('/thumb?file='+encodeURIComponent(file),b[1]);});
+      Promise.all([blob(c,0.9),blob(th,0.85),takenOf(it.f)]).then(function(b){
+        return post('/upload?name='+encodeURIComponent(it.name)+'&taken='+b[2],b[0]).then(function(file){return post('/thumb?file='+encodeURIComponent(file),b[1]);});
       }).then(function(){it.done=true;label(it,'ok',T.sent);},
               function(e){label(it,'err',T[e.message]||T.failed);}).then(done);
     };
@@ -336,6 +383,18 @@ def serve(lang):
                     with open(tmp, "wb") as f:
                         f.write(data)
                     os.rename(tmp, os.path.join(WALLS, fn))
+                    t = self.query("taken")
+                    if re.match(r"^[1-9][0-9]{8,13}$", t):
+                        try:
+                            with open(TAKEN) as f:
+                                dates = json.load(f)
+                        except Exception:
+                            dates = {}
+                        dates = {k: v for k, v in dates.items() if os.path.exists(os.path.join(WALLS, k))}
+                        dates[fn] = int(t)
+                        with open(TAKEN + ".tmp", "w") as f:
+                            json.dump(dates, f)
+                        os.rename(TAKEN + ".tmp", TAKEN)
                     done = added()
                     done.insert(0, fn)
                     with open(ADDED + ".tmp", "w") as f:

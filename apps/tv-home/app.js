@@ -245,7 +245,7 @@ var STRINGS = {
     fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
     phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there and add them. They go straight into All Pictures and show up here.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
-    allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
+    allPictures: 'All pictures', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     framePickHint: '{ok} in / out · {hold} crop',
@@ -293,7 +293,7 @@ var STRINGS = {
     fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
     phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen und hinzufügen. Sie kommen direkt in Alle Bilder und erscheinen hier.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
-    allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
+    allPictures: 'Alle Bilder', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
@@ -1625,7 +1625,8 @@ var INFO = {
   pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
     { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
     { en: '{hold} picture: ★ favourite, crop, folders', de: '{hold} Bild: ★ Favorit, Ausschnitt, Ordner' },
-    { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
+    { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' },
+    { en: 'All pictures: {up} ⇅ sort by name, uploaded, date taken', de: 'Alle Bilder: {up} ⇅ sortieren nach Name, hochgeladen, Aufnahmedatum' }
   ] },
   crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
     { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
@@ -1663,30 +1664,50 @@ function toggleLegend(id, top) {
 
 // A small "i" for a grid screen: Up from the top row reaches it, Down goes
 // back to the cards.
-function infoButton(view, host, id, grid) {
+// extra (optional): {text(), act()} a second button left of the i (the
+// picture library's ⇅ sort); Left / Right move between the two.
+function infoButton(view, host, id, grid, extra) {
   var b = document.createElement('div');
   b.className = 'ibtn';
   b.textContent = 'i';
   host.appendChild(b);
-  function focus(on) {
+  var x = null, onX = false;
+  if (extra) {
+    x = document.createElement('div');
+    x.className = 'ibtn xbtn';
+    host.appendChild(x);
+    view.paintExtra = function () { x.textContent = extra.text(); };
+    view.paintExtra();
+  }
+  function focus(on, toX) {
     view.infoFocus = on;
-    b.classList.toggle('focus', on);
+    onX = on && !!x && !!toX;
+    b.classList.toggle('focus', on && !onX);
+    if (x) x.classList.toggle('focus', onX);
     var tile = grid.tiles()[grid.focus];
     if (tile) tile.classList.toggle('focus', !on);
   }
+  function press() { if (!once()) return; if (onX) extra.act(); else toggleLegend(id); }
   b.addEventListener('mouseenter', function () { focus(true); });
-  b.addEventListener('click', function () { if (once()) toggleLegend(id); });
+  b.addEventListener('click', function () { focus(true); press(); });
+  if (x) {
+    x.addEventListener('mouseenter', function () { focus(true, true); });
+    x.addEventListener('click', function () { focus(true, true); press(); });
+  }
   var key = view.key, ok = view.ok, longOk = view.longOk;
   view.key = function (e) {
     if (view.infoFocus) {
+      if (x && e.keyCode === KEY.LEFT) { focus(true, true); return; }
+      if (x && e.keyCode === KEY.RIGHT) { focus(true, false); return; }
+      if (e.keyCode === KEY.UP) return;
       focus(false);
       if (e.keyCode === KEY.BACK) key(e);
       return;
     }
-    if (e.keyCode === KEY.UP && grid.moving < 0 && grid.focus < grid.cols()) { focus(true); return; }
+    if (e.keyCode === KEY.UP && grid.moving < 0 && grid.focus < grid.cols()) { focus(true, !!x); return; }
     key(e);
   };
-  view.ok = function () { if (view.infoFocus) { if (once()) toggleLegend(id); } else ok(); };
+  view.ok = function () { if (view.infoFocus) press(); else ok(); };
   if (longOk) view.longOk = function () { if (!view.infoFocus) longOk(); };
 }
 
@@ -2206,6 +2227,31 @@ function folderOptions_(fo) {
 // A folder's pictures (fo = null: all). OK: mode.pick (use as wallpaper, ✓
 // on the current one; or start the frame there). Hold OK: the picture's
 // options (Crop, Folders).
+// All Pictures' order (⇅, config picSort): name (A-Z), added (when it came
+// to the TV) or taken (when the photo was taken; unknown ones last, newest
+// added first), dates newest first. Folders keep the library order.
+var PIC_SORTS = ['name', 'added', 'taken'];
+function sortPics(list) {
+  var by = cfg().picSort || 'name';
+  function nm(w) { return w.name.replace(/\.[a-z]+$/i, '').toLowerCase(); }
+  function byName(a, b) { return nm(a) < nm(b) ? -1 : nm(a) > nm(b) ? 1 : 0; }
+  return list.slice().sort(function (a, b) {
+    if (by === 'added') return (b.added || 0) - (a.added || 0) || byName(a, b);
+    if (by === 'taken') return (b.taken || 0) - (a.taken || 0) || (b.added || 0) - (a.added || 0) || byName(a, b);
+    return byName(a, b);
+  });
+}
+function sortLabel(by) { return t({ name: 'sortName', added: 'sortAdded', taken: 'sortTaken' }[by || 'name']); }
+function chooseSort(done) {
+  menu({ title: t('sortBy'), rows: function () {
+    return PIC_SORTS.map(function (by) {
+      return { label: sortLabel(by), check: (cfg().picSort || 'name') === by, action: function () {
+        cfg().picSort = by; saveConfig(); if (done) done(); pop();
+      } };
+    });
+  } });
+}
+
 function openPictureFolder(fo, mode) {
   var el = pickerLayer(fo ? fo.name : t('allPictures'), t(mode.hint));
   var grid = new Grid({
@@ -2220,10 +2266,19 @@ function openPictureFolder(fo, mode) {
     onLongPress: function (e) { if (e.wp) pictureOptions(e.wp); }
   });
   var view = pickerView(el, grid);
-  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
-  infoButton(view, el.querySelector('.inner'), 'pictures', grid);
+  view.refresh = function () {
+    // after a new sort: from the first picture (the ⇅ button keeps the focus)
+    if (view.fromTop) { view.fromTop = false; grid.focus = 0; grid.set(entries()); }
+    else grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key);
+    var tile = view.infoFocus && grid.tiles()[grid.focus];
+    if (tile) tile.classList.remove('focus');
+  };
+  infoButton(view, el.querySelector('.inner'), 'pictures', grid, fo ? null : {
+    text: function () { return '⇅  ' + sortLabel(cfg().picSort); },
+    act: function () { chooseSort(function () { view.paintExtra(); view.fromTop = true; }); }
+  });
   function entries() {
-    return folderPics(fo).map(function (w) {
+    return (fo ? folderPics(fo) : sortPics(folderPics(null))).map(function (w) {
       return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
     });
   }

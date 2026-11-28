@@ -103,6 +103,11 @@ same picture library: the same folders, the same crops, the same screens.
 - **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
+- **⇅ in All pictures** (Up from the top row, left of the i): sort by
+  **Name** (A–Z), **Uploaded** (when it came to the TV, newest first) or
+  **Date taken** (from the photo's EXIF or a date in its file name, newest
+  first; pictures without one go last). From Phone reads the date on the
+  phone before it scales the picture, so it isn't lost. Folders keep their order.
 - **Hold OK on a picture**: **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).
