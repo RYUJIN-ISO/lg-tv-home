@@ -2562,13 +2562,16 @@ function catchUpPrints() {
   (function next(i) {
     if (i >= todo.length || !stack.length) { flush(function () { printing = false; }); return; }   // stops when the menus close
     var w = todo[i], img = new Image();
+    // (img.src = '' to free the picture fires onerror: unhook first, or
+    // every picture would start a second chain)
     img.onload = function () {
+      img.onload = img.onerror = null;
       try { w.fp = fingerprintOf(img); made.push(w); } catch (e) {}
       img.src = '';
       if (made.length >= 10) flush(function () { setTimeout(function () { next(i + 1); }, 50); });
       else setTimeout(function () { next(i + 1); }, 50);
     };
-    img.onerror = function () { next(i + 1); };
+    img.onerror = function () { img.onload = img.onerror = null; next(i + 1); };
     img.src = w.thumb && !cropOf(w.name) ? w.thumb : w.url;
   })(0);
 }
@@ -2584,8 +2587,11 @@ function catchUpThumbs() {
   (function next(i) {
     if (i >= todo.length) { catchingUp = false; load(); return; }
     var img = new Image();
-    img.onload = function () { cropThumb(todo[i], cropOf(todo[i].name), img, function () { img.src = ''; next(i + 1); }); };
-    img.onerror = function () { next(i + 1); };
+    img.onload = function () {
+      img.onload = img.onerror = null;   // (src = '' below fires onerror)
+      cropThumb(todo[i], cropOf(todo[i].name), img, function () { img.src = ''; next(i + 1); });
+    };
+    img.onerror = function () { img.onload = img.onerror = null; next(i + 1); };
     img.src = todo[i].url;
   })(0);
 }
