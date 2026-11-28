@@ -132,10 +132,14 @@ elif cmd == "thumbfor":
         o.write(base64.b64decode(sys.argv[3]))
     print("ok")
 elif cmd == "fp":
-    # fp <wallpaper file name> <16 hex>: its fingerprint (TV Home, fingerprint()
-    # in app.js), so From Phone can spot the same photo under another name.
-    name, fp = os.path.basename(sys.argv[2]), sys.argv[3]
-    if not os.path.isfile(os.path.join(WALLS, name)) or not re.match(r"^[0-9a-f]{16}$", fp):
+    # fp <wallpaper file name> <16 hex> [<name> <hex> …]: fingerprints (TV Home,
+    # fingerprint() in app.js), so duplicates under another name are found.
+    new = {}
+    for name, fp in zip(sys.argv[2::2], sys.argv[3::2]):
+        name = os.path.basename(name)
+        if os.path.isfile(os.path.join(WALLS, name)) and re.match(r"^[0-9a-f]{16}$", fp):
+            new[name] = fp
+    if not new:
         sys.exit("bad picture or fingerprint")
     path = os.path.join(WALLS, "prints.json")
     try:
@@ -144,7 +148,7 @@ elif cmd == "fp":
     except Exception:
         d = {}
     d = {k: v for k, v in d.items() if os.path.exists(os.path.join(WALLS, k))}
-    d[name] = fp
+    d.update(new)
     with open(path + ".tmp", "w") as f:
         json.dump(d, f)
     os.replace(path + ".tmp", path)

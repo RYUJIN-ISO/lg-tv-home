@@ -108,6 +108,9 @@ same picture library: the same folders, the same crops, the same screens.
   **Date taken** (from the photo's EXIF or a date in its file name, newest
   first; pictures without one go last). From Phone reads the date on the
   phone before it scales the picture, so it isn't lost. Folders keep their order.
+  Under **Filter**, **Duplicates only** shows just the pictures that look
+  like another one in the library (the same test as From Phone, below), each
+  group side by side, so you can delete the extra copy (hold OK).
 - **Hold OK on a picture**: **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).

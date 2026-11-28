@@ -245,7 +245,7 @@ var STRINGS = {
     fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
     phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there and add them. They go straight into All Pictures and show up here.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
-    allPictures: 'All pictures', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', selection: 'Selection', choosePictures: 'Choose Pictures',
+    allPictures: 'All pictures', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', filterBy: 'Filter', dupesOnly: 'Duplicates only', noDupes: 'No duplicates found', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     framePickHint: '{ok} in / out · {hold} crop',
@@ -293,7 +293,7 @@ var STRINGS = {
     fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
     phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen und hinzufügen. Sie kommen direkt in Alle Bilder und erscheinen hier.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
-    allPictures: 'Alle Bilder', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
+    allPictures: 'Alle Bilder', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', filterBy: 'Filter', dupesOnly: 'Nur Duplikate', noDupes: 'Keine Duplikate gefunden', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
@@ -2234,6 +2234,7 @@ function folderOptions_(fo) {
 var PIC_SORTS = ['name', 'added', 'taken'];
 function sortPics(list) {
   var by = cfg().picSort || 'name';
+  if (by === 'dupes') return duplicates(list);
   function nm(w) { return w.name.replace(/\.[a-z]+$/i, '').toLowerCase(); }
   function byName(a, b) { return nm(a) < nm(b) ? -1 : nm(a) > nm(b) ? 1 : 0; }
   return list.slice().sort(function (a, b) {
@@ -2242,14 +2243,42 @@ function sortPics(list) {
     return byName(a, b);
   });
 }
-function sortLabel(by) { return t({ name: 'sortName', added: 'sortAdded', taken: 'sortTaken' }[by || 'name']); }
+function sortLabel(by) { return t({ name: 'sortName', added: 'sortAdded', taken: 'sortTaken', dupes: 'dupesOnly' }[by || 'name']); }
+
+// Filter "Duplicates only": the pictures that look like another one in the
+// library (the same test as From Phone: fingerprint within 4 bits, taken at
+// the same second, or the same name without the -12345 imports add), each
+// group together, the newest group first. Fingerprints are made in the
+// background (catchUpPrints), so right after an update fewer show up.
+function duplicates(list) {
+  var n = list.length, up = [], i, j;
+  for (i = 0; i < n; i++) up.push(i);
+  function root(x) { while (up[x] !== x) x = up[x] = up[up[x]]; return x; }
+  function base(w) { return w.name.replace(/\.[a-z]+$/i, '').replace(/(.)-[0-9]{5}$/, '$1').toLowerCase(); }
+  for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+    var a = list[i], b = list[j];
+    // (names given when there was none: phone, picture)
+    if ((a.fp && b.fp && fpDistance(a.fp, b.fp) <= 4) || (a.taken && a.taken === b.taken) ||
+        (base(a) === base(b) && !/^(phone|picture)$/.test(base(a))))
+      up[root(i)] = root(j);
+  }
+  var groups = {};
+  for (i = 0; i < n; i++) (groups[root(i)] = groups[root(i)] || []).push(list[i]);
+  var out = [];
+  Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length > 1; })
+    .map(function (g) { return g.sort(function (a, b) { return (b.added || 0) - (a.added || 0); }); })
+    .sort(function (a, b) { return (b[0].added || 0) - (a[0].added || 0); })
+    .forEach(function (g) { out = out.concat(g); });
+  return out;
+}
 function chooseSort(done) {
   menu({ title: t('sortBy'), rows: function () {
-    return PIC_SORTS.map(function (by) {
+    function row(by) {
       return { label: sortLabel(by), check: (cfg().picSort || 'name') === by, action: function () {
         cfg().picSort = by; saveConfig(); if (done) done(); pop();
       } };
-    });
+    }
+    return PIC_SORTS.map(row).concat([{ info: true, label: t('filterBy') }, row('dupes')]);
   } });
 }
 
@@ -2269,7 +2298,7 @@ function openPictureFolder(fo, mode) {
   var view = pickerView(el, grid);
   view.refresh = function () {
     // after a new sort: from the first picture (the ⇅ button keeps the focus)
-    if (view.fromTop) { view.fromTop = false; grid.focus = 0; grid.set(entries()); }
+    if (view.fromTop) { view.fromTop = false; told = false; grid.focus = 0; grid.set(entries()); }
     else grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key);
     var tile = view.infoFocus && grid.tiles()[grid.focus];
     if (tile) tile.classList.remove('focus');
@@ -2278,10 +2307,19 @@ function openPictureFolder(fo, mode) {
     text: function () { return '⇅  ' + sortLabel(cfg().picSort); },
     act: function () { chooseSort(function () { view.paintExtra(); view.fromTop = true; }); }
   });
+  var told = false;
+  function dupesHint(list) {   // the filter on and nothing to show: say so (once per visit)
+    if (fo || cfg().picSort !== 'dupes' || list.length || told) return;
+    told = true;
+    showHint(t('noDupes'));
+    setTimeout(function () { showHint(''); }, 3000);
+  }
   function entries() {
-    return (fo ? folderPics(fo) : sortPics(folderPics(null))).map(function (w) {
+    var list = (fo ? folderPics(fo) : sortPics(folderPics(null))).map(function (w) {
       return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
     });
+    dupesHint(list);
+    return list;
   }
   push(view);
   var list = entries();
@@ -2500,26 +2538,36 @@ function fingerprintOf(img) {
   return fingerprint(c);
 }
 function saveFingerprint(w, img) {
-  var hex = '';
-  try { hex = fingerprintOf(img); } catch (e) { return; }
-  w.fp = hex;
-  exec(USB_PY + " fp '" + w.name.replace(/'/g, "'\\''") + "' " + hex, function () {});
+  try { w.fp = fingerprintOf(img); } catch (e) { return; }
+  savePrints([w]);
+}
+function savePrints(list, done) {
+  exec(USB_PY + ' fp ' + list.map(function (w) { return "'" + w.name.replace(/'/g, "'\\''") + "' " + w.fp; }).join(' '),
+       function () { if (done) done(); });
 }
 
 // Pictures without a fingerprint (stored before there were any): made once,
-// one picture at a time with a pause between, when the library opens. An
-// uncropped picture's preview already is its centre (cheap); the few with
-// a crop, or without a preview, load the whole picture.
+// one picture at a time with a pause between, when the library opens, and
+// written ten at a time (each write starts Python on the TV). An uncropped
+// picture's preview already is its centre (cheap); the few with a crop, or
+// without a preview, load the whole picture.
 var printing = false;
 function catchUpPrints() {
   if (printing) return;
   var todo = state.wallpapers.filter(function (w) { return !w.bundled && !w.fp; });
   if (!todo.length) return;
   printing = true;
+  var made = [];
+  function flush(then) { var l = made; made = []; if (l.length) savePrints(l, then); else then(); }
   (function next(i) {
-    if (i >= todo.length || !stack.length) { printing = false; return; }   // stops when the menus close
+    if (i >= todo.length || !stack.length) { flush(function () { printing = false; }); return; }   // stops when the menus close
     var w = todo[i], img = new Image();
-    img.onload = function () { saveFingerprint(w, img); img.src = ''; setTimeout(function () { next(i + 1); }, 150); };
+    img.onload = function () {
+      try { w.fp = fingerprintOf(img); made.push(w); } catch (e) {}
+      img.src = '';
+      if (made.length >= 10) flush(function () { setTimeout(function () { next(i + 1); }, 50); });
+      else setTimeout(function () { next(i + 1); }, 50);
+    };
     img.onerror = function () { next(i + 1); };
     img.src = w.thumb && !cropOf(w.name) ? w.thumb : w.url;
   })(0);
