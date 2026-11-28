@@ -103,6 +103,14 @@ same picture library: the same folders, the same crops, the same screens.
 - **Inside a folder**, OK does what the menu is for: from Wallpaper it sets
   the picture as the wallpaper (check mark), from Picture Frame it starts the
   frame with that folder, beginning at that picture.
+- **⇅ in All pictures** (Up from the top row, left of the i): sort by
+  **Name** (A–Z), **Uploaded** (when it came to the TV, newest first) or
+  **Date taken** (from the photo's EXIF or a date in its file name, newest
+  first; pictures without one go last). From Phone reads the date on the
+  phone before it scales the picture, so it isn't lost. Folders keep their order.
+  Under **Filter**, **Duplicates only** shows just the pictures that look
+  like another one in the library (the same test as From Phone, below), each
+  group side by side, so you can delete the extra copy (hold OK).
 - **Hold OK on a picture**: **Favourite** (☆/★), **Crop**, which **folders** it is in, and
   **Delete Picture** (asks first; removes it from the TV and all folders;
   not offered for the pictures that come with the app).
@@ -110,19 +118,28 @@ same picture library: the same folders, the same crops, the same screens.
   smaller, larger, how sharp it is (**4K**, or how much it gets enlarged),
   **Reset**. **Up** moves to the frame: the arrows move it (or drag it with
   the Magic Remote, the wheel resizes), **OK** saves and goes back to the bar,
-  **Back** goes back without saving. **✂** (pictures stored on the TV) cuts
+  **Back** goes back without saving. **↻** turns the picture a quarter to
+  the right (for a sideways photo; a picture stored on the TV is saved turned
+  a moment after the last press, its crop starts over). **✂** (pictures stored on the TV) cuts
   the file to the frame for good, after a confirmation, to save space when
   only the crop is worth keeping; it can't be undone. The crop is remembered, never cut into the file, and
   used everywhere: the home screen shows it, the picture frame rests on it
   (Still) or glides towards it (Pan).
 - **From Phone** shows a QR code. Scan it with the phone's camera (phone and
-  TV in the same network) and choose pictures on the phone; the phone sends
-  them already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. They appear
-  next to the code a moment later: **OK** opens the crop screen, **OK** in
-  the frame adds the picture and comes back for the next one. The phone's
+  TV in the same network) and choose pictures on the phone. The phone's page
+  shows them under **New**. A picture that looks like one already on the TV
+  shows that TV picture beside it and starts left out, so you can see
+  whether it is the same; tap a picture to add it or leave it out, then
+  **Add … to the TV**. "Looks like" = the same name (ignoring the -12345
+  imports add), the same fingerprint (a 64-bit sketch of the picture; the
+  phone makes it, the TV makes its own once, in the background, the first
+  time the picture library opens) or taken at the same second. Android's
+  picker sends most photos with a number as their name, so names alone miss
+  them. They go straight into All Pictures, uncropped (crop them later, hold
+  OK on a picture), and show up next to the code. The phone sends them
+  already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. The phone's
   page only opens with the code's random address, and the TV stops listening
-  15 minutes after the last picture (pictures not yet added are kept until
-  then). Refused when less than 150 MB would be left on the TV.
+  15 minutes after the last request. Refused when less than 150 MB would be left on the TV.
 - **From USB** shows the pictures (JPG, PNG) on a USB stick. OK opens the crop
   screen; **OK** in the frame adds the whole picture (scaled down to about 18 megapixels
   when it is bigger) with its crop and a preview. From Wallpaper it also

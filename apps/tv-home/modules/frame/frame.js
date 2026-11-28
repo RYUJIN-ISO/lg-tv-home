@@ -13,6 +13,7 @@
   // can cover the frame for a moment until framesaver.py closes it again, so
   // wait a few seconds before ending it.
   var hiddenTimer = null;
+  var overlayStarted = false;
 
   // ---------------------------------------------------------------- picture frame
 
@@ -86,7 +87,10 @@
   // start: name of the picture to begin with (optional).
   function startFrame(start) {
     var pics = framePictures();
-    if (!pics.length) { showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return; }
+    if (!pics.length) {
+      if (FRAME_ONLY) { closeOverlay(); return; }
+      showHint(t('frameNone')); setTimeout(function () { showHint(''); }, 3000); return;
+    }
     if (frameView) return;
     // Shuffled order; what was shown is kept so CH- can go back.
     var order = [], shown = 0, history = [], at = -1;
@@ -144,11 +148,13 @@
       document.body.classList.remove('framing');
       var back = frameBack;
       frameBack = '';
-      if (view.byUser && back) launch({ id: back, params: {} });
+      if (FRAME_ONLY) closeOverlay();   // the app under the overlay is still there
+      else if (view.byUser && back) launch({ id: back, params: {} });
     };
     el.addEventListener('click', function () { if (frameView === view) view.end('click'); });
     frameView = view;
     document.body.classList.add('framing');
+    if (FRAME_ONLY) document.getElementById('cover').style.display = 'none';
     push(view);
     if (!glFrame(view, nextPic, prevPic, peekNext, pics.length)) cssFrame(view, nextPic, prevPic, pics.length);
     exec(AWAKE_START);
@@ -165,6 +171,20 @@
     var need = Math.max(W / nw, H / nh);
     if (cw) need = Math.max(need, W / (cw * nw));
     return Math.min(1, maxTex / Math.max(nw, nh), need);
+  }
+
+  // The Frame Overlay app ends with its frame. window.close() can leave the
+  // window behind (seen with the Inputs overlay), so close it by id as well.
+  var OVERLAY_ID = 'com.iso.frameoverlay';
+  function closeOverlay() {
+    exec('echo "$(date +%T) frame overlay closed" >> /tmp/atvhome-events.log');
+    try { window.close(); } catch (e) {}
+    setTimeout(function () {
+      luna('luna://com.webos.applicationManager/closeByAppId', { id: OVERLAY_ID }, function (res) {
+        if (res.returnValue === false)
+          exec("luna-send -n 1 luna://com.webos.applicationManager/closeByAppId '{\"id\":\"" + OVERLAY_ID + "\"}'");
+      });
+    }, 600);
   }
 
   var PAN_SPEED = 7;          // screen pixels per second, on average
@@ -655,7 +675,11 @@
     },
     start: function (p) {
       exec(SAVER_START);
-      if (p.frame) setTimeout(function () { frameBack = p.back || ''; startFrame(); }, 300);
+      if (p.frame && !FRAME_ONLY) setTimeout(function () { frameBack = p.back || ''; startFrame(); }, 300);
+    },
+    // Frame Overlay: the pictures are in, start (once).
+    loaded: function () {
+      if (FRAME_ONLY && !frameView && !overlayStarted) { overlayStarted = true; startFrame(); }
     },
     // framesaver.py reads the switch from the config itself.
     toggled: function (on) { if (on) exec(SAVER_START); }

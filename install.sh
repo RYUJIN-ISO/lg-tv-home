@@ -239,6 +239,13 @@ if [ "$LAUNCHER" = y ]; then
     stage=$(mktemp -d)
     stage_home "$stage/tv-home" $mods
     install_app "$stage/tv-home" "$HOME_APP" "TV Home launcher"
+    # The Picture Frame over playing music: a copy of this TV Home in an overlay
+    # window, so it is installed with every TV Home update.
+    if [ "$FRAME" = y ]; then
+        stage_frame_overlay "$stage/frame-overlay" "$stage/tv-home"
+        install_app "$stage/frame-overlay" "$FRAME_OVERLAY_APP" "Picture Frame overlay"
+        link_frame_overlay
+    fi
     rm -rf "$stage"
     # Keeps LG from restarting the web-app manager (and TV Home with it) ~80 s after boot.
     put tv/init.d/50-keep-web-apps "$WB/init.d/50-keep-web-apps" 755

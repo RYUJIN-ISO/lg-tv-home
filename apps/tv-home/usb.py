@@ -112,6 +112,19 @@ elif cmd == "delete":
             glob.glob(os.path.join(WALLS, "originals", glob.escape(os.path.splitext(name)[0]) + ".*")):
         if os.path.isfile(extra):
             os.remove(extra)
+    # and its entries in the side files (fingerprint, date the phone read);
+    # meta.json (cache.js) drops it at the next listing
+    for side in ("prints.json", "taken.json"):
+        path = os.path.join(WALLS, side)
+        try:
+            with open(path) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        if d.pop(name, None) is not None:
+            with open(path + ".tmp", "w") as f:
+                json.dump(d, f)
+            os.replace(path + ".tmp", path)
     print("ok")
 elif cmd == "thumb":
     # thumb <name> <b64>: the 640x360 preview of an imported picture
@@ -131,6 +144,28 @@ elif cmd == "thumbfor":
     with open(os.path.join(d, name), "wb") as o:
         o.write(base64.b64decode(sys.argv[3]))
     print("ok")
+elif cmd == "fp":
+    # fp <wallpaper file name> <16 hex> [<name> <hex> …]: fingerprints (TV Home,
+    # fingerprint() in app.js), so duplicates under another name are found.
+    new = {}
+    for name, fp in zip(sys.argv[2::2], sys.argv[3::2]):
+        name = os.path.basename(name)
+        if os.path.isfile(os.path.join(WALLS, name)) and re.match(r"^[0-9a-f]{16}$", fp):
+            new[name] = fp
+    if not new:
+        sys.exit("bad picture or fingerprint")
+    path = os.path.join(WALLS, "prints.json")
+    try:
+        with open(path) as f:
+            d = json.load(f)
+    except Exception:
+        d = {}
+    d = {k: v for k, v in d.items() if os.path.exists(os.path.join(WALLS, k))}
+    d.update(new)
+    with open(path + ".tmp", "w") as f:
+        json.dump(d, f)
+    os.replace(path + ".tmp", path)
+    print("ok")
 elif cmd == "keep":
     src = os.path.join(APP, sys.argv[2].split("?")[0])
     dst_dir = os.path.join(WALLS, "originals")
@@ -140,4 +175,4 @@ elif cmd == "keep":
     shutil.copyfile(src, os.path.join(dst_dir, safe(sys.argv[3]) + os.path.splitext(src)[1].lower()))
     print("kept")
 else:
-    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64> | replace <id> <file>")
+    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64> | replace <id> <file> | fp <file> <hex>")

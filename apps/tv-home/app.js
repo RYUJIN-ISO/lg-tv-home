@@ -13,7 +13,11 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.37.0';
+var VERSION = '0.39.0';
+// The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
+// apps/frame-overlay): only the Picture Frame, in an overlay window over the
+// app on screen (music keeps playing under it). No home screen at all.
+var FRAME_ONLY = window.FRAME_ONLY === true;
 var COLS = 5;
 // Home rows: the card plus the gap from Settings > Row spacing (and room for
 // the app name under the focused card when App names is on); set by applyGrid().
@@ -239,14 +243,14 @@ var STRINGS = {
     libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} ★, crop, folders',
     usbHint: '{ok} crop and add',
     fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
-    phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there. They appear here; OK crops and adds them.', phoneWaiting: 'Waiting for pictures …',
+    phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there and add them. They go straight into All Pictures and show up here.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
-    allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
+    allPictures: 'All pictures', sortBy: 'Sort by', sortName: 'Name', sortAdded: 'Uploaded', sortTaken: 'Date taken', filterBy: 'Filter', dupesOnly: 'Duplicates only', noDupes: 'No duplicates found', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     framePickHint: '{ok} in / out · {hold} crop',
     brightness: 'Brightness',
-    favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
+    favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', turning: 'Turning the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -287,14 +291,14 @@ var STRINGS = {
     libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} ★, Ausschnitt, Ordner',
     usbHint: '{ok} zuschneiden und hinzufügen',
     fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
-    phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen. Sie erscheinen hier; OK schneidet zu und fügt hinzu.', phoneWaiting: 'Warte auf Bilder …',
+    phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen und hinzufügen. Sie kommen direkt in Alle Bilder und erscheinen hier.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
-    allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
+    allPictures: 'Alle Bilder', sortBy: 'Sortieren nach', sortName: 'Name', sortAdded: 'Hochgeladen', sortTaken: 'Aufnahmedatum', filterBy: 'Filter', dupesOnly: 'Nur Duplikate', noDupes: 'Keine Duplikate gefunden', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
     brightness: 'Helligkeit',
-    favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
+    favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', turning: 'Bild wird gedreht …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -715,6 +719,10 @@ function glassLogo(img, color) {
 }
 
 var ICONS = {
+  // (the TV's font has no arrows like ↻ ⇅: they show as a box, hence icons;
+  // currentColor follows the pill's text colour when it is focused)
+  turn: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
+  sort: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>',
   pen: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
   folder: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>',
@@ -1621,12 +1629,14 @@ var INFO = {
   pictures: { title: { en: 'Pictures', de: 'Bilder' }, lines: [
     { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
     { en: '{hold} picture: ★ favourite, crop, folders', de: '{hold} Bild: ★ Favorit, Ausschnitt, Ordner' },
-    { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' }
+    { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' },
+    { en: 'All pictures: {up} sort by name, uploaded, date taken', de: 'Alle Bilder: {up} sortieren nach Name, hochgeladen, Aufnahmedatum' }
   ] },
   crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
     { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
     { en: '{ok} save · {back} cancel', de: '{ok} speichern · {back} abbrechen' },
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
+    { en: 'Turn: a quarter to the right', de: 'Drehen: eine Vierteldrehung nach rechts' },
     { en: 'The file stays whole · ✂ cuts it for good (asks first)', de: 'Die Datei bleibt ganz · ✂ schneidet sie endgültig (fragt vorher)' }
   ] },
   settings: { title: { en: 'TV Home', de: 'TV Home' }, lines: [
@@ -1658,30 +1668,50 @@ function toggleLegend(id, top) {
 
 // A small "i" for a grid screen: Up from the top row reaches it, Down goes
 // back to the cards.
-function infoButton(view, host, id, grid) {
+// extra (optional): {icon?, text(), act()} a second button left of the i (the
+// picture library's ⇅ sort); Left / Right move between the two.
+function infoButton(view, host, id, grid, extra) {
   var b = document.createElement('div');
   b.className = 'ibtn';
   b.textContent = 'i';
   host.appendChild(b);
-  function focus(on) {
+  var x = null, onX = false;
+  if (extra) {
+    x = document.createElement('div');
+    x.className = 'ibtn xbtn';
+    host.appendChild(x);
+    view.paintExtra = function () { x.innerHTML = (extra.icon || '') + '<span></span>'; x.lastChild.textContent = extra.text(); };
+    view.paintExtra();
+  }
+  function focus(on, toX) {
     view.infoFocus = on;
-    b.classList.toggle('focus', on);
+    onX = on && !!x && !!toX;
+    b.classList.toggle('focus', on && !onX);
+    if (x) x.classList.toggle('focus', onX);
     var tile = grid.tiles()[grid.focus];
     if (tile) tile.classList.toggle('focus', !on);
   }
+  function press() { if (!once()) return; if (onX) extra.act(); else toggleLegend(id); }
   b.addEventListener('mouseenter', function () { focus(true); });
-  b.addEventListener('click', function () { if (once()) toggleLegend(id); });
+  b.addEventListener('click', function () { focus(true); press(); });
+  if (x) {
+    x.addEventListener('mouseenter', function () { focus(true, true); });
+    x.addEventListener('click', function () { focus(true, true); press(); });
+  }
   var key = view.key, ok = view.ok, longOk = view.longOk;
   view.key = function (e) {
     if (view.infoFocus) {
+      if (x && e.keyCode === KEY.LEFT) { focus(true, true); return; }
+      if (x && e.keyCode === KEY.RIGHT) { focus(true, false); return; }
+      if (e.keyCode === KEY.UP) return;
       focus(false);
       if (e.keyCode === KEY.BACK) key(e);
       return;
     }
-    if (e.keyCode === KEY.UP && grid.moving < 0 && grid.focus < grid.cols()) { focus(true); return; }
+    if (e.keyCode === KEY.UP && grid.moving < 0 && grid.focus < grid.cols()) { focus(true, !!x); return; }
     key(e);
   };
-  view.ok = function () { if (view.infoFocus) { if (once()) toggleLegend(id); } else ok(); };
+  view.ok = function () { if (view.infoFocus) press(); else ok(); };
   if (longOk) view.longOk = function () { if (!view.infoFocus) longOk(); };
 }
 
@@ -2165,6 +2195,7 @@ function openPictures(mode) {
   push(view);
   grid.set(entries());
   catchUpThumbs();
+  setTimeout(catchUpPrints, 1500);
 }
 
 function newPictureFolder() {
@@ -2201,6 +2232,60 @@ function folderOptions_(fo) {
 // A folder's pictures (fo = null: all). OK: mode.pick (use as wallpaper, ✓
 // on the current one; or start the frame there). Hold OK: the picture's
 // options (Crop, Folders).
+// All Pictures' order (⇅, config picSort): name (A-Z), added (when it came
+// to the TV) or taken (when the photo was taken; unknown ones last, newest
+// added first), dates newest first. Folders keep the library order.
+var PIC_SORTS = ['name', 'added', 'taken'];
+function sortPics(list) {
+  var by = cfg().picSort || 'name';
+  if (by === 'dupes') return duplicates(list);
+  function nm(w) { return w.name.replace(/\.[a-z]+$/i, '').toLowerCase(); }
+  function byName(a, b) { return nm(a) < nm(b) ? -1 : nm(a) > nm(b) ? 1 : 0; }
+  return list.slice().sort(function (a, b) {
+    if (by === 'added') return (b.added || 0) - (a.added || 0) || byName(a, b);
+    if (by === 'taken') return (b.taken || 0) - (a.taken || 0) || (b.added || 0) - (a.added || 0) || byName(a, b);
+    return byName(a, b);
+  });
+}
+function sortLabel(by) { return t({ name: 'sortName', added: 'sortAdded', taken: 'sortTaken', dupes: 'dupesOnly' }[by || 'name']); }
+
+// Filter "Duplicates only": the pictures that look like another one in the
+// library (the same test as From Phone: fingerprint within 4 bits, taken at
+// the same second, or the same name without the -12345 imports add), each
+// group together, the newest group first. Fingerprints are made in the
+// background (catchUpPrints), so right after an update fewer show up.
+function duplicates(list) {
+  var n = list.length, up = [], i, j;
+  for (i = 0; i < n; i++) up.push(i);
+  function root(x) { while (up[x] !== x) x = up[x] = up[up[x]]; return x; }
+  function base(w) { return w.name.replace(/\.[a-z]+$/i, '').replace(/(.)-[0-9]{5}$/, '$1').toLowerCase(); }
+  for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+    var a = list[i], b = list[j];
+    // (names given when there was none: phone, picture)
+    if ((a.fp && b.fp && fpDistance(a.fp, b.fp) <= 4) || (a.taken && a.taken === b.taken) ||
+        (base(a) === base(b) && !/^(phone|picture)$/.test(base(a))))
+      up[root(i)] = root(j);
+  }
+  var groups = {};
+  for (i = 0; i < n; i++) (groups[root(i)] = groups[root(i)] || []).push(list[i]);
+  var out = [];
+  Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length > 1; })
+    .map(function (g) { return g.sort(function (a, b) { return (b.added || 0) - (a.added || 0); }); })
+    .sort(function (a, b) { return (b[0].added || 0) - (a[0].added || 0); })
+    .forEach(function (g) { out = out.concat(g); });
+  return out;
+}
+function chooseSort(done) {
+  menu({ title: t('sortBy'), rows: function () {
+    function row(by) {
+      return { label: sortLabel(by), check: (cfg().picSort || 'name') === by, action: function () {
+        cfg().picSort = by; saveConfig(); if (done) done(); pop();
+      } };
+    }
+    return PIC_SORTS.map(row).concat([{ info: true, label: t('filterBy') }, row('dupes')]);
+  } });
+}
+
 function openPictureFolder(fo, mode) {
   var el = pickerLayer(fo ? fo.name : t('allPictures'), t(mode.hint));
   var grid = new Grid({
@@ -2215,12 +2300,31 @@ function openPictureFolder(fo, mode) {
     onLongPress: function (e) { if (e.wp) pictureOptions(e.wp); }
   });
   var view = pickerView(el, grid);
-  view.refresh = function () { grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key); };
-  infoButton(view, el.querySelector('.inner'), 'pictures', grid);
+  view.refresh = function () {
+    // after a new sort: from the first picture (the ⇅ button keeps the focus)
+    if (view.fromTop) { view.fromTop = false; told = false; grid.focus = 0; grid.set(entries()); }
+    else grid.set(entries(), grid.entries[grid.focus] && grid.entries[grid.focus].key);
+    var tile = view.infoFocus && grid.tiles()[grid.focus];
+    if (tile) tile.classList.remove('focus');
+  };
+  infoButton(view, el.querySelector('.inner'), 'pictures', grid, fo ? null : {
+    icon: ICONS.sort,
+    text: function () { return sortLabel(cfg().picSort); },
+    act: function () { chooseSort(function () { view.paintExtra(); view.fromTop = true; }); }
+  });
+  var told = false;
+  function dupesHint(list) {   // the filter on and nothing to show: say so (once per visit)
+    if (fo || cfg().picSort !== 'dupes' || list.length || told) return;
+    told = true;
+    showHint(t('noDupes'));
+    setTimeout(function () { showHint(''); }, 3000);
+  }
   function entries() {
-    return folderPics(fo).map(function (w) {
+    var list = (fo ? folderPics(fo) : sortPics(folderPics(null))).map(function (w) {
       return { type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w };
     });
+    dupesHint(list);
+    return list;
   }
   push(view);
   var list = entries();
@@ -2296,12 +2400,49 @@ function choosePictures(fo) {
 }
 
 function editCrop(w) {
+  var turning = null;   // ↻: the file is rewritten a moment after the last press
   cropPicture({ url: w.url, rect: cropOf(w.name), onSave: function (rect, img) {
     if (rect) library().crops[w.name] = rect; else delete library().crops[w.name];
     saveConfig();
     applyLook();
     cropThumb(w, rect, img);
-  }, onCut: w.bundled ? null : function (rect, img, done) { cutPicture(w, rect, img, done); } });
+  }, onCut: w.bundled ? null : function (rect, img, done) { clearTimeout(turning); cutPicture(w, rect, img, done); },
+  onTurn: w.bundled ? null : function (img) {
+    // img: the turned picture as the crop screen shows it. Its old crop no
+    // longer fits; a crop saved after this is already in turned coordinates.
+    delete library().crops[w.name];
+    saveConfig();
+    clearTimeout(turning);
+    turning = setTimeout(function () { turnPicture(w, img); }, 1500);
+  } });
+}
+
+// ↻ in the crop screen (library picture): the file is replaced by the turned
+// picture, under the same name, and its preview follows.
+function turnPicture(w, img) {
+  showHint(t('turning'));
+  var c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  replacePicture(w, c, function (ok) {
+    if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    saveFingerprint(w, img);
+    cropThumb(w, cropOf(w.name), img, function () { showHint(''); applyLook(); load(); });
+  });
+}
+
+// The picture file of w replaced by the canvas (JPEG, sent in parts).
+function replacePicture(w, canvas, done) {
+  var b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+  var id = 'rep' + Date.now(), name = "'" + w.name.replace(/'/g, "'\\''") + "'";
+  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB
+  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+  (function send(i) {
+    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
+    exec(USB_PY + ' replace ' + id + ' ' + name, function (res) {
+      done(res.returnValue !== false && (res.stdoutString || '').trim() === 'ok');
+    });
+  })(0);
 }
 
 // ✂ in the crop screen: the picture file is cut to the crop for good (after
@@ -2315,28 +2456,21 @@ function cutPicture(w, rect, img, done) {
   var c = document.createElement('canvas');
   c.width = sw; c.height = sh;
   c.getContext('2d').drawImage(img, rect.x * W, rect.y * H, sw, sh, 0, 0, sw, sh);
-  var b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1];
   var thumb = document.createElement('canvas');
   thumb.width = 640; thumb.height = 360;
   thumb.getContext('2d').drawImage(c, 0, 0, 640, 360);
-  var id = 'cut' + Date.now(), name = "'" + w.name.replace(/'/g, "'\\''") + "'";
-  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB
-  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
-  (function send(i) {
-    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
-    exec(USB_PY + ' replace ' + id + ' ' + name, function (res) {
-      if (res.returnValue === false || (res.stdoutString || '').trim() !== 'ok') {
-        showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return;
-      }
-      delete library().crops[w.name];
-      saveConfig();
-      exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
-        showHint('');
-        if (done) done();
-        load();
-      });
+  var name = "'" + w.name.replace(/'/g, "'\\''") + "'";
+  replacePicture(w, c, function (ok) {
+    if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    delete library().crops[w.name];
+    saveConfig();
+    saveFingerprint(w, c);
+    exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
+      showHint('');
+      if (done) done();
+      load();
     });
-  })(0);
+  });
 }
 
 // The picture's preview card shows its crop (or the centre without one).
@@ -2361,6 +2495,92 @@ function cropThumb(w, rect, img, done) {
   }, done ? 0 : 800);
 }
 
+// A picture's fingerprint (to spot the same photo under another name): 64
+// bits as 16 hex digits, from its 640x360 preview of the centre (c: canvas).
+// Each bit: is a cell of a 9x8 grey grid brighter than the one to its right.
+function fingerprint(c) {
+  var s = document.createElement('canvas');
+  s.width = 144; s.height = 64;
+  var g = s.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, 144, 64);
+  var d = g.getImageData(0, 0, 144, 64).data, cell = [], x, y, i, j;
+  for (y = 0; y < 8; y++) for (x = 0; x < 9; x++) {
+    var sum = 0;
+    for (j = 0; j < 8; j++) for (i = 0; i < 16; i++) {
+      var o = ((y * 8 + j) * 144 + x * 16 + i) * 4;
+      sum += d[o] * 3 + d[o + 1] * 6 + d[o + 2];
+    }
+    cell.push(sum);
+  }
+  var hex = '';
+  for (y = 0; y < 8; y++) {
+    var v = 0;
+    for (x = 0; x < 8; x++) v = v * 2 + (cell[y * 9 + x] > cell[y * 9 + x + 1] ? 1 : 0);
+    hex += (v < 16 ? '0' : '') + v.toString(16);
+  }
+  return hex;
+}
+// How many of the 64 bits differ (a few: the same photo).
+function fpDistance(a, b) {
+  var n = 0;
+  for (var i = 0; i < 16; i += 2) {
+    var v = parseInt(a.substr(i, 2), 16) ^ parseInt(b.substr(i, 2), 16);
+    while (v) { n += v & 1; v >>= 1; }
+  }
+  return n;
+}
+
+// fingerprint() of a whole picture (an Image / canvas): its centre 16:9 at
+// 640x360, the same as the preview an uncropped picture gets.
+function fingerprintOf(img) {
+  var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  var fw = Math.min(W, H * 16 / 9), fh = fw * 9 / 16, c = document.createElement('canvas');
+  c.width = 640; c.height = 360;
+  var g = c.getContext('2d');
+  g.fillStyle = '#0d0d0f'; g.fillRect(0, 0, 640, 360);
+  g.drawImage(img, (W - fw) / 2, (H - fh) / 2, fw, fh, 0, 0, 640, 360);
+  return fingerprint(c);
+}
+function saveFingerprint(w, img) {
+  try { w.fp = fingerprintOf(img); } catch (e) { return; }
+  savePrints([w]);
+}
+function savePrints(list, done) {
+  exec(USB_PY + ' fp ' + list.map(function (w) { return "'" + w.name.replace(/'/g, "'\\''") + "' " + w.fp; }).join(' '),
+       function () { if (done) done(); });
+}
+
+// Pictures without a fingerprint (stored before there were any): made once,
+// one picture at a time with a pause between, when the library opens, and
+// written ten at a time (each write starts Python on the TV). An uncropped
+// picture's preview already is its centre (cheap); the few with a crop, or
+// without a preview, load the whole picture.
+var printing = false;
+function catchUpPrints() {
+  if (printing) return;
+  var todo = state.wallpapers.filter(function (w) { return !w.bundled && !w.fp; });
+  if (!todo.length) return;
+  printing = true;
+  var made = [];
+  function flush(then) { var l = made; made = []; if (l.length) savePrints(l, then); else then(); }
+  (function next(i) {
+    if (i >= todo.length || !stack.length) { flush(function () { printing = false; }); return; }   // stops when the menus close
+    var w = todo[i], img = new Image();
+    // (img.src = '' to free the picture fires onerror: unhook first, or
+    // every picture would start a second chain)
+    img.onload = function () {
+      img.onload = img.onerror = null;
+      try { w.fp = fingerprintOf(img); made.push(w); } catch (e) {}
+      img.src = '';
+      if (made.length >= 10) flush(function () { setTimeout(function () { next(i + 1); }, 50); });
+      else setTimeout(function () { next(i + 1); }, 50);
+    };
+    img.onerror = function () { img.onload = img.onerror = null; next(i + 1); };
+    img.src = w.thumb && !cropOf(w.name) ? w.thumb : w.url;
+  })(0);
+}
+
 // Crops made before previews followed them: remake those previews once, one
 // picture at a time, when the picture library opens.
 var catchingUp = false;
@@ -2372,8 +2592,11 @@ function catchUpThumbs() {
   (function next(i) {
     if (i >= todo.length) { catchingUp = false; load(); return; }
     var img = new Image();
-    img.onload = function () { cropThumb(todo[i], cropOf(todo[i].name), img, function () { img.src = ''; next(i + 1); }); };
-    img.onerror = function () { next(i + 1); };
+    img.onload = function () {
+      img.onload = img.onerror = null;   // (src = '' below fires onerror)
+      cropThumb(todo[i], cropOf(todo[i].name), img, function () { img.src = ''; next(i + 1); });
+    };
+    img.onerror = function () { img.onload = img.onerror = null; next(i + 1); };
     img.src = todo[i].url;
   })(0);
 }
@@ -2403,11 +2626,12 @@ function chooseUsbPicture(mode) {
 // ---------------------------------------------------------------- phone pictures
 
 // From Phone: phone.py starts a small upload server on the TV (or reuses the
-// running one) and draws its address as a QR code. Pictures sent from the
-// phone show up in the grid (checked every 2 s), like a USB stick: OK crops
-// and adds one, then the view comes back for the next. The server stops by
-// itself after 15 minutes without a request, so pictures still waiting are
-// there when the view is opened again.
+// running one) and draws its address as a QR code. The phone page shows the
+// pictures already on the TV next to the new ones (a new one can be left
+// out) and sends the rest straight into the library, uncropped. Here the
+// pictures added in this session show up (checked every 2 s) like in All
+// Pictures: OK uses one, hold OK has its options (crop, folders …). The
+// server stops by itself after 15 minutes without a request.
 var PHONE_PY = 'python3 ' + APP_DIR + 'phone.py';
 
 function choosePhonePicture(mode) {
@@ -2417,7 +2641,7 @@ function choosePhonePicture(mode) {
     var info = {};
     try { info = JSON.parse(res.stdoutString || '{}'); } catch (e) {}
     if (!info.url) { showHint(t('phoneFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
-    var el = pickerLayer(t('fromPhone'), t('usbHint'));
+    var el = pickerLayer(t('fromPhone'), t(mode.hint));
     el.classList.add('side', 'phone');
     el.querySelector('.inner').insertAdjacentHTML('beforeend',
       '<div class="phonePanel"><img class="qr" alt=""><div class="scan"></div><div class="url"></div>' +
@@ -2429,25 +2653,44 @@ function choosePhonePicture(mode) {
     el.querySelector('.phoneEmpty').textContent = t('phoneWaiting');
     var grid = new Grid({
       container: el.querySelector('.grid'), cols: 3,
-      onActivate: function (e) {
-        if (e) cropPicture({ url: e.pic.url, name: e.pic.name, mode: mode, onSave: null, phone: true });
-      }
+      decorate: function (tile, e) {
+        if (isFav(e.key)) tile.insertAdjacentHTML('beforeend', '<div class="fav">★</div>');
+        if (!mode.picOn) return;
+        tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+        tile.classList.toggle('picked', mode.picOn(e.key));
+      },
+      onActivate: function (e) { if (e) mode.pick(null, e, grid); },
+      onLongPress: function (e) { if (e) pictureOptions(e.wp); }
     });
-    var view = pickerView(el, grid), seen = '';
+    var view = pickerView(el, grid), names = [], shown = '', loadedAt = 0;
+    function show() {
+      var list = [];
+      names.forEach(function (n) {
+        state.wallpapers.forEach(function (w) {
+          if (w.name === n) list.push({ type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w });
+        });
+      });
+      var sig = list.map(function (e) { return e.key + e.url; }).join('|');
+      el.classList.toggle('waiting', !list.length);
+      if (sig === shown) return;
+      shown = sig;
+      grid.set(list, grid.entries[grid.focus] && grid.entries[grid.focus].key);
+    }
     function poll() {
       exec(PHONE_PY + ' list', function (r) {
-        var out = r.stdoutString || '[]';
-        if (out === seen || stack.indexOf(view) < 0) return;
-        seen = out;
-        var list = [];
-        try { list = JSON.parse(out); } catch (e) {}
-        el.classList.toggle('waiting', !list.length);
-        grid.set(list.map(function (p) { return { type: 'image', key: p.url, title: p.name, url: p.url, pic: p }; }));
+        if (stack.indexOf(view) < 0) return;
+        var now = [];
+        try { now = JSON.parse(r.stdoutString || '[]'); } catch (e) {}
+        var fresh = now.some(function (n) { return !state.wallpapers.some(function (w) { return w.name === n; }); });
+        names = now;
+        // cache.js copies the new files; a later poll shows them
+        if (fresh && Date.now() - loadedAt > 6000) { loadedAt = Date.now(); load(); }
+        show();
       });
     }
     var timer = setInterval(poll, 2000);
     view.onClose = function () { clearInterval(timer); };
-    view.refresh = function () { seen = ''; poll(); };
+    view.refresh = function () { shown = ''; show(); };
     el.classList.add('waiting');
     push(view);
     grid.set([]);
@@ -2479,12 +2722,9 @@ function importPicture(pic, img, rect) {
       exec(USB_PY + ' thumb ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
         showHint('');
         library().crops[file] = rect;
+        saveFingerprint({ name: file }, img);
         if (pic.mode.wallpaper) { cfg().wallpaper = file; cfg().rotatedAt = Date.now(); }
         saveConfig();
-        if (pic.phone) {   // back to the phone's pictures for the next one
-          exec(PHONE_PY + " remove '" + pic.url.split('/').pop().replace(/'/g, '') + "'", function () { pop(); load(); });
-          return;
-        }
         closeAll();
         load();
       });
@@ -2495,11 +2735,19 @@ function importPicture(pic, img, rect) {
 // Crop screen: a 16:9 frame over the whole picture. It starts in the bar
 // (Smaller, Larger, sharpness, Reset, i); Up moves to the frame, where the
 // arrows move it, OK saves and Back cancels (both back to the bar). The label says how sharp the crop is on the 4K screen.
-// pic: {url, rect?, onSave(rect or null, img)} for a picture in the library, or
-// {url, name, mode} from USB (OK in the frame imports it).
+// pic: {url, rect?, onSave(rect or null, img), onCut?, onTurn?(img)} for a
+// picture in the library, or {url, name, mode} from USB (OK in the frame
+// imports it). ↻ turns the picture a quarter to the right: the screen opens
+// again on the turned picture (pic.base = the picture as loaded, pic.turn =
+// quarters, so every turn is drawn from the picture as first loaded, not
+// from a copy of a copy). A library picture's file follows (onTurn); a USB one is imported
+// turned.
 function cropPicture(pic) {
   var probe = new Image();
-  probe.onload = function () { openCrop(pic, probe); };
+  probe.onload = function () {
+    if (pic.replace) { pic.replace = false; pop(); }
+    openCrop(pic, probe);
+  };
   probe.onerror = function () { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); };
   probe.src = pic.url;
 }
@@ -2510,6 +2758,7 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
+    (pic.onSave && !pic.onTurn ? '' : '<div class="pill" data-a="turn">' + ICONS.turn + '</div>') +
     (pic.onCut ? '<div class="pill cut" data-a="cut">✂</div>' : '') + '<div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
@@ -2518,6 +2767,7 @@ function openCrop(pic, probe) {
   var k = Math.min(AREA_W / W, AREA_H / H);          // picture px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
   img.style.cssText = 'left:' + ox + 'px;top:' + oy + 'px;width:' + W * k + 'px;height:' + H * k + 'px';
+  if (pic.onOpen) { var opened = pic.onOpen; pic.onOpen = null; img.onload = function () { opened(img); }; }
   img.src = pic.url;
   var f;
   function centre() { var fw = Math.min(W, H * 16 / 9); f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 }; }
@@ -2525,7 +2775,7 @@ function openCrop(pic, probe) {
   if (pic.rect) f = { w: pic.rect.w * W, x: pic.rect.x * W, y: pic.rect.y * H };
   // Starts in the bar. Up: the frame (arrows move it); OK there saves and
   // goes back to the bar, Back goes back without saving.
-  var focus = 0, barFocus = 0;                        // focus -1 = frame, else pill index
+  var focus = pic.barFocus || 0, barFocus = focus;    // focus -1 = frame, else pill index
   var saved = { w: f.w, x: f.x, y: f.y };
 
   function clamp() {
@@ -2575,7 +2825,30 @@ function openCrop(pic, probe) {
       confirmSheet(t('cutQ'), t('cutSub'), t('cutYes'), function () {
         pic.onCut(rect(), img, function () { if (stack[stack.length - 1] === view) pop(); });
       });
-    } else if (a === 'info') toggleLegend('crop', true);
+    } else if (a === 'turn') turn();
+    else if (a === 'info') toggleLegend('crop', true);
+  }
+  function turn() {
+    var base = pic.base || probe, q = ((pic.turn || 0) + 1) % 4;
+    var next = {};
+    for (var key in pic) next[key] = pic[key];
+    next.base = base; next.turn = q; next.rect = null; next.replace = true;
+    next.barFocus = focus;
+    var bw = base.naturalWidth, bh = base.naturalHeight, c = document.createElement('canvas');
+    c.width = q % 2 ? bh : bw; c.height = q % 2 ? bw : bh;
+    var g = c.getContext('2d');
+    g.translate(c.width / 2, c.height / 2);
+    g.rotate(q * Math.PI / 2);
+    g.drawImage(base, -bw / 2, -bh / 2);
+    showHint(t('turning'));
+    if (c.toBlob) c.toBlob(function (b) { next.url = URL.createObjectURL(b); open(); }, 'image/jpeg', 0.95);
+    else { next.url = c.toDataURL('image/jpeg', 0.95); open(); }
+    function open() {
+      showHint('');
+      if (pic.url.indexOf('blob:') === 0) { var old = pic.url; setTimeout(function () { URL.revokeObjectURL(old); }, 5000); }
+      next.onOpen = function (img) { if (next.onTurn) next.onTurn(img); };
+      cropPicture(next);
+    }
   }
 
   var view = { el: el };
@@ -2740,7 +3013,7 @@ document.addEventListener('webOSRelaunch', function () {
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) flushConfig();
   hook('visibility', !document.hidden);
-  if (!document.hidden) { rotateWallpaper(); load(); }
+  if (!document.hidden && !FRAME_ONLY) { rotateWallpaper(); load(); }
 });
 
 // ---------------------------------------------------------------- loading
@@ -2779,6 +3052,7 @@ function load() {
     showMsg('');
     var changed = adopt(data, true);
     hook('loaded');
+    if (FRAME_ONLY) return;
     setTimeout(makeLogos, 0);
     if (changed && mainGrid.moving < 0 && !stack.length) refreshMain();
     else if (changed) applyLook();
@@ -2928,6 +3202,15 @@ function reveal() {
 // Called by index.html once app.js and modules.js are loaded, so the first
 // paint already has the modules' cards, buttons and texts.
 function start() {
+  if (FRAME_ONLY) {
+    // Pictures and config come from launchpoints.sh; the frame module starts
+    // the frame once they are in (hook 'loaded'). The cover stays black.
+    document.body.classList.add('frameonly');
+    state.config = normalizeConfig(null);
+    load();
+    hook('start', launchParams());
+    return;
+  }
   tick();
   setInterval(tick, 10000);
 

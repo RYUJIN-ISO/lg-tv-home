@@ -126,16 +126,82 @@ var thumbs = {};
 list(THUMBS).forEach(function (f) {
   try { thumbs[f] = copy(path.join(THUMBS, f), path.join(CACHE, 'th-' + f)) + ver(path.join(THUMBS, f)); } catch (e) {}
 });
+// Dates for sorting the library (All Pictures, ⇅): added = when it came to
+// the TV, taken = when the photo was taken (0: unknown). Kept in
+// wallpapers/meta.json, so turning or cutting a picture (a new file) keeps
+// them; taken.json holds the dates the phone read before it scaled a picture
+// (phone.py), which lose their EXIF on the way.
+// When a photo was taken, as ms (EXIF time read as UTC; only for sorting),
+// from the start of a JPEG (b: bytes, 128 KB are plenty), or 0.
+function exifDate(b) {
+  if (b[0] !== 0xFF || b[1] !== 0xD8) return 0;
+  for (var p = 2; p + 4 < b.length && b[p] === 0xFF;) {
+    var m = b[p + 1], len = b[p + 2] << 8 | b[p + 3];
+    if (m === 0xE1 && b[p + 4] === 0x45 && b[p + 5] === 0x78 && b[p + 6] === 0x69 && b[p + 7] === 0x66) return tiffDate(b, p + 10);
+    if (m === 0xDA) return 0;
+    p += 2 + len;
+  }
+  return 0;
+}
+function tiffDate(b, t) {
+  var le = b[t] === 0x49;
+  function u16(o) { o += t; return le ? b[o] | b[o + 1] << 8 : b[o] << 8 | b[o + 1]; }
+  function u32(o) { return le ? u16(o) + u16(o + 2) * 65536 : u16(o) * 65536 + u16(o + 2); }
+  function tags(ifd) {   // {tag: value offset}
+    var out = {}, n = u16(ifd);
+    if (t + ifd + 2 + n * 12 > b.length) return out;
+    for (var i = 0; i < n; i++) { var e = ifd + 2 + i * 12; out[u16(e)] = u32(e + 8); }
+    return out;
+  }
+  function date(o) {
+    if (!o || t + o + 19 > b.length) return 0;
+    var s = '';
+    for (var i = 0; i < 19; i++) s += String.fromCharCode(b[t + o + i]);
+    var d = /^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)$/.exec(s);
+    return d && +d[1] > 1900 ? Date.UTC(+d[1], d[2] - 1, +d[3], +d[4], +d[5], +d[6]) : 0;
+  }
+  var ifd0 = tags(u32(4)), ex = ifd0[0x8769] ? tags(ifd0[0x8769]) : {};
+  return date(ex[0x9003]) || date(ex[0x9004]) || date(ifd0[0x0132]);
+}
+// A date in a file name (20230222_212654, IMG-20230222-WA0001, 2023-02-22 …), or 0.
+function nameDate(n) {
+  var d = /(?:^|[^0-9])((?:19|20)\d\d)[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])(?:[-_ T.]?([01]\d|2[0-3])[-_.]?([0-5]\d)[-_.]?([0-5]\d))?/.exec(n);
+  return d ? Date.UTC(+d[1], d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0), +(d[6] || 0)) : 0;
+}
+
+var META = path.join(DATA, 'wallpapers', 'meta.json'), meta = {}, taken = {}, metaOut = {}, metaChanged = false;
+try { meta = JSON.parse(fs.readFileSync(META, 'utf8')); } catch (e) {}
+try { taken = JSON.parse(fs.readFileSync(path.join(DATA, 'wallpapers', 'taken.json'), 'utf8')); } catch (e) {}
+// Fingerprints (prints.json: phone.py, usb.py fp) for spotting duplicates.
+var prints = {};
+try { prints = JSON.parse(fs.readFileSync(path.join(DATA, 'wallpapers', 'prints.json'), 'utf8')); } catch (e) {}
+function dates(src, f) {
+  var m = meta[f];
+  if (!m) {
+    var b = Buffer.alloc(131072), fd = fs.openSync(src, 'r');
+    try { b = b.slice(0, fs.readSync(fd, b, 0, b.length, 0)); } finally { fs.closeSync(fd); }
+    m = { a: fs.statSync(src).mtime.getTime(), t: exifDate(b) || nameDate(f) };
+    metaChanged = true;
+  }
+  metaOut[f] = m;
+  return { added: m.a, taken: taken[f] || m.t };
+}
+
 var wallpapers = list(BUNDLED_WP).map(function (f) {
-  return { name: f, url: 'wallpapers/' + f, bundled: true };
+  return { name: f, url: 'wallpapers/' + f, bundled: true, added: 0, taken: 0 };
 });
 list(path.join(DATA, 'wallpapers')).forEach(function (f) {
   try {
-    var src = path.join(DATA, 'wallpapers', f);
+    var src = path.join(DATA, 'wallpapers', f), d = { added: 0, taken: 0 };
+    try { d = dates(src, f); } catch (e) {}
     wallpapers.push({ name: f, url: copy(src, path.join(CACHE, 'wp-' + f)) + ver(src),
-                      orig: originals[f.replace(/\.[a-z]+$/i, '')] || '', thumb: thumbs[f] || '' });
+                      orig: originals[f.replace(/\.[a-z]+$/i, '')] || '', thumb: thumbs[f] || '',
+                      added: d.added, taken: d.taken, fp: prints[f] || '' });
   } catch (e) {}
 });
+if (metaChanged || Object.keys(meta).length !== Object.keys(metaOut).length) {
+  try { fs.writeFileSync(META + '.tmp', JSON.stringify(metaOut)); fs.renameSync(META + '.tmp', META); } catch (e) {}
+}
 
 var config = null;
 try { config = JSON.parse(fs.readFileSync(path.join(DATA, 'config.json'), 'utf8')); } catch (e) {}

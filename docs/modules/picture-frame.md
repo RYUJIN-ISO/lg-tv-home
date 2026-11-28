@@ -7,7 +7,7 @@ pictures pan slowly. Optionally it replaces LG's screensaver.
 |---|---|
 | Installer | **Picture Frame** (`FRAME`), part of TV Home |
 | Switch | Settings, **Features**, **Picture Frame** |
-| On the TV | `framesaver.py`, `keepawake.py`, `frameworker.js` in TV Home's app folder; boot hook `/var/lib/webosbrew/init.d/87-frame-saver` |
+| On the TV | `framesaver.py`, `keepawake.py`, `frameworker.js` in TV Home's app folder; boot hook `/var/lib/webosbrew/init.d/87-frame-saver`; the Frame Overlay app `com.iso.frameoverlay` (a copy of TV Home in an overlay window, see `apps/frame-overlay/README.md`) |
 | Removed by | unticking it in `install.sh` (stops the guard, removes the hook, turns LG's screensaver back on if the guard had turned it off) |
 
 ## Using it
@@ -33,7 +33,7 @@ Settings, **Features**, **Picture Frame** (below its On / Off switch):
 | **Change every** | 1, 5, 15, 30 or 60 minutes (when more than one picture). Shuffled; pictures fade into each other |
 | **Motion** | **Pan** (default) glides across large pictures, see below. **Still** fills the screen with the picture's crop, or its centre |
 | **Brightness** | 20 to 100 % (default 60 %). Dims the picture, not the TV |
-| **Instead of Screensaver** | Off by default. When LG's screensaver starts (nothing playing, no key for 3 minutes), LG's shows for about 10 seconds, then the frame takes over. A key ends it and returns to the app you were in |
+| **Instead of Screensaver** | Off by default. When LG's screensaver starts (nothing playing, no key for 3 minutes), LG's shows for about 10 seconds, then the frame takes over. A key ends it and returns to the app you were in. While music plays (Spotify and the like) the frame opens as an overlay over the music app, so the music keeps playing; a key closes it and you're back in that app |
 
 While a frame runs, LG's screensaver never takes over, with this switch on
 or off. LG's own auto power off (if it is on in the TV's settings) still
@@ -95,3 +95,12 @@ changed on the tested model.
 `/tmp/atvhome-awake.log`.
 
 Code: `apps/tv-home/modules/frame/`.
+
+**Over music.** Spotify and other music apps don't keep the TV awake, so
+LG's screensaver asks while they play. Launching TV Home would push the music
+app into the background, where it stops. So when `framesaver.py` sees
+something playing (`luna://com.webos.media/getForegroundAppInfo`,
+`playState: "playing"`) it launches the Frame Overlay app instead, and closes
+LG's screensaver after 2 s (a hidden frame ends itself after 5 s). The music
+app stays the foreground app and keeps playing; the frame ending closes the
+overlay. Without the overlay app, LG's screensaver is left alone.
