@@ -388,8 +388,7 @@
         if (full) { build(pic, full, null, t0); return; }
         var img = new Image();
         img.src = pic.url;
-        var ready = img.decode ? img.decode() : new Promise(function (ok, bad) { img.onload = ok; img.onerror = bad; });
-        ready.then(function () { if (!stopped) build(pic, null, img, t0); }, function () { loading = false; });
+        decoded(img, function () { if (!stopped) build(pic, null, img, t0); }, function () { loading = false; });
       });
     }
 
