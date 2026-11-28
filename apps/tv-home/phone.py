@@ -1,25 +1,31 @@
 # Pictures from a phone for TV Home (run as root via exec).
 #   python3 phone.py start <en|de>  start the upload server (or reuse the running
 #                                   one); print {url, qr} and return at once
-#   python3 phone.py list           print the received pictures [{name, url, w, h}]
-#   python3 phone.py remove <file>  drop a received picture (it was added)
+#   python3 phone.py list           print the pictures added in this session [names]
 #   python3 phone.py stop           stop the server
 #   python3 phone.py serve <lang>   the server itself (started by start)
 #
-# The phone opens http://<tv>:<port>/<token>, picks pictures and sends each one
-# as a JPEG (scaled and turned upright by the phone's browser). They land in
-# cache/phone/, where TV Home shows them like a USB stick: OK crops and adds.
+# The phone opens http://<tv>:<port>/<token>, picks pictures, leaves out any it
+# doesn't want and sends the rest, each as a JPEG (scaled to IMPORT_MAX and
+# turned upright by the phone's browser) plus a 640x360 preview of its centre.
+# They go straight into the library (wallpapers data dir), uncropped; the page
+# also shows the pictures already on the TV, so nothing is sent twice.
 # Only the random token in the address lets a phone in; the server stops by
 # itself after IDLE seconds without a request and after at most LIFE seconds.
 import hmac, json, os, re, secrets, signal, socket, struct, subprocess, sys, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 APP = os.path.dirname(os.path.abspath(__file__))
-STAGE = os.path.join(APP, "cache", "phone")
+STAGE = os.path.join(APP, "cache", "phone")          # qr.svg + added.json
+WALLS = "/var/lib/webosbrew/atvhome/wallpapers"      # the library, as in usb.py
+THUMBS = os.path.join(WALLS, "thumbs")
+BUNDLED = os.path.join(APP, "wallpapers")
+ADDED = os.path.join(STAGE, "added.json")
+PIC = re.compile(r"^[^./][^/]*\.(jpe?g|png|webp)$", re.I)
 STATE = "/tmp/atvhome-phone.json"
 PORTS = range(8765, 8776)
 IDLE, LIFE = 15 * 60, 60 * 60
-MAX_FILES, MAX_BYTES = 30, 40 * 1024 * 1024
+MAX_FILES, MAX_BYTES = 100, 40 * 1024 * 1024   # per session, per picture
 MIN_FREE = 150 * 1024 * 1024   # imports go on to /var (about 1 GB, shared with webOS)
 
 sys.path.insert(0, APP)   # qrcodegen.py next to this file
@@ -75,21 +81,42 @@ def free_bytes(path):
     return v.f_bavail * v.f_frsize
 
 
-def received():
+def added():
+    """File names added in this session, newest first."""
+    try:
+        with open(ADDED) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def on_tv():
+    """The library as the phone sees it: [{name, file}], newest first."""
     out = []
-    if not os.path.isdir(STAGE):
-        return out
-    for n in sorted(os.listdir(STAGE), reverse=True):   # newest first
-        if not n.endswith(".jpg"):
-            continue
-        p = os.path.join(STAGE, n)
+    for d, bundled in ((WALLS, False), (BUNDLED, True)):
         try:
-            wh = size(p)
-        except Exception:
-            wh = None
-        if wh:
-            out.append({"name": n[14:-4] or "phone", "url": "cache/phone/" + n, "w": wh[0], "h": wh[1]})
+            names = [n for n in os.listdir(d) if PIC.match(n) and os.path.isfile(os.path.join(d, n))]
+        except OSError:
+            continue
+        names.sort(key=lambda n: os.path.getmtime(os.path.join(d, n)), reverse=True)
+        out += [{"name": re.sub(r"\.[a-z]+$", "", n, flags=re.I), "file": ("app/" if bundled else "") + n} for n in names]
     return out
+
+
+def preview(file):
+    """Path of a library picture's preview (its own file when it has none)."""
+    if file.startswith("app/"):
+        p = os.path.join(BUNDLED, os.path.basename(file[4:]))
+    else:
+        n = os.path.basename(file)
+        p = os.path.join(THUMBS, n)
+        if not os.path.isfile(p):
+            p = os.path.join(WALLS, n)
+    return p if PIC.match(os.path.basename(p)) and os.path.isfile(p) else None
+
+
+def safe(s):
+    return re.sub(r"[^A-Za-z0-9_-]", "", s)[:30] or "phone"
 
 
 def qr_svg(text):
@@ -102,61 +129,106 @@ def qr_svg(text):
 
 
 TEXT = {
-    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They appear on the TV, where you crop and add them.",
-           "sending": "Sending …", "sent": "On the TV", "failed": "Failed", "full": "The TV is full", "many": "Too many pictures waiting on the TV",
+    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They go straight into All Pictures on the TV. Tap a new one to leave it out.",
+           "new": "New", "ontv": "On the TV", "send": "Add {0} to the TV", "none": "Nothing to add", "out": "Left out",
+           "ready": "Ready", "sending": "Sending …", "sent": "Added", "failed": "Failed", "full": "The TV is full", "many": "Enough for one go: open From Phone on the TV again",
            "format": "This phone can't open this format (RAW?). Save it as JPEG first."},
-    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie erscheinen am Fernseher, dort zuschneiden und hinzufügen.",
-           "sending": "Wird gesendet …", "sent": "Am Fernseher", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Zu viele Bilder warten am Fernseher",
+    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie kommen direkt in Alle Bilder am Fernseher. Ein neues antippen, um es wegzulassen.",
+           "new": "Neu", "ontv": "Am Fernseher", "send": "{0} zum Fernseher hinzufügen", "none": "Nichts hinzuzufügen", "out": "Weggelassen",
+           "ready": "Bereit", "sending": "Wird gesendet …", "sent": "Hinzugefügt", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Genug für einmal: Vom Handy am Fernseher neu öffnen",
            "format": "Dieses Format kann das Handy nicht öffnen (RAW?). Erst als JPEG speichern."},
 }
 
 PAGE = """<!doctype html><html lang="%(lang)s"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>%(title)s</title>
 <style>
-body{margin:0;background:#0d0d0f;color:#fff;font:17px -apple-system,system-ui,sans-serif;padding:32px 20px}
+body{margin:0;background:#0d0d0f;color:#fff;font:17px -apple-system,system-ui,sans-serif;padding:32px 20px 120px}
 h1{font-size:26px;margin:0 0 8px}p{color:#aaa;margin:0 0 28px}
-label{display:block;text-align:center;background:#fff;color:#000;font-weight:600;border-radius:14px;padding:16px}
-input{display:none}ul{list-style:none;padding:0;margin:24px 0 0}
-li{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #222}
-li img{width:64px;height:36px;object-fit:cover;border-radius:4px;background:#222}
-li span{margin-left:auto;color:#aaa;font-size:15px}li.ok span{color:#30d158}li.err span{color:#ff453a}
+h2{font-size:15px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.04em;margin:28px 0 10px}
+h2 b{color:#666;font-weight:600}
+.btn{display:block;width:100%%;box-sizing:border-box;text-align:center;border:0;font:inherit;font-weight:600;border-radius:14px;padding:16px}
+label.btn{background:#fff;color:#000}input{display:none}
+#send{position:fixed;left:20px;right:20px;bottom:24px;width:auto;background:#0a84ff;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.6)}
+#send:disabled{background:#333;color:#888}#send.hide{display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.pic{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#222}
+.pic img{width:100%%;height:100%%;object-fit:cover;display:block}
+.pic i{position:absolute;left:0;right:0;bottom:0;font:600 12px system-ui;font-style:normal;padding:14px 6px 4px;
+  background:linear-gradient(transparent,rgba(0,0,0,.8));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.new .pic{cursor:pointer}.pic.out img{opacity:.25}.pic.out i{color:#ff9f0a}
+.pic.ok i{color:#30d158}.pic.err i{color:#ff453a;white-space:normal}.pic.busy i{color:#ffd60a}
+#new,#tv{display:none}#new.has,#tv.has{display:block}
 </style></head><body><h1>%(title)s</h1><p>%(sub)s</p>
-<label>%(pick)s<input type="file" accept="image/*" multiple></label><ul></ul>
+<label class="btn">%(pick)s<input type="file" accept="image/*" multiple></label>
+<div id="new"><h2>%(new)s</h2><div class="grid new"></div></div>
+<div id="tv"><h2>%(ontv)s <b></b></h2><div class="grid tv"></div></div>
+<button id="send" class="btn hide" disabled></button>
 <script>
-var T=%(json)s, MAX=18e6, queue=Promise.resolve();
-document.querySelector('input').onchange=function(e){
+var T=%(json)s, MAX=18e6, BASE=location.pathname.replace(/\\/$/,''), items=[], busy=false;
+function $(q){return document.querySelector(q);}
+function tile(src,name){var d=document.createElement('div');d.className='pic';d.innerHTML='<img loading="lazy" alt=""><i></i>';
+  d.querySelector('img').src=src;d.querySelector('i').textContent=name;return d;}
+function label(it,c,t){it.el.className='pic'+(c?' '+c:'');it.el.querySelector('i').textContent=t;}
+function sendable(){return items.filter(function(it){return !it.out&&!it.done;});}
+function update(){
+  var n=sendable().length,b=$('#send');
+  $('#new').classList.toggle('has',items.length>0);
+  b.classList.toggle('hide',!items.length);b.disabled=busy||!n;
+  b.textContent=busy?T.sending:(n?T.send.replace('{0}',n):T.none);
+}
+$('input').onchange=function(e){
   [].slice.call(e.target.files).forEach(function(f){
-    var li=document.createElement('li'), url=URL.createObjectURL(f);
-    li.innerHTML='<img><b></b><span></span>';
-    li.querySelector('img').src=url; li.querySelector('b').textContent=f.name.replace(/\\.[^.]+$/,'').slice(0,24);
-    li.querySelector('span').textContent=T.sending;
-    document.querySelector('ul').appendChild(li);
-    queue=queue.then(function(){return send(f,url,li);});
+    var it={f:f,url:URL.createObjectURL(f),name:f.name.replace(/\\.[^.]+$/,'')};
+    it.el=tile(it.url,it.name);label(it,'',T.ready);
+    it.el.onclick=function(){if(busy||it.done)return;it.out=!it.out;label(it,it.out?'out':'',it.out?T.out:T.ready);update();};
+    $('.grid.new').appendChild(it.el);items.push(it);
   });
-  e.target.value='';
+  e.target.value='';update();
 };
-function send(f,url,li){
+$('#send').onclick=function(){
+  var todo=sendable();if(!todo.length||busy)return;busy=true;update();
+  (function next(i){
+    if(i>=todo.length){busy=false;update();loadTv();return;}
+    label(todo[i],'busy',T.sending);send(todo[i]).then(function(){next(i+1);});
+  })(0);
+};
+function blob(c,q){return new Promise(function(ok){c.toBlob(ok,'image/jpeg',q);});}
+function post(path,b){return fetch(BASE+path,{method:'POST',body:b,headers:{'Content-Type':'image/jpeg'}})
+  .then(function(r){return r.text().then(function(t){if(!r.ok)throw new Error(t);return t;});});}
+function send(it){
   return new Promise(function(done){
     var img=new Image();
     img.onload=function(){
       var W=img.naturalWidth,H=img.naturalHeight,s=Math.min(1,Math.sqrt(MAX/(W*H))),c=document.createElement('canvas');
       c.width=Math.round(W*s);c.height=Math.round(H*s);var g=c.getContext('2d');g.fillStyle='#0d0d0f';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
-      c.toBlob(function(b){
-        fetch(location.pathname.replace(/\\/$/,'')+'/upload?name='+encodeURIComponent(f.name.replace(/\\.[^.]+$/,'')),{method:'POST',body:b,headers:{'Content-Type':'image/jpeg'}})
-          .then(function(r){return r.text().then(function(t){mark(li,r.ok?'ok':'err',r.ok?T.sent:(T[t]||T.failed));});},
-                function(){mark(li,'err',T.failed);}).then(done);
-      },'image/jpeg',0.9);
+      // the preview: the centre 16:9, like an uncropped picture on the TV
+      var fw=Math.min(W,H*16/9),fh=fw*9/16,th=document.createElement('canvas');th.width=640;th.height=360;
+      var tg=th.getContext('2d');tg.fillStyle='#0d0d0f';tg.fillRect(0,0,640,360);tg.drawImage(img,(W-fw)/2,(H-fh)/2,fw,fh,0,0,640,360);
+      Promise.all([blob(c,0.9),blob(th,0.85)]).then(function(b){
+        return post('/upload?name='+encodeURIComponent(it.name),b[0]).then(function(file){return post('/thumb?file='+encodeURIComponent(file),b[1]);});
+      }).then(function(){it.done=true;it.el.onclick=null;label(it,'ok',T.sent);},
+              function(e){label(it,'err',T[e.message]||T.failed);}).then(done);
     };
-    img.onerror=function(){mark(li,'err',T.format);done();};
-    img.src=url;
+    img.onerror=function(){label(it,'err',T.format);done();};
+    img.src=it.url;
   });
 }
-function mark(li,c,t){li.className=c;li.querySelector('span').textContent=t;}
+function loadTv(){
+  fetch(BASE+'/pictures').then(function(r){return r.json();}).then(function(list){
+    var g=$('.grid.tv');g.innerHTML='';
+    list.forEach(function(p){g.appendChild(tile(BASE+'/preview/'+encodeURIComponent(p.file),p.name));});
+    $('#tv').classList.toggle('has',list.length>0);$('#tv h2 b').textContent=list.length;
+  },function(){});
+}
+loadTv();
 </script></body></html>"""
 
 
 def serve(lang):
+    import threading
     os.makedirs(STAGE, exist_ok=True)
+    os.makedirs(WALLS, exist_ok=True)
+    lock = threading.Lock()
     token = secrets.token_urlsafe(8)
     text = TEXT.get(lang, TEXT["en"])
     page = (PAGE % dict(text, lang=lang, json=json.dumps(text))).encode()
@@ -182,43 +254,92 @@ def serve(lang):
             self.end_headers()
             self.wfile.write(body)
 
+        def query(self, key):
+            from urllib.parse import unquote
+            q = self.path.split("?", 1)[1] if "?" in self.path else ""
+            m = re.search(r"(?:^|&)" + key + r"=([^&]*)", q)
+            return unquote(m.group(1)) if m else ""
+
         def do_GET(self):
             rest = self.ok_token()
+            if rest is None:
+                return
             if rest == []:
                 self.reply(200, page, "text/html; charset=utf-8")
-            elif rest is not None:
+            elif rest == ["pictures"]:
+                self.reply(200, json.dumps(on_tv()).encode(), "application/json")
+            elif len(rest) == 2 and rest[0] == "preview":
+                from urllib.parse import unquote
+                p = preview(unquote(rest[1]))
+                if not p:
+                    self.reply(404, b"")
+                    return
+                with open(p, "rb") as f:
+                    body = f.read()
+                ext = p.rsplit(".", 1)[-1].lower()
+                self.reply(200, body, {"png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg"))
+            else:
                 self.reply(404, b"")
 
-        def do_POST(self):
-            rest = self.ok_token()
-            if rest != ["upload"]:
-                if rest is not None:
-                    self.reply(404, b"")
-                return
+        def body(self):
             n = int(self.headers.get("Content-Length") or 0)
             if n <= 0 or n > MAX_BYTES:
                 self.reply(413, b"failed")
-                return
-            if len(received()) >= MAX_FILES:
-                self.reply(507, b"many")
-                return
-            if min(free_bytes(STAGE), free_bytes("/var")) - n < MIN_FREE:
+                return None
+            if free_bytes(WALLS) - n < MIN_FREE:
                 self.reply(507, b"full")
-                return
+                return None
             data = self.rfile.read(n)
             if data[:2] != b"\xff\xd8":
                 self.reply(415, b"failed")
+                return None
+            return data
+
+        def do_POST(self):
+            rest = self.ok_token()
+            if rest is None:
                 return
-            q = self.path.split("?", 1)[1] if "?" in self.path else ""
-            m = re.search(r"(?:^|&)name=([^&]*)", q)
-            from urllib.parse import unquote
-            name = re.sub(r"[^A-Za-z0-9_-]", "", unquote(m.group(1)) if m else "")[:30] or "phone"
-            fn = "%013d%s.jpg" % (int(time.time() * 1000) % 10 ** 13, "-" + name)
-            tmp = os.path.join(STAGE, "." + fn)
-            with open(tmp, "wb") as f:
-                f.write(data)
-            os.rename(tmp, os.path.join(STAGE, fn))   # list never sees half a file
-            self.reply(200, b"ok")
+            if rest == ["upload"]:
+                # A new picture: into the library under a free name, uncropped.
+                with lock:
+                    if len(added()) >= MAX_FILES:
+                        self.reply(507, b"many")
+                        return
+                data = self.body()
+                if data is None:
+                    return
+                with lock:
+                    base = safe(self.query("name"))
+                    fn = "%s-%s.jpg" % (base, str(int(time.time() * 1000))[-5:])
+                    while os.path.exists(os.path.join(WALLS, fn)):
+                        fn = "%s-%05d.jpg" % (base, secrets.randbelow(10 ** 5))
+                    tmp = os.path.join(WALLS, "." + fn + ".part")   # TV Home never lists half a file
+                    with open(tmp, "wb") as f:
+                        f.write(data)
+                    os.rename(tmp, os.path.join(WALLS, fn))
+                    done = added()
+                    done.insert(0, fn)
+                    with open(ADDED + ".tmp", "w") as f:
+                        json.dump(done, f)
+                    os.rename(ADDED + ".tmp", ADDED)
+                self.reply(200, fn.encode())
+            elif rest == ["thumb"]:
+                # Its preview, only for a picture this session added.
+                fn = os.path.basename(self.query("file"))
+                if fn not in added():
+                    self.reply(404, b"failed")
+                    return
+                data = self.body()
+                if data is None:
+                    return
+                os.makedirs(THUMBS, exist_ok=True)
+                tmp = os.path.join(THUMBS, "." + fn + ".part")
+                with open(tmp, "wb") as f:
+                    f.write(data)
+                os.rename(tmp, os.path.join(THUMBS, fn))
+                self.reply(200, b"ok")
+            else:
+                self.reply(404, b"")
 
     class Server(ThreadingHTTPServer):
         daemon_threads = True
@@ -259,7 +380,7 @@ def serve(lang):
 def start(lang):
     st = running()
     if not st:
-        # A new session: pictures left from the last one are gone.
+        # A new session: the QR code and the list of added pictures start afresh.
         if os.path.isdir(STAGE):
             for n in os.listdir(STAGE):
                 try:
@@ -286,14 +407,7 @@ if cmd == "start":
 elif cmd == "serve":
     serve(sys.argv[2] if len(sys.argv) > 2 else "en")
 elif cmd == "list":
-    print(json.dumps(received()))
-elif cmd == "remove":   # a picture added to the library
-    n = os.path.basename(sys.argv[2]) if len(sys.argv) > 2 else ""
-    if re.match(r"^[0-9]{13}-[A-Za-z0-9_-]+\.jpg$", n):
-        try:
-            os.remove(os.path.join(STAGE, n))
-        except OSError:
-            pass
+    print(json.dumps(added()))
 elif cmd == "stop":
     st = running()
     if st:

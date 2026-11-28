@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.38.0';
+var VERSION = '0.39.0';
 // The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
 // apps/frame-overlay): only the Picture Frame, in an overlay window over the
 // app on screen (music keeps playing under it). No home screen at all.
@@ -243,14 +243,14 @@ var STRINGS = {
     libHint: '{ok} open · {hold} options', wpUseHint: '{ok} wallpaper · {hold} ★, crop, folders',
     usbHint: '{ok} crop and add',
     fromPhone: 'From Phone …', phoneStarting: 'Getting ready …', phoneFailed: 'The phone connection could not start.',
-    phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there. They appear here; OK crops and adds them.', phoneWaiting: 'Waiting for pictures …',
+    phoneScan: 'Scan with your phone’s camera, or open:', phoneSteps: 'Choose pictures there and add them. They go straight into All Pictures and show up here.', phoneWaiting: 'Waiting for pictures …',
     crop: 'Crop', cropSet: 'Set', inFolders: 'In folders', noFolders: 'No folders yet',
     allPictures: 'All pictures', selection: 'Selection', choosePictures: 'Choose Pictures',
     deleteFolder: 'Delete Folder', deleteFolderQ: 'Delete folder?', deleteFolderSub: 'The pictures stay.',
     wholePicture: 'Reset', upscaled: 'Upscaled {0}%',
     framePickHint: '{ok} in / out · {hold} crop',
     brightness: 'Brightness',
-    favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
+    favourites: 'Favourites', favourite: 'Favourite', cutQ: 'Crop permanently?', cutSub: 'Everything outside the frame is deleted from the TV. This can\'t be undone.', cutYes: 'Crop Permanently', cutting: 'Cropping the picture …', turning: 'Turning the picture …', deletePicture: 'Delete Picture', deletePictureQ: 'Delete picture?', deletePictureSub: 'It is removed from the TV and from all folders. This can\'t be undone.', deleteYes: 'Delete', deleteFailed: 'Could not delete the picture.'
   },
   de: {
     settings: 'Einstellungen', settingsTitle: 'Startbildschirm', language: 'Sprache',
@@ -291,14 +291,14 @@ var STRINGS = {
     libHint: '{ok} öffnen · {hold} Optionen', wpUseHint: '{ok} Hintergrund · {hold} ★, Ausschnitt, Ordner',
     usbHint: '{ok} zuschneiden und hinzufügen',
     fromPhone: 'Vom Handy …', phoneStarting: 'Wird vorbereitet …', phoneFailed: 'Die Verbindung zum Handy konnte nicht starten.',
-    phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen. Sie erscheinen hier; OK schneidet zu und fügt hinzu.', phoneWaiting: 'Warte auf Bilder …',
+    phoneScan: 'Mit der Handykamera scannen oder öffnen:', phoneSteps: 'Dort Bilder wählen und hinzufügen. Sie kommen direkt in Alle Bilder und erscheinen hier.', phoneWaiting: 'Warte auf Bilder …',
     crop: 'Ausschnitt', cropSet: 'Gesetzt', inFolders: 'In Ordnern', noFolders: 'Noch keine Ordner',
     allPictures: 'Alle Bilder', selection: 'Auswahl', choosePictures: 'Bilder auswählen',
     deleteFolder: 'Ordner löschen', deleteFolderQ: 'Ordner löschen?', deleteFolderSub: 'Die Bilder bleiben.',
     wholePicture: 'Zurücksetzen', upscaled: 'Hochskaliert {0} %',
     framePickHint: '{ok} rein / raus · {hold} Ausschnitt',
     brightness: 'Helligkeit',
-    favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
+    favourites: 'Favoriten', favourite: 'Favorit', cutQ: 'Endgültig zuschneiden?', cutSub: 'Alles außerhalb des Rahmens wird vom Fernseher gelöscht. Das lässt sich nicht rückgängig machen.', cutYes: 'Endgültig zuschneiden', cutting: 'Bild wird zugeschnitten …', turning: 'Bild wird gedreht …', deletePicture: 'Bild löschen', deletePictureQ: 'Bild löschen?', deletePictureSub: 'Es wird vom Fernseher und aus allen Ordnern entfernt. Das lässt sich nicht rückgängig machen.', deleteYes: 'Löschen', deleteFailed: 'Das Bild konnte nicht gelöscht werden.'
   }
 };
 var LANG_NAMES = { en: 'English', de: 'Deutsch' };
@@ -1631,6 +1631,7 @@ var INFO = {
     { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
     { en: '{ok} save · {back} cancel', de: '{ok} speichern · {back} abbrechen' },
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
+    { en: '↻ turns the picture a quarter to the right', de: '↻ dreht das Bild um eine Vierteldrehung nach rechts' },
     { en: 'The file stays whole · ✂ cuts it for good (asks first)', de: 'Die Datei bleibt ganz · ✂ schneidet sie endgültig (fragt vorher)' }
   ] },
   settings: { title: { en: 'TV Home', de: 'TV Home' }, lines: [
@@ -2300,12 +2301,48 @@ function choosePictures(fo) {
 }
 
 function editCrop(w) {
+  var turning = null;   // ↻: the file is rewritten a moment after the last press
   cropPicture({ url: w.url, rect: cropOf(w.name), onSave: function (rect, img) {
     if (rect) library().crops[w.name] = rect; else delete library().crops[w.name];
     saveConfig();
     applyLook();
     cropThumb(w, rect, img);
-  }, onCut: w.bundled ? null : function (rect, img, done) { cutPicture(w, rect, img, done); } });
+  }, onCut: w.bundled ? null : function (rect, img, done) { clearTimeout(turning); cutPicture(w, rect, img, done); },
+  onTurn: w.bundled ? null : function (img) {
+    // img: the turned picture as the crop screen shows it. Its old crop no
+    // longer fits; a crop saved after this is already in turned coordinates.
+    delete library().crops[w.name];
+    saveConfig();
+    clearTimeout(turning);
+    turning = setTimeout(function () { turnPicture(w, img); }, 1500);
+  } });
+}
+
+// ↻ in the crop screen (library picture): the file is replaced by the turned
+// picture, under the same name, and its preview follows.
+function turnPicture(w, img) {
+  showHint(t('turning'));
+  var c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  replacePicture(w, c, function (ok) {
+    if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    cropThumb(w, cropOf(w.name), img, function () { showHint(''); applyLook(); load(); });
+  });
+}
+
+// The picture file of w replaced by the canvas (JPEG, sent in parts).
+function replacePicture(w, canvas, done) {
+  var b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+  var id = 'rep' + Date.now(), name = "'" + w.name.replace(/'/g, "'\\''") + "'";
+  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB
+  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
+  (function send(i) {
+    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
+    exec(USB_PY + ' replace ' + id + ' ' + name, function (res) {
+      done(res.returnValue !== false && (res.stdoutString || '').trim() === 'ok');
+    });
+  })(0);
 }
 
 // ✂ in the crop screen: the picture file is cut to the crop for good (after
@@ -2319,28 +2356,20 @@ function cutPicture(w, rect, img, done) {
   var c = document.createElement('canvas');
   c.width = sw; c.height = sh;
   c.getContext('2d').drawImage(img, rect.x * W, rect.y * H, sw, sh, 0, 0, sw, sh);
-  var b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1];
   var thumb = document.createElement('canvas');
   thumb.width = 640; thumb.height = 360;
   thumb.getContext('2d').drawImage(c, 0, 0, 640, 360);
-  var id = 'cut' + Date.now(), name = "'" + w.name.replace(/'/g, "'\\''") + "'";
-  var CH = 100000, parts = [];   // one exec argument must stay < 128 KiB
-  for (var i = 0; i < b64.length; i += CH) parts.push(b64.slice(i, i + CH));
-  (function send(i) {
-    if (i < parts.length) { exec(USB_PY + ' chunk ' + id + ' ' + parts[i], function () { send(i + 1); }); return; }
-    exec(USB_PY + ' replace ' + id + ' ' + name, function (res) {
-      if (res.returnValue === false || (res.stdoutString || '').trim() !== 'ok') {
-        showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return;
-      }
-      delete library().crops[w.name];
-      saveConfig();
-      exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
-        showHint('');
-        if (done) done();
-        load();
-      });
+  var name = "'" + w.name.replace(/'/g, "'\\''") + "'";
+  replacePicture(w, c, function (ok) {
+    if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    delete library().crops[w.name];
+    saveConfig();
+    exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
+      showHint('');
+      if (done) done();
+      load();
     });
-  })(0);
+  });
 }
 
 // The picture's preview card shows its crop (or the centre without one).
@@ -2407,11 +2436,12 @@ function chooseUsbPicture(mode) {
 // ---------------------------------------------------------------- phone pictures
 
 // From Phone: phone.py starts a small upload server on the TV (or reuses the
-// running one) and draws its address as a QR code. Pictures sent from the
-// phone show up in the grid (checked every 2 s), like a USB stick: OK crops
-// and adds one, then the view comes back for the next. The server stops by
-// itself after 15 minutes without a request, so pictures still waiting are
-// there when the view is opened again.
+// running one) and draws its address as a QR code. The phone page shows the
+// pictures already on the TV next to the new ones (a new one can be left
+// out) and sends the rest straight into the library, uncropped. Here the
+// pictures added in this session show up (checked every 2 s) like in All
+// Pictures: OK uses one, hold OK has its options (crop, folders …). The
+// server stops by itself after 15 minutes without a request.
 var PHONE_PY = 'python3 ' + APP_DIR + 'phone.py';
 
 function choosePhonePicture(mode) {
@@ -2421,7 +2451,7 @@ function choosePhonePicture(mode) {
     var info = {};
     try { info = JSON.parse(res.stdoutString || '{}'); } catch (e) {}
     if (!info.url) { showHint(t('phoneFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
-    var el = pickerLayer(t('fromPhone'), t('usbHint'));
+    var el = pickerLayer(t('fromPhone'), t(mode.hint));
     el.classList.add('side', 'phone');
     el.querySelector('.inner').insertAdjacentHTML('beforeend',
       '<div class="phonePanel"><img class="qr" alt=""><div class="scan"></div><div class="url"></div>' +
@@ -2433,25 +2463,44 @@ function choosePhonePicture(mode) {
     el.querySelector('.phoneEmpty').textContent = t('phoneWaiting');
     var grid = new Grid({
       container: el.querySelector('.grid'), cols: 3,
-      onActivate: function (e) {
-        if (e) cropPicture({ url: e.pic.url, name: e.pic.name, mode: mode, onSave: null, phone: true });
-      }
+      decorate: function (tile, e) {
+        if (isFav(e.key)) tile.insertAdjacentHTML('beforeend', '<div class="fav">★</div>');
+        if (!mode.picOn) return;
+        tile.insertAdjacentHTML('beforeend', '<div class="badge">' + ICONS.check + '</div>');
+        tile.classList.toggle('picked', mode.picOn(e.key));
+      },
+      onActivate: function (e) { if (e) mode.pick(null, e, grid); },
+      onLongPress: function (e) { if (e) pictureOptions(e.wp); }
     });
-    var view = pickerView(el, grid), seen = '';
+    var view = pickerView(el, grid), names = [], shown = '', loadedAt = 0;
+    function show() {
+      var list = [];
+      names.forEach(function (n) {
+        state.wallpapers.forEach(function (w) {
+          if (w.name === n) list.push({ type: 'image', key: w.name, title: w.name.replace(/\.[a-z]+$/i, ''), url: picThumb(w), wp: w });
+        });
+      });
+      var sig = list.map(function (e) { return e.key + e.url; }).join('|');
+      el.classList.toggle('waiting', !list.length);
+      if (sig === shown) return;
+      shown = sig;
+      grid.set(list, grid.entries[grid.focus] && grid.entries[grid.focus].key);
+    }
     function poll() {
       exec(PHONE_PY + ' list', function (r) {
-        var out = r.stdoutString || '[]';
-        if (out === seen || stack.indexOf(view) < 0) return;
-        seen = out;
-        var list = [];
-        try { list = JSON.parse(out); } catch (e) {}
-        el.classList.toggle('waiting', !list.length);
-        grid.set(list.map(function (p) { return { type: 'image', key: p.url, title: p.name, url: p.url, pic: p }; }));
+        if (stack.indexOf(view) < 0) return;
+        var now = [];
+        try { now = JSON.parse(r.stdoutString || '[]'); } catch (e) {}
+        var fresh = now.some(function (n) { return !state.wallpapers.some(function (w) { return w.name === n; }); });
+        names = now;
+        // cache.js copies the new files; a later poll shows them
+        if (fresh && Date.now() - loadedAt > 6000) { loadedAt = Date.now(); load(); }
+        show();
       });
     }
     var timer = setInterval(poll, 2000);
     view.onClose = function () { clearInterval(timer); };
-    view.refresh = function () { seen = ''; poll(); };
+    view.refresh = function () { shown = ''; show(); };
     el.classList.add('waiting');
     push(view);
     grid.set([]);
@@ -2485,10 +2534,6 @@ function importPicture(pic, img, rect) {
         library().crops[file] = rect;
         if (pic.mode.wallpaper) { cfg().wallpaper = file; cfg().rotatedAt = Date.now(); }
         saveConfig();
-        if (pic.phone) {   // back to the phone's pictures for the next one
-          exec(PHONE_PY + " remove '" + pic.url.split('/').pop().replace(/'/g, '') + "'", function () { pop(); load(); });
-          return;
-        }
         closeAll();
         load();
       });
@@ -2499,11 +2544,19 @@ function importPicture(pic, img, rect) {
 // Crop screen: a 16:9 frame over the whole picture. It starts in the bar
 // (Smaller, Larger, sharpness, Reset, i); Up moves to the frame, where the
 // arrows move it, OK saves and Back cancels (both back to the bar). The label says how sharp the crop is on the 4K screen.
-// pic: {url, rect?, onSave(rect or null, img)} for a picture in the library, or
-// {url, name, mode} from USB (OK in the frame imports it).
+// pic: {url, rect?, onSave(rect or null, img), onCut?, onTurn?(img)} for a
+// picture in the library, or {url, name, mode} from USB (OK in the frame
+// imports it). ↻ turns the picture a quarter to the right: the screen opens
+// again on the turned picture (pic.base = the picture as loaded, pic.turn =
+// quarters, so every turn is drawn from the picture as first loaded, not
+// from a copy of a copy). A library picture's file follows (onTurn); a USB one is imported
+// turned.
 function cropPicture(pic) {
   var probe = new Image();
-  probe.onload = function () { openCrop(pic, probe); };
+  probe.onload = function () {
+    if (pic.replace) { pic.replace = false; pop(); }
+    openCrop(pic, probe);
+  };
   probe.onerror = function () { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); };
   probe.src = pic.url;
 }
@@ -2514,6 +2567,7 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
+    (pic.onSave && !pic.onTurn ? '' : '<div class="pill" data-a="turn">↻</div>') +
     (pic.onCut ? '<div class="pill cut" data-a="cut">✂</div>' : '') + '<div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
@@ -2522,6 +2576,7 @@ function openCrop(pic, probe) {
   var k = Math.min(AREA_W / W, AREA_H / H);          // picture px -> screen px
   var ox = (1920 - W * k) / 2, oy = 60 + (AREA_H - H * k) / 2;
   img.style.cssText = 'left:' + ox + 'px;top:' + oy + 'px;width:' + W * k + 'px;height:' + H * k + 'px';
+  if (pic.onOpen) { var opened = pic.onOpen; pic.onOpen = null; img.onload = function () { opened(img); }; }
   img.src = pic.url;
   var f;
   function centre() { var fw = Math.min(W, H * 16 / 9); f = { w: fw, x: (W - fw) / 2, y: (H - fw * 9 / 16) / 2 }; }
@@ -2529,7 +2584,7 @@ function openCrop(pic, probe) {
   if (pic.rect) f = { w: pic.rect.w * W, x: pic.rect.x * W, y: pic.rect.y * H };
   // Starts in the bar. Up: the frame (arrows move it); OK there saves and
   // goes back to the bar, Back goes back without saving.
-  var focus = 0, barFocus = 0;                        // focus -1 = frame, else pill index
+  var focus = pic.barFocus || 0, barFocus = focus;    // focus -1 = frame, else pill index
   var saved = { w: f.w, x: f.x, y: f.y };
 
   function clamp() {
@@ -2579,7 +2634,30 @@ function openCrop(pic, probe) {
       confirmSheet(t('cutQ'), t('cutSub'), t('cutYes'), function () {
         pic.onCut(rect(), img, function () { if (stack[stack.length - 1] === view) pop(); });
       });
-    } else if (a === 'info') toggleLegend('crop', true);
+    } else if (a === 'turn') turn();
+    else if (a === 'info') toggleLegend('crop', true);
+  }
+  function turn() {
+    var base = pic.base || probe, q = ((pic.turn || 0) + 1) % 4;
+    var next = {};
+    for (var key in pic) next[key] = pic[key];
+    next.base = base; next.turn = q; next.rect = null; next.replace = true;
+    next.barFocus = focus;
+    var bw = base.naturalWidth, bh = base.naturalHeight, c = document.createElement('canvas');
+    c.width = q % 2 ? bh : bw; c.height = q % 2 ? bw : bh;
+    var g = c.getContext('2d');
+    g.translate(c.width / 2, c.height / 2);
+    g.rotate(q * Math.PI / 2);
+    g.drawImage(base, -bw / 2, -bh / 2);
+    showHint(t('turning'));
+    if (c.toBlob) c.toBlob(function (b) { next.url = URL.createObjectURL(b); open(); }, 'image/jpeg', 0.95);
+    else { next.url = c.toDataURL('image/jpeg', 0.95); open(); }
+    function open() {
+      showHint('');
+      if (pic.url.indexOf('blob:') === 0) { var old = pic.url; setTimeout(function () { URL.revokeObjectURL(old); }, 5000); }
+      next.onOpen = function (img) { if (next.onTurn) next.onTurn(img); };
+      cropPicture(next);
+    }
   }
 
   var view = { el: el };
