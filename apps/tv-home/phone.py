@@ -91,7 +91,9 @@ def added():
 
 
 def on_tv():
-    """The library as the phone sees it: [{name, file}], newest first."""
+    """The library as the phone sees it: [{name, file, key}], newest first.
+    key: the name a picture was imported under, without the -12345 that
+    imports add, so the phone can find pictures sent before (same name)."""
     out = []
     for d, bundled in ((WALLS, False), (BUNDLED, True)):
         try:
@@ -99,7 +101,9 @@ def on_tv():
         except OSError:
             continue
         names.sort(key=lambda n: os.path.getmtime(os.path.join(d, n)), reverse=True)
-        out += [{"name": re.sub(r"\.[a-z]+$", "", n, flags=re.I), "file": ("app/" if bundled else "") + n} for n in names]
+        for n in names:
+            base = re.sub(r"\.[a-z]+$", "", n, flags=re.I)
+            out.append({"name": base, "file": ("app/" if bundled else "") + n, "key": key(re.sub(r"(.)-[0-9]{5}$", r"\1", base))})
     return out
 
 
@@ -119,6 +123,10 @@ def safe(s):
     return re.sub(r"[^A-Za-z0-9_-]", "", s)[:30] or "phone"
 
 
+def key(s):   # what two names have in common when they are the same picture (the page does the same)
+    return safe(s).lower()
+
+
 def qr_svg(text):
     from qrcodegen import QrCode
     q = QrCode.encode_text(text, QrCode.Ecc.MEDIUM)
@@ -129,12 +137,12 @@ def qr_svg(text):
 
 
 TEXT = {
-    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They go straight into All Pictures on the TV. Tap a new one to leave it out.",
-           "new": "New", "ontv": "On the TV", "send": "Add {0} to the TV", "none": "Nothing to add", "out": "Left out",
+    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They go straight into All Pictures on the TV. A picture with the same name already on the TV is shown next to it and left out; tap to add it anyway.",
+           "new": "New", "ontv": "On the TV", "same": "Same name on the TV", "send": "Add {0} to the TV", "none": "Nothing to add", "out": "Left out",
            "ready": "Ready", "sending": "Sending …", "sent": "Added", "failed": "Failed", "full": "The TV is full", "many": "Enough for one go: open From Phone on the TV again",
            "format": "This phone can't open this format (RAW?). Save it as JPEG first."},
-    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie kommen direkt in Alle Bilder am Fernseher. Ein neues antippen, um es wegzulassen.",
-           "new": "Neu", "ontv": "Am Fernseher", "send": "{0} zum Fernseher hinzufügen", "none": "Nichts hinzuzufügen", "out": "Weggelassen",
+    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie kommen direkt in Alle Bilder am Fernseher. Ein Bild mit gleichem Namen am Fernseher steht daneben und wird weggelassen; antippen, um es trotzdem hinzuzufügen.",
+           "new": "Neu", "ontv": "Am Fernseher", "same": "Gleicher Name am Fernseher", "send": "{0} zum Fernseher hinzufügen", "none": "Nichts hinzuzufügen", "out": "Weggelassen",
            "ready": "Bereit", "sending": "Wird gesendet …", "sent": "Hinzugefügt", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Genug für einmal: Vom Handy am Fernseher neu öffnen",
            "format": "Dieses Format kann das Handy nicht öffnen (RAW?). Erst als JPEG speichern."},
 }
@@ -151,20 +159,23 @@ label.btn{background:#fff;color:#000}input{display:none}
 #send{position:fixed;left:20px;right:20px;bottom:24px;width:auto;background:#0a84ff;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.6)}
 #send:disabled{background:#333;color:#888}#send.hide{display:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.row{display:flex;gap:10px;align-items:stretch;padding:10px 0;border-bottom:1px solid #222;cursor:pointer}
+.row>.pic{flex:1}.row .tvs{flex:1;display:flex;flex-direction:column;gap:6px}
+.row .tvs:empty{display:none}.row .tvs .pic{outline:2px solid #ff9f0a;outline-offset:-2px}
+.row .tvs .pic i{color:#ff9f0a}
 .pic{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:#222}
 .pic img{width:100%%;height:100%%;object-fit:cover;display:block}
 .pic i{position:absolute;left:0;right:0;bottom:0;font:600 12px system-ui;font-style:normal;padding:14px 6px 4px;
   background:linear-gradient(transparent,rgba(0,0,0,.8));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.new .pic{cursor:pointer}.pic.out img{opacity:.25}.pic.out i{color:#ff9f0a}
+.pic.out img{opacity:.25}.pic.out i{color:#ff9f0a}
 .pic.ok i{color:#30d158}.pic.err i{color:#ff453a;white-space:normal}.pic.busy i{color:#ffd60a}
-#new,#tv{display:none}#new.has,#tv.has{display:block}
+#new{display:none}#new.has{display:block}
 </style></head><body><h1>%(title)s</h1><p>%(sub)s</p>
 <label class="btn">%(pick)s<input type="file" accept="image/*" multiple></label>
-<div id="new"><h2>%(new)s</h2><div class="grid new"></div></div>
-<div id="tv"><h2>%(ontv)s <b></b></h2><div class="grid tv"></div></div>
+<div id="new"><h2>%(new)s</h2><div class="rows"></div></div>
 <button id="send" class="btn hide" disabled></button>
 <script>
-var T=%(json)s, MAX=18e6, BASE=location.pathname.replace(/\\/$/,''), items=[], busy=false;
+var T=%(json)s, MAX=18e6, BASE=location.pathname.replace(/\\/$/,''), items=[], busy=false, tv=null;
 function $(q){return document.querySelector(q);}
 function tile(src,name){var d=document.createElement('div');d.className='pic';d.innerHTML='<img loading="lazy" alt=""><i></i>';
   d.querySelector('img').src=src;d.querySelector('i').textContent=name;return d;}
@@ -176,12 +187,22 @@ function update(){
   b.classList.toggle('hide',!items.length);b.disabled=busy||!n;
   b.textContent=busy?T.sending:(n?T.send.replace('{0}',n):T.none);
 }
+function key(n){return n.replace(/[^A-Za-z0-9_-]/g,'').slice(0,30).toLowerCase()||'phone';}
+// Pictures on the TV with this one's name, next to it (the newest first).
+function twins(it){
+  var box=it.row.querySelector('.tvs'),same=(tv||[]).filter(function(p){return p.key===key(it.name);});
+  box.innerHTML='';
+  same.slice(0,3).forEach(function(p){box.appendChild(tile(BASE+'/preview/'+encodeURIComponent(p.file),T.same+' · '+p.name));});
+  if(same.length&&!it.seen&&!it.done){it.seen=true;it.out=true;label(it,'out',T.out);}
+}
 $('input').onchange=function(e){
   [].slice.call(e.target.files).forEach(function(f){
     var it={f:f,url:URL.createObjectURL(f),name:f.name.replace(/\\.[^.]+$/,'')};
     it.el=tile(it.url,it.name);label(it,'',T.ready);
-    it.el.onclick=function(){if(busy||it.done)return;it.out=!it.out;label(it,it.out?'out':'',it.out?T.out:T.ready);update();};
-    $('.grid.new').appendChild(it.el);items.push(it);
+    it.row=document.createElement('div');it.row.className='row';it.row.appendChild(it.el);
+    it.row.insertAdjacentHTML('beforeend','<div class="tvs"></div>');
+    it.row.onclick=function(){if(busy||it.done)return;it.out=!it.out;label(it,it.out?'out':'',it.out?T.out:T.ready);update();};
+    $('.rows').appendChild(it.row);items.push(it);twins(it);
   });
   e.target.value='';update();
 };
@@ -206,7 +227,7 @@ function send(it){
       var tg=th.getContext('2d');tg.fillStyle='#0d0d0f';tg.fillRect(0,0,640,360);tg.drawImage(img,(W-fw)/2,(H-fh)/2,fw,fh,0,0,640,360);
       Promise.all([blob(c,0.9),blob(th,0.85)]).then(function(b){
         return post('/upload?name='+encodeURIComponent(it.name),b[0]).then(function(file){return post('/thumb?file='+encodeURIComponent(file),b[1]);});
-      }).then(function(){it.done=true;it.el.onclick=null;label(it,'ok',T.sent);},
+      }).then(function(){it.done=true;label(it,'ok',T.sent);},
               function(e){label(it,'err',T[e.message]||T.failed);}).then(done);
     };
     img.onerror=function(){label(it,'err',T.format);done();};
@@ -215,9 +236,7 @@ function send(it){
 }
 function loadTv(){
   fetch(BASE+'/pictures').then(function(r){return r.json();}).then(function(list){
-    var g=$('.grid.tv');g.innerHTML='';
-    list.forEach(function(p){g.appendChild(tile(BASE+'/preview/'+encodeURIComponent(p.file),p.name));});
-    $('#tv').classList.toggle('has',list.length>0);$('#tv h2 b').textContent=list.length;
+    tv=list;items.forEach(function(it){if(!it.done)twins(it);});update();
   },function(){});
 }
 loadTv();
