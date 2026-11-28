@@ -83,8 +83,12 @@ deep links can't work. Instead:
    (`127.0.0.1:9998`); store apps can't.
 3. `plex.py play <id>` / `open <id>` launches plexlink, waits until Plex has
    drawn its screen and is signed in, then calls Plex's own
-   `appController.processDeepLink` with the item (and its resume offset)
-   through `devtools.py`, a small standard library DevTools client. The
+   `appController.processDeepLink` with the item (and `autoplay` to resume)
+   through `devtools.py`, a small standard library DevTools client. Resume
+   passes no `offset`: Plex then starts at its own watch position, for the
+   first item only. An explicit offset would also apply to every later
+   episode Plex hadn't prepared in advance (e.g. the next one picked from
+   the end-of-episode countdown). The
    result of the last call is in `/var/lib/webosbrew/atvhome/plex-play.log`.
 4. If any of this fails, Plex stays on its home screen; if plexlink is
    missing, the store app opens.

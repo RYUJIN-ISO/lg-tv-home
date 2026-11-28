@@ -61,6 +61,7 @@
   var rows = { continue: [], recent: [] };
   var status = { at: 0, error: '' };   // for the line in Settings > Plex
   var account = null;             // {user, server}; '' = not signed in; null = not known yet
+  var accountError = '';          // why it isn't known (plex.py's error)
   var cwFocus = -1;               // focused Continue Watching card, -1 = focus is elsewhere
   var cwLast = 0;                 // card to come back to
   var recFocus = -1;              // focused poster in "New in your libraries"
@@ -134,7 +135,7 @@
   function adopt(r) {
     if (!r) return;
     // Signed out: the rows go. Other errors keep the last rows until Plex answers again.
-    if (r.error === 'no token') r = { continue: [], recent: [], error: r.error };
+    if (r.error === 'no token') { r = { continue: [], recent: [], error: r.error }; account = ''; }
     else if (r.error) { status.error = r.error; return; }
     if (!r.continue) return;
     status = { at: r.at || 0, error: r.error || '' };
@@ -388,18 +389,28 @@
   function loadAccount(done) {
     plexPy('account', function (a) {
       if (a && a.user) account = a;
-      else if (a && a.error === 'no token') account = '';
+      else if (a && a.error === 'no token') { account = ''; adopt(a); }
+      accountError = account === null ? (a && a.error) || 'no answer' : '';
       if (done) done();
     });
   }
 
   function openAccount() {
-    // Not known yet (Plex didn't answer): ask once more before offering a new sign-in.
-    if (account === null) return loadAccount(function () { if (account !== null) openAccount(); });
-    if (!account) return signIn();
+    // Not known yet (Plex didn't answer): ask once more; still unknown opens the
+    // page below with the reason and a new sign-in, so the row never does nothing.
+    if (account === null) return loadAccount(showAccount);
+    showAccount();
+  }
+
+  function showAccount() {
+    if (account === '') return signIn();
     menu({
       title: t('plexAccount'),
       rows: function () {
+        if (account === null) return [
+          { info: true, label: t('plexFailed', accountError) },
+          { label: t('plexSignIn'), chevron: true, action: signIn }
+        ];
         if (!account) return [{ info: true, label: t('plexSignedOut') }];
         return [
           { info: true, label: t('plexSignedInAs', account.user) + (account.server ? ' · ' + t('plexServer', account.server) : '') },
