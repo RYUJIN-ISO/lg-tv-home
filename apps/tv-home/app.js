@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.40.1';
+var VERSION = '0.40.2';
 // The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
 // apps/frame-overlay): only the Picture Frame, in an overlay window over the
 // app on screen (music keeps playing under it). No home screen at all.
@@ -2368,6 +2368,19 @@ function pictureOptions(w, opts) {
 // decoded off the main thread (img.decode); the decoded element itself goes
 // on screen, so it isn't decoded a second time.
 var GAL_W = 240, GAL_GAP = 16;
+
+// img decoded in the background, then ok(); fail() if it can't be loaded.
+// The TV's img.decode() rejects some big pictures ("EncodingError: cannot
+// be decoded") that load and show fine: then the picture is used anyway
+// (the browser decodes it when drawing it).
+function decoded(img, ok, fail) {
+  function plain() {
+    if (img.complete && img.naturalWidth) { ok(); return; }
+    img.onload = function () { img.onload = img.onerror = null; ok(); };
+    img.onerror = function () { img.onload = img.onerror = null; if (fail) fail(); };
+  }
+  if (img.decode) img.decode().then(ok, plain); else plain();
+}
 function openGallery(names, start) {
   var el = layer('gallery');
   el.innerHTML = '<div class="gview"><img class="gprev" alt=""><img class="gfull" alt=""></div>' +
@@ -2418,15 +2431,14 @@ function openGallery(names, start) {
   function loadFull(w) {
     want = w.url;
     var img = new Image();
-    var ready = img.decode ? null : new Promise(function (ok, no) { img.onload = ok; img.onerror = no; });
     img.src = w.url;
-    (ready || img.decode()).then(function () {
+    decoded(img, function () {
       if (want !== w.url || stack.indexOf(view) < 0) return;
       img.className = 'gfull';
       full.parentNode.replaceChild(img, full);   // the old picture goes with its element
       full = img;
       requestAnimationFrame(function () { img.classList.add('on'); });
-    }, function () {});
+    });
   }
 
   view.key = function (e) {
