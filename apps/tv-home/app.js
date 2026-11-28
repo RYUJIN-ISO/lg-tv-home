@@ -13,7 +13,7 @@
 
 var APP_ID = 'com.iso.atvhome';
 var APP_DIR = '/media/developer/apps/usr/palm/applications/' + APP_ID + '/';
-var VERSION = '0.40.0';
+var VERSION = '0.40.1';
 // The same page loaded by the Frame Overlay app (com.iso.frameoverlay, see
 // apps/frame-overlay): only the Picture Frame, in an overlay window over the
 // app on screen (music keeps playing under it). No home screen at all.
@@ -2361,8 +2361,8 @@ function pictureOptions(w, opts) {
 
 // Gallery (hold OK on a picture > View in Gallery): the picture fullscreen
 // (its preview first, the full picture over it once loaded), the pictures of the grid it came from
-// as a row of previews at the bottom. Left / Right: the next picture, OK:
-// hide / show the row, hold OK: the picture's options, Back: close. The
+// as a row of previews at the bottom. Left / Right: the next picture, Down /
+// Up: slide the row out of sight and back (OK toggles it too), hold OK: the picture's options, Back: close. The
 // full picture loads only when the choice rests for a moment (holding Right
 // runs through the row without decoding every 18 MP picture) and is
 // decoded off the main thread (img.decode); the decoded element itself goes
@@ -2433,6 +2433,8 @@ function openGallery(names, start) {
     var c = e.keyCode;
     if (c === KEY.LEFT) show(at - 1);
     else if (c === KEY.RIGHT) show(at + 1);
+    else if (c === KEY.DOWN) el.classList.add('bare');      // the row slides out of sight
+    else if (c === KEY.UP) el.classList.remove('bare');     // and back
     else if (c === KEY.BACK) pop();
   };
   view.ok = function () { if (once()) el.classList.toggle('bare'); };

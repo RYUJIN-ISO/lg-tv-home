@@ -223,8 +223,9 @@
     opacity: 0; transition: opacity 220ms; }
   .gallery .gfull.on { opacity: 1; }
   .gallery .gbar { position: absolute; left: 0; right: 0; bottom: 0; height: 250px;
-    background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.8)); transition: transform 250ms, opacity 250ms; }
-  .gallery.bare .gbar { transform: translateY(100%); opacity: 0; }
+    background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.8));
+    transition: transform 420ms cubic-bezier(.25,.8,.25,1), opacity 420ms ease; will-change: transform; }
+  .gallery.bare .gbar { transform: translateY(110%); opacity: 0; }
   .gallery .gcap { position: absolute; left: 64px; right: 64px; top: 22px; display: flex; justify-content: space-between;
     font-size: 26px; font-weight: 600; text-shadow: 0 2px 8px #000; }
   .gallery .gpos { color: rgba(255,255,255,.7); font-weight: 400; }

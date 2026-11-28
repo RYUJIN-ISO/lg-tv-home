@@ -116,7 +116,8 @@ same picture library: the same folders, the same crops, the same screens.
   not offered for the pictures that come with the app).
 - **View in Gallery**: the picture fullscreen with the pictures of the grid
   you came from (same order) as a row of previews at the bottom. **Left** /
-  **Right** go through them, **OK** hides or shows the row, **hold OK** opens
+  **Right** go through them, **Down** slides the row out of sight and **Up**
+  brings it back (OK toggles it too), **hold OK** opens
   the picture's options (crop, delete, favourite …), **Back** closes. The
   preview shows at once; the full picture follows when you rest on one.
 - **Crop**: a 16:9 frame over the whole picture. It opens in the bar:
