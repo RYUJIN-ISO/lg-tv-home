@@ -2191,6 +2191,7 @@ function openPictures(mode) {
   push(view);
   grid.set(entries());
   catchUpThumbs();
+  setTimeout(catchUpPrints, 1500);
 }
 
 function newPictureFolder() {
@@ -2382,6 +2383,7 @@ function turnPicture(w, img) {
   c.getContext('2d').drawImage(img, 0, 0);
   replacePicture(w, c, function (ok) {
     if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
+    saveFingerprint(w, img);
     cropThumb(w, cropOf(w.name), img, function () { showHint(''); applyLook(); load(); });
   });
 }
@@ -2419,6 +2421,7 @@ function cutPicture(w, rect, img, done) {
     if (!ok) { showHint(t('saveFailed')); setTimeout(function () { showHint(''); }, 3000); return; }
     delete library().crops[w.name];
     saveConfig();
+    saveFingerprint(w, c);
     exec(USB_PY + ' thumbfor ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
       showHint('');
       if (done) done();
@@ -2447,6 +2450,79 @@ function cropThumb(w, rect, img, done) {
       if (done) done(); else load();
     });
   }, done ? 0 : 800);
+}
+
+// A picture's fingerprint (to spot the same photo under another name): 64
+// bits as 16 hex digits, from its 640x360 preview of the centre (c: canvas).
+// Each bit: is a cell of a 9x8 grey grid brighter than the one to its right.
+function fingerprint(c) {
+  var s = document.createElement('canvas');
+  s.width = 144; s.height = 64;
+  var g = s.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, 144, 64);
+  var d = g.getImageData(0, 0, 144, 64).data, cell = [], x, y, i, j;
+  for (y = 0; y < 8; y++) for (x = 0; x < 9; x++) {
+    var sum = 0;
+    for (j = 0; j < 8; j++) for (i = 0; i < 16; i++) {
+      var o = ((y * 8 + j) * 144 + x * 16 + i) * 4;
+      sum += d[o] * 3 + d[o + 1] * 6 + d[o + 2];
+    }
+    cell.push(sum);
+  }
+  var hex = '';
+  for (y = 0; y < 8; y++) {
+    var v = 0;
+    for (x = 0; x < 8; x++) v = v * 2 + (cell[y * 9 + x] > cell[y * 9 + x + 1] ? 1 : 0);
+    hex += (v < 16 ? '0' : '') + v.toString(16);
+  }
+  return hex;
+}
+// How many of the 64 bits differ (a few: the same photo).
+function fpDistance(a, b) {
+  var n = 0;
+  for (var i = 0; i < 16; i += 2) {
+    var v = parseInt(a.substr(i, 2), 16) ^ parseInt(b.substr(i, 2), 16);
+    while (v) { n += v & 1; v >>= 1; }
+  }
+  return n;
+}
+
+// fingerprint() of a whole picture (an Image / canvas): its centre 16:9 at
+// 640x360, the same as the preview an uncropped picture gets.
+function fingerprintOf(img) {
+  var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  var fw = Math.min(W, H * 16 / 9), fh = fw * 9 / 16, c = document.createElement('canvas');
+  c.width = 640; c.height = 360;
+  var g = c.getContext('2d');
+  g.fillStyle = '#0d0d0f'; g.fillRect(0, 0, 640, 360);
+  g.drawImage(img, (W - fw) / 2, (H - fh) / 2, fw, fh, 0, 0, 640, 360);
+  return fingerprint(c);
+}
+function saveFingerprint(w, img) {
+  var hex = '';
+  try { hex = fingerprintOf(img); } catch (e) { return; }
+  w.fp = hex;
+  exec(USB_PY + " fp '" + w.name.replace(/'/g, "'\\''") + "' " + hex, function () {});
+}
+
+// Pictures without a fingerprint (stored before there were any): made once,
+// one picture at a time with a pause between, when the library opens. An
+// uncropped picture's preview already is its centre (cheap); the few with
+// a crop, or without a preview, load the whole picture.
+var printing = false;
+function catchUpPrints() {
+  if (printing) return;
+  var todo = state.wallpapers.filter(function (w) { return !w.bundled && !w.fp; });
+  if (!todo.length) return;
+  printing = true;
+  (function next(i) {
+    if (i >= todo.length || !stack.length) { printing = false; return; }   // stops when the menus close
+    var w = todo[i], img = new Image();
+    img.onload = function () { saveFingerprint(w, img); img.src = ''; setTimeout(function () { next(i + 1); }, 150); };
+    img.onerror = function () { next(i + 1); };
+    img.src = w.thumb && !cropOf(w.name) ? w.thumb : w.url;
+  })(0);
 }
 
 // Crops made before previews followed them: remake those previews once, one
@@ -2587,6 +2663,7 @@ function importPicture(pic, img, rect) {
       exec(USB_PY + ' thumb ' + name + ' ' + thumb.toDataURL('image/jpeg', 0.85).split(',')[1], function () {
         showHint('');
         library().crops[file] = rect;
+        saveFingerprint({ name: file }, img);
         if (pic.mode.wallpaper) { cfg().wallpaper = file; cfg().rotatedAt = Date.now(); }
         saveConfig();
         closeAll();

@@ -172,6 +172,9 @@ function nameDate(n) {
 var META = path.join(DATA, 'wallpapers', 'meta.json'), meta = {}, taken = {}, metaOut = {}, metaChanged = false;
 try { meta = JSON.parse(fs.readFileSync(META, 'utf8')); } catch (e) {}
 try { taken = JSON.parse(fs.readFileSync(path.join(DATA, 'wallpapers', 'taken.json'), 'utf8')); } catch (e) {}
+// Fingerprints (prints.json: phone.py, usb.py fp) for spotting duplicates.
+var prints = {};
+try { prints = JSON.parse(fs.readFileSync(path.join(DATA, 'wallpapers', 'prints.json'), 'utf8')); } catch (e) {}
 function dates(src, f) {
   var m = meta[f];
   if (!m) {
@@ -193,7 +196,7 @@ list(path.join(DATA, 'wallpapers')).forEach(function (f) {
     try { d = dates(src, f); } catch (e) {}
     wallpapers.push({ name: f, url: copy(src, path.join(CACHE, 'wp-' + f)) + ver(src),
                       orig: originals[f.replace(/\.[a-z]+$/i, '')] || '', thumb: thumbs[f] || '',
-                      added: d.added, taken: d.taken });
+                      added: d.added, taken: d.taken, fp: prints[f] || '' });
   } catch (e) {}
 });
 if (metaChanged || Object.keys(meta).length !== Object.keys(metaOut).length) {

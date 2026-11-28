@@ -131,6 +131,24 @@ elif cmd == "thumbfor":
     with open(os.path.join(d, name), "wb") as o:
         o.write(base64.b64decode(sys.argv[3]))
     print("ok")
+elif cmd == "fp":
+    # fp <wallpaper file name> <16 hex>: its fingerprint (TV Home, fingerprint()
+    # in app.js), so From Phone can spot the same photo under another name.
+    name, fp = os.path.basename(sys.argv[2]), sys.argv[3]
+    if not os.path.isfile(os.path.join(WALLS, name)) or not re.match(r"^[0-9a-f]{16}$", fp):
+        sys.exit("bad picture or fingerprint")
+    path = os.path.join(WALLS, "prints.json")
+    try:
+        with open(path) as f:
+            d = json.load(f)
+    except Exception:
+        d = {}
+    d = {k: v for k, v in d.items() if os.path.exists(os.path.join(WALLS, k))}
+    d[name] = fp
+    with open(path + ".tmp", "w") as f:
+        json.dump(d, f)
+    os.replace(path + ".tmp", path)
+    print("ok")
 elif cmd == "keep":
     src = os.path.join(APP, sys.argv[2].split("?")[0])
     dst_dir = os.path.join(WALLS, "originals")
@@ -140,4 +158,4 @@ elif cmd == "keep":
     shutil.copyfile(src, os.path.join(dst_dir, safe(sys.argv[3]) + os.path.splitext(src)[1].lower()))
     print("kept")
 else:
-    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64> | replace <id> <file>")
+    sys.exit("usage: usb.py list | chunk <id> <b64> | finish <id> <name> | thumb <name> <b64> | thumbfor <file> <b64> | replace <id> <file> | fp <file> <hex>")

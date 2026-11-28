@@ -22,6 +22,25 @@ THUMBS = os.path.join(WALLS, "thumbs")
 BUNDLED = os.path.join(APP, "wallpapers")
 ADDED = os.path.join(STAGE, "added.json")
 TAKEN = os.path.join(WALLS, "taken.json")   # {file: ms} the phone read from EXIF (cache.js sorts by it)
+PRINTS = os.path.join(WALLS, "prints.json")  # {file: fingerprint} (the phone's, or TV Home's: usb.py fp)
+META = os.path.join(WALLS, "meta.json")      # cache.js: {file: {a: added, t: taken}}
+
+
+def load_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def put_json(path, name, value):
+    """One entry of a {file: value} file, dropping pictures that are gone."""
+    d = {k: v for k, v in load_json(path).items() if os.path.exists(os.path.join(WALLS, k))}
+    d[name] = value
+    with open(path + ".tmp", "w") as f:
+        json.dump(d, f)
+    os.rename(path + ".tmp", path)
 PIC = re.compile(r"^[^./][^/]*\.(jpe?g|png|webp)$", re.I)
 STATE = "/tmp/atvhome-phone.json"
 PORTS = range(8765, 8776)
@@ -95,7 +114,7 @@ def on_tv():
     """The library as the phone sees it: [{name, file, key}], newest first.
     key: the name a picture was imported under, without the -12345 that
     imports add, so the phone can find pictures sent before (same name)."""
-    out = []
+    out, prints, taken, meta = [], load_json(PRINTS), load_json(TAKEN), load_json(META)
     for d, bundled in ((WALLS, False), (BUNDLED, True)):
         try:
             names = [n for n in os.listdir(d) if PIC.match(n) and os.path.isfile(os.path.join(d, n))]
@@ -104,7 +123,11 @@ def on_tv():
         names.sort(key=lambda n: os.path.getmtime(os.path.join(d, n)), reverse=True)
         for n in names:
             base = re.sub(r"\.[a-z]+$", "", n, flags=re.I)
-            out.append({"name": base, "file": ("app/" if bundled else "") + n, "key": key(re.sub(r"(.)-[0-9]{5}$", r"\1", base))})
+            p = {"name": base, "file": ("app/" if bundled else "") + n, "key": key(re.sub(r"(.)-[0-9]{5}$", r"\1", base))}
+            if not bundled:
+                p["fp"] = prints.get(n, "")
+                p["taken"] = taken.get(n) or (meta.get(n) or {}).get("t") or 0
+            out.append(p)
     return out
 
 
@@ -138,11 +161,11 @@ def qr_svg(text):
 
 
 TEXT = {
-    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They go straight into All Pictures on the TV. A picture with the same name already on the TV is shown next to it and left out; tap to add it anyway.",
+    "en": {"title": "Pictures to TV Home", "pick": "Choose pictures", "sub": "They go straight into All Pictures on the TV. When one looks like a picture already on the TV, that one is shown next to it and the new one is left out; tap to add it anyway.",
            "new": "New", "ontv": "On the TV", "same": "Same name on the TV", "send": "Add {0} to the TV", "none": "Nothing to add", "out": "Left out",
            "ready": "Ready", "sending": "Sending …", "sent": "Added", "failed": "Failed", "full": "The TV is full", "many": "Enough for one go: open From Phone on the TV again",
            "format": "This phone can't open this format (RAW?). Save it as JPEG first."},
-    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie kommen direkt in Alle Bilder am Fernseher. Ein Bild mit gleichem Namen am Fernseher steht daneben und wird weggelassen; antippen, um es trotzdem hinzuzufügen.",
+    "de": {"title": "Bilder an TV Home", "pick": "Bilder wählen", "sub": "Sie kommen direkt in Alle Bilder am Fernseher. Sieht eins wie ein Bild am Fernseher aus, steht jenes daneben und das neue wird weggelassen; antippen, um es trotzdem hinzuzufügen.",
            "new": "Neu", "ontv": "Am Fernseher", "same": "Gleicher Name am Fernseher", "send": "{0} zum Fernseher hinzufügen", "none": "Nichts hinzuzufügen", "out": "Weggelassen",
            "ready": "Bereit", "sending": "Wird gesendet …", "sent": "Hinzugefügt", "failed": "Fehlgeschlagen", "full": "Der Fernseher ist voll", "many": "Genug für einmal: Vom Handy am Fernseher neu öffnen",
            "format": "Dieses Format kann das Handy nicht öffnen (RAW?). Erst als JPEG speichern."},
@@ -189,12 +212,70 @@ function update(){
   b.textContent=busy?T.sending:(n?T.send.replace('{0}',n):T.none);
 }
 function key(n){return n.replace(/[^A-Za-z0-9_-]/g,'').slice(0,30).toLowerCase()||'phone';}
-// Pictures on the TV with this one's name, next to it (the newest first).
+// A picture's fingerprint (to spot the same photo under another name): 64
+// bits as 16 hex digits, from its 640x360 preview of the centre (c: canvas).
+// Each bit: is a cell of a 9x8 grey grid brighter than the one to its right.
+function fingerprint(c) {
+  var s = document.createElement('canvas');
+  s.width = 144; s.height = 64;
+  var g = s.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, 144, 64);
+  var d = g.getImageData(0, 0, 144, 64).data, cell = [], x, y, i, j;
+  for (y = 0; y < 8; y++) for (x = 0; x < 9; x++) {
+    var sum = 0;
+    for (j = 0; j < 8; j++) for (i = 0; i < 16; i++) {
+      var o = ((y * 8 + j) * 144 + x * 16 + i) * 4;
+      sum += d[o] * 3 + d[o + 1] * 6 + d[o + 2];
+    }
+    cell.push(sum);
+  }
+  var hex = '';
+  for (y = 0; y < 8; y++) {
+    var v = 0;
+    for (x = 0; x < 8; x++) v = v * 2 + (cell[y * 9 + x] > cell[y * 9 + x + 1] ? 1 : 0);
+    hex += (v < 16 ? '0' : '') + v.toString(16);
+  }
+  return hex;
+}
+// How many of the 64 bits differ (a few: the same photo).
+function fpDistance(a, b) {
+  var n = 0;
+  for (var i = 0; i < 16; i += 2) {
+    var v = parseInt(a.substr(i, 2), 16) ^ parseInt(b.substr(i, 2), 16);
+    while (v) { n += v & 1; v >>= 1; }
+  }
+  return n;
+}
+// The same photo on the TV: the same name (without the -12345 imports add),
+// the same fingerprint (give or take a few bits) or taken at the same second.
+// Android's picker gives most photos a number for a name, so the name
+// alone misses them. The TV's pictures are shown next to the new one, which
+// then starts left out.
 function twins(it){
-  var box=it.row.querySelector('.tvs'),same=(tv||[]).filter(function(p){return p.key===key(it.name);});
+  var box=it.row.querySelector('.tvs'),same=(tv||[]).filter(function(p){
+    return p.key===key(it.name)||(it.fp&&p.fp&&fpDistance(it.fp,p.fp)<=4)||(it.taken&&p.taken===it.taken);
+  });
   box.innerHTML='';
-  same.slice(0,3).forEach(function(p){box.appendChild(tile(BASE+'/preview/'+encodeURIComponent(p.file),T.same+' · '+p.name));});
-  if(same.length&&!it.seen&&!it.done){it.seen=true;it.out=true;label(it,'out',T.out);}
+  same.slice(0,3).forEach(function(p){box.appendChild(tile(BASE+'/preview/'+encodeURIComponent(p.file),T.ontv+' · '+p.name));});
+  if(same.length&&!it.seen&&!it.done){it.seen=true;it.out=true;label(it,'out',T.out);update();}
+}
+// Picked: decoded once, one at a time, for its preview, fingerprint and date.
+var checking=Promise.resolve();
+function check(it){
+  it.ready=checking=checking.then(function(){return new Promise(function(done){
+    var img=new Image();
+    img.onload=function(){
+      var W=img.naturalWidth,H=img.naturalHeight;
+      // the preview: the centre 16:9, like an uncropped picture on the TV
+      var fw=Math.min(W,H*16/9),fh=fw*9/16,th=document.createElement('canvas');th.width=640;th.height=360;
+      var tg=th.getContext('2d');tg.fillStyle='#0d0d0f';tg.fillRect(0,0,640,360);tg.drawImage(img,(W-fw)/2,(H-fh)/2,fw,fh,0,0,640,360);
+      try{it.fp=fingerprint(th);}catch(e){}
+      Promise.all([blob(th,0.85),takenOf(it.f)]).then(function(r){it.thumb=r[0];it.taken=r[1];twins(it);done();});
+    };
+    img.onerror=function(){it.bad=true;it.out=true;label(it,'err',T.format);update();done();};
+    img.src=it.url;
+  });});
 }
 $('input').onchange=function(e){
   [].slice.call(e.target.files).forEach(function(f){
@@ -202,8 +283,8 @@ $('input').onchange=function(e){
     it.el=tile(it.url,it.name);label(it,'',T.ready);
     it.row=document.createElement('div');it.row.className='row';it.row.appendChild(it.el);
     it.row.insertAdjacentHTML('beforeend','<div class="tvs"></div>');
-    it.row.onclick=function(){if(busy||it.done)return;it.out=!it.out;label(it,it.out?'out':'',it.out?T.out:T.ready);update();};
-    $('.rows').appendChild(it.row);items.push(it);twins(it);
+    it.row.onclick=function(){if(busy||it.done||it.bad)return;it.out=!it.out;label(it,it.out?'out':'',it.out?T.out:T.ready);update();};
+    $('.rows').appendChild(it.row);items.push(it);twins(it);check(it);
   });
   e.target.value='';update();
 };
@@ -264,22 +345,20 @@ function blob(c,q){return new Promise(function(ok){c.toBlob(ok,'image/jpeg',q);}
 function post(path,b){return fetch(BASE+path,{method:'POST',body:b,headers:{'Content-Type':'image/jpeg'}})
   .then(function(r){return r.text().then(function(t){if(!r.ok)throw new Error(t);return t;});});}
 function send(it){
-  return new Promise(function(done){
+  return it.ready.then(function(){return new Promise(function(done){
     var img=new Image();
     img.onload=function(){
       var W=img.naturalWidth,H=img.naturalHeight,s=Math.min(1,Math.sqrt(MAX/(W*H))),c=document.createElement('canvas');
       c.width=Math.round(W*s);c.height=Math.round(H*s);var g=c.getContext('2d');g.fillStyle='#0d0d0f';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
-      // the preview: the centre 16:9, like an uncropped picture on the TV
-      var fw=Math.min(W,H*16/9),fh=fw*9/16,th=document.createElement('canvas');th.width=640;th.height=360;
-      var tg=th.getContext('2d');tg.fillStyle='#0d0d0f';tg.fillRect(0,0,640,360);tg.drawImage(img,(W-fw)/2,(H-fh)/2,fw,fh,0,0,640,360);
-      Promise.all([blob(c,0.9),blob(th,0.85),takenOf(it.f)]).then(function(b){
-        return post('/upload?name='+encodeURIComponent(it.name)+'&taken='+b[2],b[0]).then(function(file){return post('/thumb?file='+encodeURIComponent(file),b[1]);});
+      blob(c,0.9).then(function(full){
+        return post('/upload?name='+encodeURIComponent(it.name)+'&taken='+(it.taken||0)+'&fp='+(it.fp||''),full)
+          .then(function(file){return post('/thumb?file='+encodeURIComponent(file),it.thumb);});
       }).then(function(){it.done=true;label(it,'ok',T.sent);},
               function(e){label(it,'err',T[e.message]||T.failed);}).then(done);
     };
     img.onerror=function(){label(it,'err',T.format);done();};
     img.src=it.url;
-  });
+  });});
 }
 function loadTv(){
   fetch(BASE+'/pictures').then(function(r){return r.json();}).then(function(list){
@@ -385,16 +464,10 @@ def serve(lang):
                     os.rename(tmp, os.path.join(WALLS, fn))
                     t = self.query("taken")
                     if re.match(r"^[1-9][0-9]{8,13}$", t):
-                        try:
-                            with open(TAKEN) as f:
-                                dates = json.load(f)
-                        except Exception:
-                            dates = {}
-                        dates = {k: v for k, v in dates.items() if os.path.exists(os.path.join(WALLS, k))}
-                        dates[fn] = int(t)
-                        with open(TAKEN + ".tmp", "w") as f:
-                            json.dump(dates, f)
-                        os.rename(TAKEN + ".tmp", TAKEN)
+                        put_json(TAKEN, fn, int(t))
+                    fp = self.query("fp")
+                    if re.match(r"^[0-9a-f]{16}$", fp):
+                        put_json(PRINTS, fn, fp)
                     done = added()
                     done.insert(0, fn)
                     with open(ADDED + ".tmp", "w") as f:

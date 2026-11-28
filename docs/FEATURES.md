@@ -124,10 +124,15 @@ same picture library: the same folders, the same crops, the same screens.
   (Still) or glides towards it (Pan).
 - **From Phone** shows a QR code. Scan it with the phone's camera (phone and
   TV in the same network) and choose pictures on the phone. The phone's page
-  shows them under **New**. A picture whose name is already on the TV (an
-  earlier upload, ignoring the -12345 imports add) shows that TV picture
-  beside it and starts left out, so you can see whether it is the same; tap a
-  picture to add it or leave it out, then **Add … to the TV**. They go straight into All Pictures, uncropped (crop them later, hold
+  shows them under **New**. A picture that looks like one already on the TV
+  shows that TV picture beside it and starts left out, so you can see
+  whether it is the same; tap a picture to add it or leave it out, then
+  **Add … to the TV**. "Looks like" = the same name (ignoring the -12345
+  imports add), the same fingerprint (a 64-bit sketch of the picture; the
+  phone makes it, the TV makes its own once, in the background, the first
+  time the picture library opens) or taken at the same second. Android's
+  picker sends most photos with a number as their name, so names alone miss
+  them. They go straight into All Pictures, uncropped (crop them later, hold
   OK on a picture), and show up next to the code. The phone sends them
   already turned upright and scaled to about 18 megapixels, as JPEG: anything the phone can show (JPG, PNG, HEIC, WebP …) works; RAW files (DNG, CR2, NEF …) don't, save them as JPEG first. The phone's
   page only opens with the code's random address, and the TV stops listening
