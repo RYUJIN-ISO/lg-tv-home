@@ -719,6 +719,10 @@ function glassLogo(img, color) {
 }
 
 var ICONS = {
+  // (the TV's font has no arrows like ↻ ⇅: they show as a box, hence icons;
+  // currentColor follows the pill's text colour when it is focused)
+  turn: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>',
+  sort: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>',
   pen: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
   folder: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M20 6h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>',
@@ -1626,13 +1630,13 @@ var INFO = {
     { en: '{hold} folder: pictures, rename, delete', de: '{hold} Ordner: Bilder, umbenennen, löschen' },
     { en: '{hold} picture: ★ favourite, crop, folders', de: '{hold} Bild: ★ Favorit, Ausschnitt, Ordner' },
     { en: 'One crop per picture, used everywhere', de: 'Ein Ausschnitt pro Bild, gilt überall' },
-    { en: 'All pictures: {up} ⇅ sort by name, uploaded, date taken', de: 'Alle Bilder: {up} ⇅ sortieren nach Name, hochgeladen, Aufnahmedatum' }
+    { en: 'All pictures: {up} sort by name, uploaded, date taken', de: 'Alle Bilder: {up} sortieren nach Name, hochgeladen, Aufnahmedatum' }
   ] },
   crop: { title: { en: 'Crop', de: 'Ausschnitt' }, lines: [
     { en: '{up} crop: {arrows} move · {wheel} size', de: '{up} zuschneiden: {arrows} verschieben · {wheel} Größe' },
     { en: '{ok} save · {back} cancel', de: '{ok} speichern · {back} abbrechen' },
     { en: '4K sharp · Upscaled softer', de: '4K scharf · Hochskaliert weicher' },
-    { en: '↻ turns the picture a quarter to the right', de: '↻ dreht das Bild um eine Vierteldrehung nach rechts' },
+    { en: 'Turn: a quarter to the right', de: 'Drehen: eine Vierteldrehung nach rechts' },
     { en: 'The file stays whole · ✂ cuts it for good (asks first)', de: 'Die Datei bleibt ganz · ✂ schneidet sie endgültig (fragt vorher)' }
   ] },
   settings: { title: { en: 'TV Home', de: 'TV Home' }, lines: [
@@ -1664,7 +1668,7 @@ function toggleLegend(id, top) {
 
 // A small "i" for a grid screen: Up from the top row reaches it, Down goes
 // back to the cards.
-// extra (optional): {text(), act()} a second button left of the i (the
+// extra (optional): {icon?, text(), act()} a second button left of the i (the
 // picture library's ⇅ sort); Left / Right move between the two.
 function infoButton(view, host, id, grid, extra) {
   var b = document.createElement('div');
@@ -1676,7 +1680,7 @@ function infoButton(view, host, id, grid, extra) {
     x = document.createElement('div');
     x.className = 'ibtn xbtn';
     host.appendChild(x);
-    view.paintExtra = function () { x.textContent = extra.text(); };
+    view.paintExtra = function () { x.innerHTML = (extra.icon || '') + '<span></span>'; x.lastChild.textContent = extra.text(); };
     view.paintExtra();
   }
   function focus(on, toX) {
@@ -2304,7 +2308,8 @@ function openPictureFolder(fo, mode) {
     if (tile) tile.classList.remove('focus');
   };
   infoButton(view, el.querySelector('.inner'), 'pictures', grid, fo ? null : {
-    text: function () { return '⇅  ' + sortLabel(cfg().picSort); },
+    icon: ICONS.sort,
+    text: function () { return sortLabel(cfg().picSort); },
     act: function () { chooseSort(function () { view.paintExtra(); view.fromTop = true; }); }
   });
   var told = false;
@@ -2753,7 +2758,7 @@ function openCrop(pic, probe) {
   el.innerHTML = '<div class="stage"><img alt=""><div class="frame"></div></div>' +
     '<div class="cropbar"><div class="pill" data-a="minus">−</div><div class="pill" data-a="plus">+</div>' +
     '<div class="pill" data-a="sharp"></div><div class="pill" data-a="reset"></div>' +
-    (pic.onSave && !pic.onTurn ? '' : '<div class="pill" data-a="turn">↻</div>') +
+    (pic.onSave && !pic.onTurn ? '' : '<div class="pill" data-a="turn">' + ICONS.turn + '</div>') +
     (pic.onCut ? '<div class="pill cut" data-a="cut">✂</div>' : '') + '<div class="pill i" data-a="info">i</div></div>' +
     '<div class="crophint"></div>';
   var img = el.querySelector('img'), frameEl = el.querySelector('.frame');
