@@ -112,6 +112,19 @@ elif cmd == "delete":
             glob.glob(os.path.join(WALLS, "originals", glob.escape(os.path.splitext(name)[0]) + ".*")):
         if os.path.isfile(extra):
             os.remove(extra)
+    # and its entries in the side files (fingerprint, date the phone read);
+    # meta.json (cache.js) drops it at the next listing
+    for side in ("prints.json", "taken.json"):
+        path = os.path.join(WALLS, side)
+        try:
+            with open(path) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        if d.pop(name, None) is not None:
+            with open(path + ".tmp", "w") as f:
+                json.dump(d, f)
+            os.replace(path + ".tmp", path)
     print("ok")
 elif cmd == "thumb":
     # thumb <name> <b64>: the 640x360 preview of an imported picture
