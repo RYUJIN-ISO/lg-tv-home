@@ -3,6 +3,9 @@
 Your pictures full screen and dimmable, like a framed picture. Large
 pictures pan slowly. Optionally it replaces LG's screensaver.
 
+
+<img src="../images/picture-frame.jpg" alt="Picture Frame settings" width="720">
+
 | | |
 |---|---|
 | Installer | **Picture Frame** (`FRAME`), part of TV Home |

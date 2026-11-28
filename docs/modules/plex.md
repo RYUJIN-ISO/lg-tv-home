@@ -4,6 +4,9 @@ Continue Watching from your Plex server above the apps (and new titles
 below them, if you like). OK resumes right where you stopped, without
 waiting for Plex to start.
 
+
+<img src="../images/plex.jpg" alt="Plex settings" width="720">
+
 | | |
 |---|---|
 | Installer | **Plex** (`PLEX`), part of TV Home |

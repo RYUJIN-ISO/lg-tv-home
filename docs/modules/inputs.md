@@ -6,6 +6,11 @@ opens **over whatever is on screen**: a game or film on HDMI keeps playing
 behind it. OK switches to an input. Meant for a remote button, since most
 Magic Remotes have no Input button.
 
+
+<img src="../images/inputs-menu.jpg" alt="The Inputs menu over the picture on screen" width="720">
+
+<img src="../images/inputs-setting.jpg" alt="Inputs menu setting" width="720">
+
 | | |
 |---|---|
 | Installer | **Inputs menu** (`INPUTS`), part of TV Home |

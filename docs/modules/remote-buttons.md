@@ -3,6 +3,9 @@
 Give the remote's buttons (Netflix, Prime, Mic, Input, colour and number
 keys, ...) any app or action.
 
+
+<img src="../images/remote-buttons.jpg" alt="Remote Buttons settings" width="720">
+
 | | |
 |---|---|
 | Installer | **Remote buttons** (`REMOTE`), part of TV Home |

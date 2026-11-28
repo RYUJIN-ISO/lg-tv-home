@@ -3,6 +3,9 @@
 A button at the top left that sends the sound to an AV receiver or soundbar
 on HDMI eARC with one press, and wakes it.
 
+
+<img src="../images/av-receiver.jpg" alt="AV receiver button setting" width="720">
+
 | | |
 |---|---|
 | Installer | **AV receiver button** (`AVR`), part of TV Home |
