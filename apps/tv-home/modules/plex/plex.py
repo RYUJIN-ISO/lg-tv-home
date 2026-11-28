@@ -280,14 +280,12 @@ def show(key, resume):
     import devtools
     luna_send('luna://com.webos.applicationManager/launch', {'id': PLEX_LINK})
     # Ask the server while Plex starts (that takes ~10 s from cold).
+    # Resume is autoplay alone: Plex then starts the item at its own watch position.
+    # An explicit offset would stick: Plex applies it to every later episode it
+    # hadn't prepared in advance (the next one from the countdown, sometimes).
     try:
-        token = open(TOKEN_FILE).read().strip()
-        if resume:
-            answer, _, _, sid = server_get(token, '/library/metadata/' + key)
-            target = {'autoplay': True, 'offset': answer['MediaContainer']['Metadata'][0].get('viewOffset') or 0}
-        else:
-            sid = server(token)[2]
-            target = {}
+        sid = server(open(TOKEN_FILE).read().strip())[2]
+        target = {'autoplay': True} if resume else {}
         # Plex finds the server by its id in its own (signed-in) account.
         target['metadataSourceUri'] = 'server://%s/com.plexapp.plugins.library/library/metadata/%s' % (sid, key)
     except Exception as e:
@@ -306,7 +304,7 @@ def show(key, resume):
         devtools.evaluate(PLEX_PAGE, OPEN_JS % json.dumps(target))
     except Exception as e:
         return 'deep link: %s' % e
-    what = 'playing %s from %d s' % (key, target['offset'] // 1000) if resume else 'showing %s' % key
+    what = 'resuming %s' % key if resume else 'showing %s' % key
     return '%s (Plex ready after %.1f s)' % (what, time.time() - start)
 
 
@@ -323,9 +321,41 @@ def forget_rows():
                 os.remove(os.path.join(CACHE, f))
 
 
+def drop_signin():
+    """Forgets a sign-in Plex no longer accepts (the TV was removed from the account's
+    devices, or the account signed out everywhere). The client id stays."""
+    for f in (TOKEN_FILE, PIN_FILE):
+        if os.path.exists(f):
+            os.remove(f)
+    forget_rows()
+
+
+def revoked(e):
+    """True when e is Plex refusing the token and plex.tv confirms it is dead; the sign-in
+    is then dropped. A server refusing (e.g. a share that ended) keeps the sign-in."""
+    if not (isinstance(e, urllib.error.HTTPError) and e.code == 401):
+        return False
+    try:
+        http(PLEX_TV + '/user', open(TOKEN_FILE).read().strip())
+        return False
+    except urllib.error.HTTPError as e2:
+        if e2.code != 401:
+            return False
+    except Exception:
+        return False
+    drop_signin()
+    return True
+
+
 def account():
     token = open(TOKEN_FILE).read().strip()
-    u = http(PLEX_TV + '/user', token)
+    try:
+        u = http(PLEX_TV + '/user', token)
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            drop_signin()
+            return {'error': 'no token'}
+        raise
     try:
         name = json.load(open(SERVER_FILE)).get('name', '')
     except Exception:
@@ -412,7 +442,7 @@ def main():
         try:
             print(json.dumps(fetch(sections, recent)))
         except Exception as e:
-            print(json.dumps({'error': type(e).__name__}))
+            print(json.dumps({'error': 'no token' if revoked(e) else type(e).__name__}))
         return
     if cmd == 'libraries':
         try:
@@ -420,7 +450,7 @@ def main():
             print(json.dumps({'libraries': [{'key': d['key'], 'title': d['title'], 'type': d['type']}
                                             for d in secs if d.get('type') in ('movie', 'show') and key_ok(d.get('key'))]}))
         except Exception as e:
-            print(json.dumps({'error': type(e).__name__}))
+            print(json.dumps({'error': 'no token' if revoked(e) else type(e).__name__}))
         return
     try:
         rows = json.load(open(ROWS))
